@@ -1,6 +1,6 @@
 # CLAUDE.md — FDD 机队故障诊断系统
 
-北美住宅变频热泵外机(R410A,3 系列 × 2 型号,208/230V 单相,内外机无通讯 + 第三方内机)机队 FDD:物理残差 + 统计漂移 + 可解释树模型。全流程本地运行。规格文档:《FDD 项目方案 v1.1》《FDD 系统开发文档 v1.0》(docs/)。
+北美住宅变频热泵外机(R410A,3 系列 × 2 型号,208/230V 单相,内外机无通讯 + 第三方内机)机队 FDD:物理残差 + 统计漂移 + 可解释树模型。全流程本地运行。规格文档:《FDD 项目方案 v1.1》《FDD 系统开发文档 v1.0》(docs/,自 E:\AICoding\IOT\PRD 复制的副本;口径冲突时以本 CLAUDE.md 为权威版本)。
 
 ## 铁律(每次编码必须遵守,违反任何一条即为缺陷)
 
@@ -15,6 +15,7 @@
 9. **TH 语义随模式翻转**:制热 = 室外蒸发器盘管中部(结霜/蒸发通道),制冷 = 冷凝器中部。代码中禁止硬编码"condenser"语义。
 10. **制热 Sc 含安装管路温降偏置**(Tl 在室外机液管,管长因安装而异):制热工况只允许逐机漂移比较,禁止跨机绝对值比较。
 11. 禁止修改 tests/ 目录下的任何文件。若认为某条测试或铁律有误,停止工作、输出理由,等待人工裁决。
+12. tests/ 的变更仅允许誊写本 Project 起草并经人工授权的测试原文,每次授权限当次指令所列文件;agent 不得自拟测试或改动断言/阈值。
 
 ## 锁定发现
 
@@ -82,8 +83,10 @@
 
 ## 常用命令
 
+本机解释器:必须用项目虚拟环境 `fdd/.venv`(Python 3.12.0),即 `.venv/Scripts/python -m ...`。**禁止用系统 Python 跑测试**(系统为 3.10,未安装 fdd 包,collection 直接 ModuleNotFoundError)。
+
 ```bash
-pytest -m m0          # M0 验收
-pytest -m m0 -k conv  # 单模块
-python scripts/smoke.py  # 环境与样本数据自检
+.venv/Scripts/python -m pytest -m m0          # M0 验收
+.venv/Scripts/python -m pytest -m m0 -k conv  # 单模块
+.venv/Scripts/python scripts/smoke.py         # 环境与样本数据自检
 ```
