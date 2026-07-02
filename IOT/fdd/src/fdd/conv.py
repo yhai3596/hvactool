@@ -82,6 +82,21 @@ def controller_sat_temp_c(p_gauge_bar: pd.Series, side: str) -> np.ndarray:
     return _sat_temp_c(p_used, quality=q)
 
 
+def firmware_sh_replica(df: pd.DataFrame) -> pd.Series:
+    """Replica of the CONTROLLER's reported Sh, for bias cross-validation ONLY.
+    Must NEVER participate in the definition of sh_phys (rule: physical columns
+    use CoolProp at lp_abs/hp_abs, nothing else)."""
+    te_ctrl = pd.Series(controller_sat_temp_c(df["Lp"], "low"), index=df.index)
+    return df["Ts"] - te_ctrl
+
+
+def firmware_sc_replica(df: pd.DataFrame) -> pd.Series:
+    """Replica of the CONTROLLER's tc_sat - Tl (before its -1 display bias),
+    for bias cross-validation ONLY. Must NEVER participate in sc_phys."""
+    tc_ctrl = pd.Series(controller_sat_temp_c(df["Hp"], "high"), index=df.index)
+    return tc_ctrl - df["Tl"]
+
+
 def materialize(df: pd.DataFrame) -> pd.DataFrame:
     """Add all C1 DERIVED columns to a raw telemetry frame. Vectorized; no external calls.
     Must NOT mutate input. Must NOT apply any altitude correction (rule #1).
