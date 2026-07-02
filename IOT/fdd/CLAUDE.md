@@ -58,7 +58,7 @@
 | M-CONV 物理转换 | src/fdd/conv.py | **M0** | 样本上 sh_phys−上报Sh 的 P95 ≤0.15K(St=0 段豁免);sc_phys−上报Sc ≡ 1.0±0.1 |
 | M-SEG 分段/稳态 | src/fdd/seg.py | **M0** | 样本 2 段真化霜(St 判据)/5 段 special 全捕获;CompState=2 内稳态行 = 0 |
 | M-ZOHO-V2 | src/fdd/zoho_v2.py | **M0** | 8 项修复(合成 fixture 上验收);ai_safe 输出无 normalized_sn;越界日期归零 |
-| M-FEAT 特征库 | src/fdd/feat.py | M1 | 特征注册表全量无 NaN 泄漏;注入扰动方向性测试 |
+| M-FEAT 特征库 | src/fdd/feat.py | M1 | 特征注册表全量无 NaN 泄漏;注入扰动方向性测试。注册表 13 项以 test_m1_feat.py 为准:tf_resid/indoor_load_proxy 为 2026-07-02 外部评审采纳项(开发文档 v1.0 成文于采纳前,该处已过时);defrost_freq 刻意移出注册表——注册表限逐稳态行残差,化霜频率是全记录事件率(时间基含化霜段),独立为 defrost_frequency() 验收。 |
 | M-DRIFT | src/fdd/drift.py | M1 | 合成斜坡(30/60/90 天)检出延迟与误报报告 |
 | M-SENSE | src/fdd/sense.py | M1 | 注入 ±2K 偏置/斜坡检出 100%,零误报 |
 | M-LABEL | src/fdd/label.py | M1(桩) | 桩数据全路径 + 边界用例;窗口 [工单日−21d, +3d] |
