@@ -1,0 +1,22 @@
+[project]
+name = "fdd"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.0", "numpy", "CoolProp>=6.4", "duckdb", "pyarrow",
+  "scikit-learn", "xgboost", "xlrd>=2.0", "openpyxl",
+]
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+[tool.pytest.ini_options]
+markers = [
+  "m0: milestone 0 acceptance (conv/seg/zoho_v2)",
+  "m1: milestone 1 acceptance",
+  "m2: requires lab data",
+]
+testpaths = ["tests"]
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+[tool.setuptools.packages.find]
+where = ["src"]

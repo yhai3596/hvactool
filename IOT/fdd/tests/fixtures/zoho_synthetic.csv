@@ -1,0 +1,21 @@
+hash_sn,normalized_sn,sn_status,event_date,event_date_source,fault_family,fault_confidence,review_priority,ODU_Series,resolution_text
+h0000,SN2023X00000,valid_multiple_candidates,2024-01-15,Created Time (Ticket),refrigerant_low_or_leak,0.5,High,Unknown,Tech recharged refrigerant and fixed leak
+h0001,SN2023X00001,valid,2025-02-15,Created Time (Ticket),refrigerant_low_or_leak,0.55,High,一代,replaced outdoor fan motor
+h0002,SN2023X00002,valid,2026-03-15,Created Time (Ticket),refrigerant_low_or_leak,0.6,High,Unknown,customer education call
+h0003,SN2023X00003,valid_multiple_candidates,2005-06-01,Failure Date,refrigerant_low_or_leak,0.65,High,一代,replaced control board
+h0004,SN2023X00004,valid,2025-05-15,Created Time (Ticket),refrigerant_low_or_leak,0.7,High,Unknown,Tech recharged refrigerant and fixed leak
+h0005,SN2023X00005,valid,2026-06-15,Created Time (Ticket),refrigerant_low_or_leak,0.75,High,一代,replaced outdoor fan motor
+h0006,SN2023X00006,valid_multiple_candidates,2024-07-15,Created Time (Ticket),fan_motor_fault,0.8,High,Unknown,customer education call
+h0007,SN2023X00007,valid,2025-08-15,Created Time (Ticket),fan_motor_fault,0.85,High,一代,replaced control board
+h0008,SN2023X00008,valid,2026-09-15,Created Time (Ticket),fan_motor_fault,0.9,High,Unknown,Tech recharged refrigerant and fixed leak
+h0009,SN2023X00009,valid_multiple_candidates,2005-06-01,Failure Date,compressor_fault,0.5,High,一代,replaced outdoor fan motor
+h0010,SN2023X00010,valid,2025-02-15,Created Time (Ticket),compressor_fault,0.55,High,Unknown,customer education call
+h0011,SN2023X00011,valid,2026-03-15,Created Time (Ticket),compressor_fault,0.6,High,一代,replaced control board
+h0012,SN2023X00012,valid_multiple_candidates,2024-04-15,Created Time (Ticket),installation_or_matching_issue,0.65,High,Unknown,Tech recharged refrigerant and fixed leak
+h0013,SN2023X00013,valid,2025-05-15,Created Time (Ticket),installation_or_matching_issue,0.7,High,一代,replaced outdoor fan motor
+h0014,SN2023X00014,valid,2026-06-15,Created Time (Ticket),installation_or_matching_issue,0.75,High,Unknown,customer education call
+h0015,SN2023X00015,valid_multiple_candidates,2024-07-15,Created Time (Ticket),installation_or_matching_issue,0.8,High,一代,replaced control board
+h0016,SN2023X00016,valid,2025-08-15,Created Time (Ticket),iot_gateway_issue,0.85,High,Unknown,Tech recharged refrigerant and fixed leak
+h0017,SN2023X00017,valid,2026-09-15,Created Time (Ticket),iot_gateway_issue,0.9,High,一代,replaced outdoor fan motor
+h0018,SN2023X00018,valid_multiple_candidates,2024-01-15,Created Time (Ticket),sensor_fault,0.5,High,Unknown,customer education call
+h0019,SN2023X00019,valid,2025-02-15,Created Time (Ticket),sensor_fault,0.55,High,一代,replaced control board
