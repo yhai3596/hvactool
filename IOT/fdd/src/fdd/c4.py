@@ -103,6 +103,28 @@ def _condition_class(name: str):
     return ("extreme", EXTREME_BASIS)
 
 
+def _reclassify(name: str, cls: str, basis: str, ta_med: float):
+    """Evidence-driven rating re-adjudication (Project 2026-07-03): split/upgrade
+    bench labels by MEASURED window ambient, never by label alone."""
+    if name.startswith("H4"):
+        if abs(ta_med + 15.0) <= 3.0:
+            return "H4", "rating", CONDITION_CLASS["H4"][1]
+        if abs(ta_med + 20.0) <= 3.0:
+            return "H_low20", "extreme", (
+                "measured Ta≈-20 C, below AHRI 2023 M1 H4 (5 F/-15 C); provisional name "
+                "H_low20, official designation on the lab question list; split from "
+                "metadata label 美标H4 by measured Ta")
+        return name, "extreme", f"H4-labelled window at unexpected Ta={ta_med:.1f} C"
+    if name == "自动除霜":
+        if abs(ta_med - 1.7) <= 3.0:
+            return "H2", "rating", (
+                "AHRI H2 (1.7 C) frost-condition heating capacity point: window is pure "
+                "heating (st1==1 throughout, reversal outside window; recon step-3), coil "
+                "in frost zone, ambient matches H2 nominal; bench label was 自动除霜")
+        return name, "extreme", EXTREME_BASIS + f" (measured Ta={ta_med:.1f} C)"
+    return name, cls, basis
+
+
 # ---------------------------------------------------------------- discovery
 
 def _unit_of(folder_name: str):
@@ -250,10 +272,12 @@ def load_lab(root) -> pd.DataFrame:
             d = _map_chunk(sel, f.name)
             r = _resample_10s(d)
             dup_total += r.attrs.get("duplicates_dropped", 0)
+            cond, cls, _basis = _reclassify(w["test_condition"], w["condition_class"],
+                                            w["class_basis"], float(sel["Ta"].median()))
             r["sku"] = UNIT_SKU.get(unit, f"U{unit}")
             r["unit"] = unit
-            r["test_condition"] = w["test_condition"]
-            r["condition_class"] = w["condition_class"]
+            r["test_condition"] = cond
+            r["condition_class"] = cls
             r["source_file"] = f.name
             chunks.append(r)
     if not chunks:
