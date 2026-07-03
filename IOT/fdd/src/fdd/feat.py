@@ -42,10 +42,15 @@ _KEYS0 = ["mode", "ta_bin", "rps_bin"]
 _KEYS1 = ["mode", "ta_bin"]
 
 
+def ta_bin(ta) -> pd.Series:
+    """Single definition source for the 2K ambient bin (shared by M-FEAT and M-SENSE)."""
+    return np.floor(pd.Series(ta) / TA_BIN_K).astype(int)
+
+
 def _prepare(df: pd.DataFrame) -> pd.DataFrame:
     """materialize + segment + bin keys + baseline source quantities."""
     work = seg.segment(conv.materialize(df))
-    work["ta_bin"] = np.floor(work["Ta"] / TA_BIN_K).astype(int)
+    work["ta_bin"] = ta_bin(work["Ta"]).to_numpy()
     work["rps_bin"] = np.clip(np.floor(work["CompRps"] / RPS_BAND_W), 0, 9).astype(int)
     cooling = work["mode"].isin(_COOLING_MODES)
     work["q_cap"] = np.where(cooling, work["Qc"], work["Qh"])   # capacity source per mode

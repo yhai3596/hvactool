@@ -127,25 +127,39 @@ def test_ssd_transient_report(lab):
 
 
 def test_sense_condition_invariance(lab):
-    """Closes the M1 deferred gap: a reference fitted at one rating condition must not
-    false-alarm on clean data from a DIFFERENT rating condition of the same SKU and
-    SAME MODE. This is exactly what a naive level-shift detector fails.
-    ALLOWED RED on arrival day -- see module docstring."""
+    """v3 (Project-authored): binned-reference regime, within-unit, heating mode.
+    (1) SELF: reference fitted on the first 60% (by time) of a condition's steady
+        rows must yield zero flagged sensors on the last 40%.
+    (2) CROSS: checking condition B against a reference fitted ONLY on condition A
+        must yield per-sensor status in {ok, no_reference}; "flagged" is forbidden.
+        no_reference is a legal, REPORTED outcome for uncovered Ta bins; silent
+        pass-through is forbidden: one status row per sensor, always."""
     from fdd import sense
     rating = lab[lab["condition_class"] == "rating"]
-    pairs_checked = 0
-    flagged = []
-    for (sku,), g in rating.groupby(["sku"]):
+    self_pairs, violations = 0, []
+    for (sku, unit), g in rating.groupby(["sku", "unit"]):
         heat = g[g["AcState"] == 5]
         conds = sorted(heat["test_condition"].unique())
-        if len(conds) < 2:
-            continue
-        a, b = conds[0], conds[1]
-        ref = sense.fit_reference(heat[heat["test_condition"] == a])
-        out = sense.check(heat[heat["test_condition"] == b], ref)
-        bad = out[out["drift_flag"]]["sensor"].tolist()
-        if bad:
-            flagged.append((sku, a, b, bad))
-        pairs_checked += 1
-    assert pairs_checked > 0, "no SKU delivered >=2 heating rating conditions"
-    assert not flagged, f"cross-condition false alarms (recalibration trigger): {flagged}"
+        for c in conds:
+            gc = heat[heat["test_condition"] == c].sort_values("Timestamp")
+            n = len(gc)
+            if n < 100:
+                continue
+            ref = sense.fit_reference(gc.iloc[: int(n * 0.6)])
+            out = sense.check(gc.iloc[int(n * 0.6):], ref)
+            bad = out[out["status"] == "flagged"]["sensor"].tolist()
+            if bad:
+                violations.append(("self", sku, unit, c, bad))
+            self_pairs += 1
+        if len(conds) >= 2:
+            a, b = conds[0], conds[1]
+            ref = sense.fit_reference(heat[heat["test_condition"] == a])
+            out = sense.check(heat[heat["test_condition"] == b], ref)
+            assert set(out["status"]) <= {"ok", "flagged", "no_reference"}
+            assert len(out) == len(sense.SENSORS)
+            bad = out[out["status"] == "flagged"]["sensor"].tolist()
+            if bad:
+                violations.append(("cross", sku, unit, a, b, bad))
+    if self_pairs == 0:
+        pytest.skip("no condition offers >=100 steady rows -- gated by O1")
+    assert not violations, f"invariance violations: {violations}"
