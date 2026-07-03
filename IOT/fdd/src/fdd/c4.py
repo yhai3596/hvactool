@@ -63,7 +63,26 @@ NAN_FILLED = sorted(set(RAW_COLUMNS) - {"Timestamp"} - {
 # = DayTime, protection-limit columns, V2, Comp, Fan, N0, I1, PowerIn,
 #   PowerCompTheo, Cch, WSignal, Dipsw — pending vendor dictionary; never invented.
 
-RATING_NAME_PREFIXES = ("A", "B", "H1", "H2", "H3")   # H4/自动除霜/-20 etc. -> extreme
+# condition_class adjudication table: name prefix -> (class, basis). Longest prefix wins;
+# anything unmatched is extreme. Basis strings are part of the mapping record (auditable).
+CONDITION_CLASS = {
+    "A":  ("rating", "AHRI A (35.0 C) cooling rating point"),
+    "B":  ("rating", "AHRI B (27.8 C) cooling rating point"),
+    "H1": ("rating", "AHRI H1 (8.3 C) heating rating point"),
+    "H2": ("rating", "AHRI H2 (1.7 C) heating rating point"),
+    "H3": ("rating", "AHRI H3 (-8.3 C) heating rating point"),
+    "H4": ("rating", "AHRI 2023 M1 H4 (5 F / -15 C) low-temp heating point; 26 min "
+                     "locked-frequency steady observed on bench; physics spot-check "
+                     "passed (recon II-7); reclassified rating per Project 2026-07-03"),
+}
+EXTREME_BASIS = "non-rating bench program (defrost / oil return / other)"
+
+
+def _condition_class(name: str):
+    for prefix in sorted(CONDITION_CLASS, key=len, reverse=True):
+        if name.startswith(prefix):
+            return CONDITION_CLASS[prefix]
+    return ("extreme", EXTREME_BASIS)
 
 
 # ---------------------------------------------------------------- discovery
@@ -95,10 +114,10 @@ def _bench_windows(root: pathlib.Path) -> pd.DataFrame:
         if cond is None or start is None:
             continue
         name = cond.replace("美标", "").strip()
-        cls = "rating" if name.startswith(RATING_NAME_PREFIXES) else "extreme"
+        cls, basis = _condition_class(name)
         rows.append({"unit": unit, "test_condition": name, "condition_class": cls,
-                     "t0": pd.Timestamp(start), "t1": pd.Timestamp(end),
-                     "report_file": xlsx.name})
+                     "class_basis": basis, "t0": pd.Timestamp(start),
+                     "t1": pd.Timestamp(end), "report_file": xlsx.name})
     return pd.DataFrame(rows)
 
 
