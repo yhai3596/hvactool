@@ -22,8 +22,18 @@ Pinned items (Project instruction 2026-07-03 + adjudications):
       St == 0 and AcState == 5 and Ta < 20  -> 2   (heating-context four-way flip)
       otherwise                             -> 1   (incl. cooling St==0 normal position)
   Provenance column compstate_derived=True.
-- SKU provisional: unit-number placeholders ("U44"...), sku_provisional=True until the
-  O-track series->SKU answer replaces them.
+- SKU mapping FINAL (数据说明.xlsx, Project-hardcoded 2026-07-03): units 37/84/31/55 ->
+  EODA19H-2436AA, 44/85 -> EODA19H-4860AA; sku_provisional retired; `unit` column added.
+- Dictionary of record: wade lab sheet (运行字段说明-wade补充v1.1.xlsx) adopted as the
+  CROSS-GENERATION core dictionary — its 59 rows are the full set of one generation;
+  62/63-col additions are merged into the rename map after per-generation recon.
+  (Corrects the earlier phrasing \"59-col official mapping\"; ERRATA: the wade Tcs row
+  carries a copy-paste error (duplicates another row's text); the Project-side premise
+  \"units 84/85 are the 59-col generation\" was wrong — 84/85 are 62-col, the 20
+  59-col files all live in unit 44. Both errata recorded here, mapping unaffected.)
+- Qh/Qc <- QrX_W/1000 is now DOUBLE-EVIDENCED (bench discrimination appendix A + vendor
+  dictionary): final. InvQ is annotated by the dictionary as compressor-side capacity —
+  kept as an extra, never a Qh/Qc source.
 - 10 s window resample: numeric median, state columns (AcState/CompState/St) window mode,
   windows containing a source gap > 10 s get gap_flag=True, interpolation FORBIDDEN.
 - Mapping unit = certified bench-report window (time overlap); rows outside any certified
@@ -49,11 +59,19 @@ RENAME = {
     "Volt_1": "V1", "IA_2": "I2", "DC12": "V12", "DC15": "V15",
     "Y_Signal": "YSignal", "O_Signal": "OSignal", "PcW": "PowerComp",
     "Sh_Ts": "Sh", "Sc_TL": "Sc", "QrC_W": "Qc", "QrH_W": "Qh",
+    # firmware saturation temps: ingested under _fw names, NEVER overwrite CoolProp cols
+    "Teg": "teg_fw", "Tcg": "tcg_fw",
     # Ta/Ts/Tl/Th/Tf/Td/Lp/Hp/FanRpm/Tes/Tcs are same-name pass-through
+}
+# non-C1 columns ingested by decree (kept under original names as extras):
+KEEP_EXTRA = ("HDSH", "Hsuc", "Hliq", "DltH", "Gr", "coil", "Error_Code")
+UNIT_SKU = {  # 数据说明.xlsx — FINAL
+    "37": "EODA19H-2436AA", "84": "EODA19H-2436AA", "31": "EODA19H-2436AA",
+    "55": "EODA19H-2436AA", "44": "EODA19H-4860AA", "85": "EODA19H-4860AA",
 }
 ACSTATE_TRANSLATE = {4: 4, 11: 5, 13: 7}
 STATE_COLS = ("AcState", "CompState", "St")
-TAG_COLS = ("sku", "test_condition", "condition_class", "sku_provisional",
+TAG_COLS = ("sku", "unit", "test_condition", "condition_class",
             "compstate_derived", "gap_flag", "source_file")
 DEFROST_TA_MAX_C = 20.0     # adjudicated: no defrost / no heating above ~20 C ambient
 
@@ -168,6 +186,9 @@ def _map_chunk(chunk: pd.DataFrame, source: str) -> pd.DataFrame:
         # rows are pre-filtered in load_lab (option A quarantine); reaching here is a bug
         raise AssertionError(f"unquarantined enum values {unknown} in {source}")
     d["AcState"] = ac_raw.map(ACSTATE_TRANSLATE)
+    # official CompState semantics (vendor dict): 0=stop, 1=PI control, 2=special
+    # (incl. STARTUP). Derivation below is defrost-focused and unchanged by decree;
+    # startup rows land in 1 — accepted, provenance-flagged (compstate_derived).
     d["CompState"] = np.select(
         [d["CompRps"] == 0,
          (d["AcState"] == 7) | ((d["St"] == 0) & (d["AcState"] == 5)
@@ -229,7 +250,8 @@ def load_lab(root) -> pd.DataFrame:
             d = _map_chunk(sel, f.name)
             r = _resample_10s(d)
             dup_total += r.attrs.get("duplicates_dropped", 0)
-            r["sku"] = f"U{unit}"
+            r["sku"] = UNIT_SKU.get(unit, f"U{unit}")
+            r["unit"] = unit
             r["test_condition"] = w["test_condition"]
             r["condition_class"] = w["condition_class"]
             r["source_file"] = f.name
@@ -241,7 +263,6 @@ def load_lab(root) -> pd.DataFrame:
     for c in NAN_FILLED:
         if c not in out.columns:
             out[c] = np.nan
-    out["sku_provisional"] = True
     out["compstate_derived"] = True
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]
