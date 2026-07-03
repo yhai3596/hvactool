@@ -82,6 +82,16 @@
 - SN 编码规则全文(O6,修复 #8 的前置)。
 - **固件饱和温度查表偏差**:样本反推固件 Tsat ≈ CoolProp R410A @ (0.980665×表压 + 1.0133) bar,偏差 ≈ −2.0% 压力(= kgf/cm²→bar 系数)。读数单位已确认为 bar(数值/10 = MPa),偏差归于固件表轴,待厂商确认。复现函数 conv.controller_sat_temp_c 仅用于一致性校验,禁止入物理列/特征。
 
+## 推送协议
+
+远端唯一命名 fdd-github;唯一允许推送 fdd-export:main(fdd/ 的 subtree split);每次推送前重跑 split;fast-forward only(M0 禁令延续);E:/AICoding 主分支永不出机;GitHub 仓库保持 private;data/raw、data/lake 保持 gitignore。
+
+```bash
+# 在仓库根 E:/AICoding 执行(prefix 以仓库根计):
+git subtree split --prefix=IOT/fdd -B fdd-export
+git push fdd-github fdd-export:main   # refspec 已锁 fdd-export:main,禁 force
+```
+
 ## 常用命令
 
 本机解释器:必须用项目虚拟环境 `fdd/.venv`(Python 3.12.0),即 `.venv/Scripts/python -m ...`。**禁止用系统 Python 跑测试**(系统为 3.10,未安装 fdd 包,collection 直接 ModuleNotFoundError)。
