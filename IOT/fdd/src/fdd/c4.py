@@ -333,6 +333,36 @@ def load_lab_annotations(root) -> pd.DataFrame:
 
 # ---------------------------------------------------------------- periodic-program scan
 
+# ---------------------------------------------------------------- prodline (draft)
+
+# factory column dialect, recon-verified names only (docs/m2_factory_recon.md)
+FACTORY_RENAME = {"TL": "Tl", "TL2": "Tl2", "EEV": "Exv", "Volt1": "V1",
+                  "Current2": "I2", "ErrCode": "Error_Code"}
+
+
+def pseudonymize_sn(raw_sn: str, key: str) -> str:
+    """Pseudonymization protocol (CLAUDE.md data-security): normalize FIRST
+    (strip / upper / remove spaces and hyphens), then HMAC-SHA256(key), hex[:16].
+    Same rule for ODU and PCB serials and for all three data sources."""
+    import hashlib
+    import hmac as _hmac
+    norm = str(raw_sn).strip().upper().replace(" ", "").replace("-", "")
+    return _hmac.new(key.encode(), norm.encode(), hashlib.sha256).hexdigest()[:16]
+
+
+def load_prodline(root) -> pd.DataFrame:
+    """DRAFT (recon stage). Pinned: St = 1 - factory '4-way-valve' (polarity to be
+    confirmed on full data: heating segments must yield St==1 after inversion);
+    TL case-normalized via FACTORY_RENAME; ODU_SerialNo -> hash_sn and
+    PCB_SerialNo -> hash_pcb_sn via pseudonymize_sn; cleartext SN never crosses
+    this boundary. REFUSES to run without FDD_HMAC_KEY — before reading anything."""
+    import os
+    if not os.environ.get("FDD_HMAC_KEY"):
+        raise RuntimeError("FDD_HMAC_KEY UNSET — load_prodline refuses "
+                           "(pseudonymization protocol, CLAUDE.md)")
+    raise NotImplementedError("factory mapping lands after full factory recon adjudication")
+
+
 def periodic_program_scan(root) -> pd.DataFrame:
     """Mandatory companion of the CompState derivation: hunt the fleet's periodic
     low-frequency program signature in lab heating runs. Signature (pinned):
