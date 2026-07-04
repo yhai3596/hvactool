@@ -367,6 +367,36 @@ def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
     return chunks
 
 
+def _apply_data_type_routing(out: pd.DataFrame) -> pd.DataFrame:
+    """Fault-injected units NEVER enter the healthy baseline/anchor pool — their residuals
+    are the signal to learn, not a clean reference. rating_anchor/anchor_type are cleared
+    (rows stay loaded for the diagnostic chain). Shared by load_lab and the injected-unit
+    penetration test so the coverage gate and the anchor split cannot drift apart."""
+    if len(out) and "data_type" in out.columns:
+        injected = out["data_type"] == "fault_injected"
+        out.loc[injected, "rating_anchor"] = False
+        out.loc[injected, "anchor_type"] = None
+    return out
+
+
+def _make_synthetic_injected_unit() -> pd.DataFrame:
+    """Synthetic fault-injected unit for the anchor-split regression test: ~20 min of
+    steady clean-coil heating rows that WOULD be rating_anchor if healthy, tagged
+    fault_injected and routed through the real _apply_data_type_routing (so a regression
+    that drops the routing makes rating_anchor True and the test fails)."""
+    n = 120
+    r = pd.DataFrame({
+        "Timestamp": pd.date_range("2026-01-01", periods=n, freq="10s"),
+        "CompState": 1, "St": 1, "AcState": 5,
+        "Th": 2.0, "Ta": 8.0, "CompRps": 60.0, "Exv": 300.0, "Lp": 8.0, "Hp": 22.0,
+    })
+    r = _with_anchor(r)                      # steady + rating_anchor(clean) on steady rows
+    r["unit"] = "INJ"
+    r["sku"] = "EODA19H-2436AA"
+    r["data_type"] = "fault_injected"
+    return _apply_data_type_routing(r)
+
+
 def load_lab(root) -> pd.DataFrame:
     """Load lab monitoring telemetry, C1-shaped, 10 s timebase, certified windows only.
 
@@ -466,13 +496,7 @@ def load_lab(root) -> pd.DataFrame:
     out["compstate_derived"] = True
     # data_type routing (FDD-I-012 #1): healthy_baseline vs fault_injected, per config.
     out["data_type"] = out["unit"].map(config.unit_data_type) if len(out) else None
-    if len(out):
-        # fault-injected units NEVER enter the healthy baseline/anchor pool — their
-        # residuals are the signal to learn, not a clean reference (rows stay loaded for
-        # diagnosis, but rating_anchor/anchor_type are cleared).
-        injected = out["data_type"] == "fault_injected"
-        out.loc[injected, "rating_anchor"] = False
-        out.loc[injected, "anchor_type"] = None
+    out = _apply_data_type_routing(out)
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]
     out = out[ordered + extras]

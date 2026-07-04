@@ -76,10 +76,27 @@ def test_schema_resolves_essential(lab):
 
 
 def test_condition_coverage_minimum(lab):
-    """Envelope holdout is statistically void below 4 rating conditions per SKU."""
-    cov = lab[lab["condition_class"] == "rating"].groupby("sku")["test_condition"].nunique()
-    assert len(cov) > 0
-    assert (cov >= 4).all(), f"insufficient rating-condition coverage: {cov[cov < 4].to_dict()}"
+    """Coverage counts rating conditions per SKU, but ONLY from healthy_baseline units.
+    Fault-injected units' conditions must NOT count toward baseline coverage — otherwise
+    envelope would fit a healthy baseline on fault data (false GREEN). This aligns the
+    coverage gate with the anchor-layer split (FDD-I-012 Item 1: injected units have
+    rating_anchor zeroed)."""
+    healthy = lab[lab["data_type"] == "healthy_baseline"] if "data_type" in lab.columns else lab
+    rating = healthy[healthy["condition_class"] == "rating"]
+    cov = rating.groupby("sku")["test_condition"].nunique()
+    insufficient = cov[cov < 4]
+    assert insufficient.empty, f"SKUs below 4 healthy rating conditions: {insufficient.to_dict()}"
+
+
+def test_injected_unit_excluded_from_baseline():
+    """A fault-injected unit's rows must be zeroed from rating_anchor (excluded from
+    envelope baseline) while still flowing into the diagnostic chain. Guards the
+    FDD-I-012 Item 1 split against regression when real injected data arrives."""
+    from fdd import c4
+    # synthetic: one injected unit, rating-condition-like steady rows
+    df = c4._make_synthetic_injected_unit()  # helper: data_type=fault_injected, steady H1-like rows
+    assert (df["rating_anchor"] == False).all(), "injected unit leaked into rating_anchor (baseline)"
+    assert len(df) > 0, "injected unit rows dropped entirely — must flow to diagnostic chain"
 
 
 def test_envelope_physical_plausibility(lab):
