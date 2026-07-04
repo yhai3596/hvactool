@@ -466,6 +466,13 @@ def load_lab(root) -> pd.DataFrame:
     out["compstate_derived"] = True
     # data_type routing (FDD-I-012 #1): healthy_baseline vs fault_injected, per config.
     out["data_type"] = out["unit"].map(config.unit_data_type) if len(out) else None
+    if len(out):
+        # fault-injected units NEVER enter the healthy baseline/anchor pool — their
+        # residuals are the signal to learn, not a clean reference (rows stay loaded for
+        # diagnosis, but rating_anchor/anchor_type are cleared).
+        injected = out["data_type"] == "fault_injected"
+        out.loc[injected, "rating_anchor"] = False
+        out.loc[injected, "anchor_type"] = None
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]
     out = out[ordered + extras]
