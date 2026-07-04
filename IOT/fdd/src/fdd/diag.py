@@ -92,10 +92,46 @@ def diagnose(row: dict, mode: str, exv_saturated: bool = False) -> dict:
     if exv_saturated and row.get("sh_resid", 0.0) >= SH_HIGH:
         evidence.append(_ev("sh_resid", +1, row["sh_resid"]))
 
+    # severity estimate for the undercharge hypothesis (FDD-I-012 #4): interface wired
+    # end-to-end; the residual->undercharge-% mapping is a stub until the gradient data.
+    severity = severity_regression(exv, sc, cap) if hypothesis == "refrigerant_low_or_leak" else None
+
     return {
         "fault_hypothesis": hypothesis,
         "evidence": evidence,
         "counter_evidence": counter,
         "confidence": CONFIDENCE[hypothesis],
         "field_checklist": list(FIELD_CHECKLIST[hypothesis]),
+        "severity": severity,
+    }
+
+
+# undercharge-severity residual scales (unfitted placeholders — the real scale comes from
+# regressing the undercharge gradient data). Heating main channels only (rule #3: Sh is
+# servo-pinned in heating; leak carrier = exv_resid + sc_resid + capacity_resid).
+_SEV_EXV_SCALE = 50.0        # exv_resid span across the undercharge gradient (placeholder)
+_SEV_SC_SCALE = 5.0          # -sc_resid span (placeholder)
+_SEV_CAP_SCALE = 0.20        # -capacity_resid span (placeholder)
+
+
+def severity_regression(exv_resid: float, sc_resid: float, capacity_resid: float) -> dict:
+    """Undercharge severity from heating main-channel residual magnitudes
+    (exv_resid up, sc_resid down, capacity_resid down).
+
+    STUB (FDD-I-012 #4): the residual-magnitude -> undercharge-% MAPPING awaits the
+    undercharge gradient data (72 h). This is NOT NotImplementedError — the end-to-end
+    chain (label -> residual -> severity -> C5) runs today; only the fitted scale is
+    pending. `estimate` is a monotone, direction-correct proxy in [0,1] (0 = nominal,
+    1 = severe) built from unfitted per-channel scales; `fitted=False` marks it
+    provisional; `unit` carries the UNCONFIRMED convention until the data team locks the
+    undercharge-% direction (see c2_labels.SEVERITY_UNIT_UNCONFIRMED)."""
+    from fdd.contracts.c2_labels import SEVERITY_UNIT_UNCONFIRMED
+    proxy = (max(exv_resid, 0.0) / _SEV_EXV_SCALE
+             + max(-sc_resid, 0.0) / _SEV_SC_SCALE
+             + max(-capacity_resid, 0.0) / _SEV_CAP_SCALE) / 3.0
+    return {
+        "estimate": float(min(max(proxy, 0.0), 1.0)),
+        "unit": SEVERITY_UNIT_UNCONFIRMED,
+        "method": "unfitted_monotone_proxy",
+        "fitted": False,
     }

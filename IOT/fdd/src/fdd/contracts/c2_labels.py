@@ -18,6 +18,15 @@ FAULT_FAMILIES = ["refrigerant_low_or_leak","compressor_fault","fan_motor_fault"
                   "filter_or_maintenance","customer_inquiry_or_non_fault","unknown"]
 
 LABEL_SCHEMA = ["hash_sn","fault_family","event_date","date_source","fault_confidence",
-                "sn_status","label_tier","review_state","repair_action","repair_date"]
+                "sn_status","label_tier","review_state","repair_action","repair_date",
+                "severity","severity_unit"]
+
+# severity (FDD-I-012 #4): fault magnitude, primarily for refrigerant_low_or_leak gradient
+# data. PLACEHOLDER semantics — the undercharge % DIRECTION is UNCONFIRMED: is `severity`
+# the fraction of charge REMOVED (0=nominal, higher=worse) or the fraction REMAINING
+# (1.0=nominal, lower=worse)? Locked once the data team confirms. severity_unit records the
+# convention per row (e.g. "pct_removed" / "pct_remaining" / "grams_removed") so a
+# mixed-convention delivery is not silently merged.
+SEVERITY_UNIT_UNCONFIRMED = "undercharge_pct_UNCONFIRMED"
 
 DATE_VALID_WINDOW = ("2018-01-01", None)   # None -> generation date; out-of-range -> fallback Created Time + flag
