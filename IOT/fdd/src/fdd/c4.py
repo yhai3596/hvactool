@@ -103,6 +103,12 @@ NOMINAL_TA = {"A": 35.0, "B": 27.8, "H1N": 8.3, "H2": 1.7, "H3": -8.3, "H4": -15
 SURROGATE_TA_TOL = 3.0
 SURROGATE_CV_MAX = 0.05
 SURROGATE_MIN_S = 600.0     # locked-frequency plateau >= 10 min
+# FDD-I-007 #2: capacity-level gate (3rd surrogate gate) rejects partial-load plateaus.
+# SKU nominal rated capacity (kW): 2436AA = 3 ton, 4860AA = 5 ton. Anchor mean capacity
+# must fall in [0.7, 1.3] x nominal; per-condition AHRI rated would refine the band (M3),
+# but the nominal band already catches gross partial-load segments (the B 3 kW anchor).
+SKU_RATED_KW = {"EODA19H-2436AA": 10.5, "EODA19H-4860AA": 17.6}
+SURROGATE_CAP_LO, SURROGATE_CAP_HI = 0.70, 1.30
 
 # H4 proxy anchor for 4860AA (FDD-I-006 #2): unit 44's low-temp defrost-cycling data
 # holds abundant frost quasi-equilibrium (~6097 frosting_steady rows) that the single
@@ -259,10 +265,11 @@ def _resample_10s(d: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _surrogate_windows(raw: pd.DataFrame) -> list:
-    """Locked-frequency plateaus qualifying as equivalent rating points (double gate).
-    Returns [(condition, index_slice, ta_med, cv, dur_s), ...]; 63-col dialect files
-    never reach here (caller filters on core-dictionary headers)."""
+def _surrogate_windows(raw: pd.DataFrame, rated_kw: float) -> list:
+    """Locked-frequency plateaus qualifying as equivalent rating points (triple gate:
+    Ta in nominal +/- tol, capacity CV < max, capacity level in [0.7,1.3] x rated).
+    Returns [(condition, index_slice, ta_med, cv, cap_kw, dur_s), ...]; 63-col dialect
+    files never reach here (caller filters on core-dictionary headers)."""
     out = []
     hz = raw["InvHz"]
     run = hz > 0
@@ -288,7 +295,10 @@ def _surrogate_windows(raw: pd.DataFrame) -> list:
         cv = float(q.std() / m)
         if cv >= SURROGATE_CV_MAX:
             continue
-        out.append((cond, p.index, ta, cv, dur))
+        cap_kw = m / 1000.0                  # 3rd gate: capacity-level band vs rated
+        if not (SURROGATE_CAP_LO * rated_kw <= cap_kw <= SURROGATE_CAP_HI * rated_kw):
+            continue                         # partial-load plateau -> UNMAPPED
+        out.append((cond, p.index, ta, cv, cap_kw, dur))
     return out
 
 
@@ -371,7 +381,8 @@ def load_lab(root) -> pd.DataFrame:
             if "QrC_W" not in head or "st1" not in head:
                 continue                    # 63-col dialect: unmapped until merged
             raw = _read_monitor(f, anchor)
-            for cond, idx, ta_med, cv, dur in _surrogate_windows(raw):
+            rated = SKU_RATED_KW.get(UNIT_SKU.get(unit, ""), np.inf)
+            for cond, idx, ta_med, cv, cap_kw, dur in _surrogate_windows(raw, rated):
                 sel = raw.loc[idx]
                 known = sel["ODU_CtrlMode"].isin(ACSTATE_TRANSLATE)
                 if (~known).any():
