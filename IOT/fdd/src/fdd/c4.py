@@ -321,6 +321,12 @@ def load_lab(root) -> pd.DataFrame:
                 r["source_file"] = f.name
                 r["surrogate_ta"] = ta_med
                 r["surrogate_cv"] = cv
+                # FDD-I-003 #4: passed both physical gates but sits at the edge —
+                # 55-B at Ta≈30.3 (2.5 K off nominal), 31-H2 at Ta≈0.55 (trial-production
+                # unit x frosting condition, double uncertainty, lowest weight).
+                # M3 re-validation should suspect the MAPPING first for these points.
+                r["surrogate_edge"] = ((unit == "55" and cond == "B")
+                                       or (unit == "31" and cond == "H2"))
                 chunks.append(r)
             continue
         raw = None
