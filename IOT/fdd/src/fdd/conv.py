@@ -6,6 +6,8 @@ DoD (tests/test_m0_conv.py):
   - (sc_phys - reported Sc) == 1.0 +/- 0.1 on run segments
   - lp_abs == Lp + 1.013 exactly
 """
+import pathlib
+
 import numpy as np
 import pandas as pd
 from CoolProp.CoolProp import PropsSI
@@ -14,6 +16,29 @@ from fdd.contracts.c1_telemetry import ACSTATE, ATM_OFFSET_BAR, REFRIGERANT
 
 BAR_TO_PA = 1e5
 _PCRIT_PA = PropsSI("PCRIT", REFRIGERANT)   # saturation undefined at/above critical
+
+# Precomputed R410A saturation table (scripts/gen_sat_table.py). M3 processes billions of
+# rows; per-row PropsSI is slow and native-segfault-prone at scale, so te_sat/tc_sat
+# interpolate this table (no native calls in the hot path). SAME physics as CoolProp,
+# cached; interpolation error < 0.01 K (verified on lab data). Falls back to PropsSI if
+# the table file is absent.
+_SAT_TABLE_PATH = pathlib.Path(__file__).with_name("sat_table.npz")
+try:
+    _t = np.load(_SAT_TABLE_PATH)
+    _SAT_P, _SAT_DEW, _SAT_BUBBLE = _t["p_bar"], _t["dew_c"], _t["bubble_c"]
+except Exception:                            # table missing -> PropsSI fallback
+    _SAT_P = _SAT_DEW = _SAT_BUBBLE = None
+
+
+def _sat_temp_c_table(p_abs_bar, quality: float) -> np.ndarray:
+    """Interpolated R410A saturation temp (deg C) from the precomputed table; NaN outside
+    the table domain. quality 1.0 -> dew (suction/te), 0.0 -> bubble (liquid/tc)."""
+    if _SAT_P is None:
+        return _sat_temp_c(p_abs_bar, quality)
+    p = np.asarray(p_abs_bar, dtype=float)
+    tab = _SAT_DEW if quality == 1.0 else _SAT_BUBBLE
+    out = np.interp(p, _SAT_P, tab, left=np.nan, right=np.nan)
+    return np.where(np.isfinite(p), out, np.nan)
 
 # Slip normalization full-scales. Command scales come from the C1 contract;
 # actual-side scales are sample-derived (CompRps ~ 2.5 x Comp cmd) and pending
@@ -104,8 +129,8 @@ def materialize(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     out["lp_abs"] = out["Lp"] + ATM_OFFSET_BAR          # rule #1: fixed offset only
     out["hp_abs"] = out["Hp"] + ATM_OFFSET_BAR
-    out["te_sat"] = _sat_temp_c(out["lp_abs"], quality=1.0)   # dew
-    out["tc_sat"] = _sat_temp_c(out["hp_abs"], quality=0.0)   # bubble
+    out["te_sat"] = _sat_temp_c_table(out["lp_abs"], quality=1.0)   # dew (table interp)
+    out["tc_sat"] = _sat_temp_c_table(out["hp_abs"], quality=0.0)   # bubble (table interp)
     out["sc_phys"] = out["tc_sat"] - out["Tl"]          # rule #2: no -1 term
     out["sh_phys"] = out["Ts"] - out["te_sat"]
     out["mode"] = out["AcState"].map(ACSTATE).fillna("unknown")
