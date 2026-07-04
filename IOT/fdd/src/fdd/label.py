@@ -22,8 +22,11 @@ C3 connection in M3 — this module stays pure functions on frames/series.
 import numpy as np
 import pandas as pd
 
-JOIN_WINDOW_DAYS = (-21, +3)
-MIN_POST_DAYS = 5      # minimum non-NaN days from entry for a closure verdict
+from fdd import config
+
+# calibration from config/calibration.yaml (FDD-I-012 #2)
+JOIN_WINDOW_DAYS = tuple(config.cal("label.join_window_days"))   # (-21, +3)
+MIN_POST_DAYS = config.cal("label.min_post_days")   # min non-NaN days for a closure verdict
 
 
 def join_events(labels_df: pd.DataFrame, events_df: pd.DataFrame) -> pd.DataFrame:

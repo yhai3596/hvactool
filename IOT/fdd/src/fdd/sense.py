@@ -24,25 +24,26 @@ Factory fingerprint comparison stays stubbed until C4.
 import numpy as np
 import pandas as pd
 
-from fdd import conv, feat, seg
+from fdd import config, conv, feat, seg
 from fdd.drift import robust_sigma
 
 SENSORS = ("Ta", "Ts", "Th", "Tl", "Lp", "Hp")
 FLAG_CHANNELS = ("sh", "sc")            # only these emit sensor flags
 CONTEXT_CHANNELS = ("ta_th", "th_te")   # computed, output as context, NEVER flag
-THRESHOLDS = {"sh": 0.8, "sc": 0.45}    # provisional (M4)
+# thresholds from config/calibration.yaml (FDD-I-012 #2); provisional, M4 recal
+THRESHOLDS = {"sh": config.cal("sense.threshold_sh"), "sc": config.cal("sense.threshold_sc")}
 CHANNEL_SENSORS = {"sh": ("Ts", "Lp"), "sc": ("Tl", "Hp")}
 TAIL_MIN_ROWS = 50
 TAIL_FRACTION = 0.25
-MIN_BIN_N = 30
+MIN_BIN_N = config.cal("sense.min_bin_n")
 
 # off-equalization (Ta-free ambient trust) — provisional, M3 real-data calibration
 OFF_MIN_HOURS = 4.0
 OFF_MIN_ROWS = 20                        # min off-cycle rows for a verdict
-OFF_EQ_THRESHOLD = 1.0                   # deviation from the settled-consensus median (K)
+OFF_EQ_THRESHOLD = config.cal("sense.off_eq_threshold")   # consensus deviation (K)
 OFF_CONSENSUS_TEMPS = ("Ta", "Th", "Ts", "Tl")
 # defrost-plateau Th trust
-TH_PLATEAU_THRESHOLD = 1.5               # Th - tc_sat plateau deviation vs reference (K)
+TH_PLATEAU_THRESHOLD = config.cal("sense.th_plateau_threshold")   # Th - tc_sat plateau (K)
 
 
 def _steady_frame(df: pd.DataFrame) -> pd.DataFrame:

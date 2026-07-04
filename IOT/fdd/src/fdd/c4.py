@@ -73,7 +73,7 @@ ACSTATE_TRANSLATE = {4: 4, 11: 5, 13: 7}
 STATE_COLS = ("AcState", "CompState", "St")
 TAG_COLS = ("sku", "unit", "data_type", "test_condition", "condition_class",
             "compstate_derived", "gap_flag", "source_file")
-DEFROST_TA_MAX_C = 20.0     # adjudicated: no defrost / no heating above ~20 C ambient
+DEFROST_TA_MAX_C = config.cal("surrogate.defrost_ta_max_c")   # no defrost/heating above ~20 C
 
 NAN_FILLED = sorted(set(RAW_COLUMNS) - {"Timestamp"} - {
     "Ta", "Ts", "Tl", "Th", "Tf", "Td", "Lp", "Hp", "FanRpm", "Tes", "Tcs",
@@ -100,15 +100,16 @@ EXTREME_BASIS = "non-rating bench program (defrost / oil return / other)"
 # (capacity CV < 5% within the plateau); anything else stays UNMAPPED.
 SURROGATE_UNITS = ("31", "55")
 NOMINAL_TA = {"A": 35.0, "B": 27.8, "H1N": 8.3, "H2": 1.7, "H3": -8.3, "H4": -15.0}
-SURROGATE_TA_TOL = 3.0
-SURROGATE_CV_MAX = 0.05
-SURROGATE_MIN_S = 600.0     # locked-frequency plateau >= 10 min
+SURROGATE_TA_TOL = config.cal("surrogate.ta_tol")
+SURROGATE_CV_MAX = config.cal("surrogate.cv_max")
+SURROGATE_MIN_S = config.cal("surrogate.min_s")     # locked-frequency plateau >= 10 min
 # FDD-I-007 #2: capacity-level gate (3rd surrogate gate) rejects partial-load plateaus.
 # SKU nominal rated capacity (kW): 2436AA = 3 ton, 4860AA = 5 ton. Anchor mean capacity
 # must fall in [0.7, 1.3] x nominal; per-condition AHRI rated would refine the band (M3),
 # but the nominal band already catches gross partial-load segments (the B 3 kW anchor).
 SKU_RATED_KW = config.sku_rated_kw()      # config/unit_sku_map.yaml
-SURROGATE_CAP_LO, SURROGATE_CAP_HI = 0.70, 1.30
+SURROGATE_CAP_LO = config.cal("envelope.cap_band_lo")
+SURROGATE_CAP_HI = config.cal("envelope.cap_band_hi")
 
 # H4 proxy anchor (FDD-I-006 #2, generalized FDD-I-012 #1): frost-quasi-equilibrium rows
 # in the H4 Ta band from ANY healthy unit of the h4_proxy SKU (was hardcoded unit 44).

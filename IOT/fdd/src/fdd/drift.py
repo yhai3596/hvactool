@@ -20,9 +20,12 @@ k/h are module constants for M1; real calibration deferred to M4 (labeled data).
 import numpy as np
 import pandas as pd
 
-BASELINE_N = 28
-CUSUM_K = 0.5           # slack, in sigma units
-CUSUM_H = 5.0           # decision threshold, in sigma units
+from fdd import config
+
+# calibration from config/calibration.yaml (FDD-I-012 #2); k/h re-cal on labels at M4
+BASELINE_N = config.cal("drift.baseline_n")
+CUSUM_K = config.cal("drift.cusum_k")   # slack, in sigma units
+CUSUM_H = config.cal("drift.cusum_h")   # decision threshold, in sigma units
 SIGMA_FLOOR = 1e-9      # zero-variance guard (pinned)
 
 # rule #8 channel discrimination feature sets (locked)

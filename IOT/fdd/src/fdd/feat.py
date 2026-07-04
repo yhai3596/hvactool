@@ -21,7 +21,7 @@ defrost segments -- it lives in the standalone defrost_frequency().
 import numpy as np
 import pandas as pd
 
-from fdd import conv, seg
+from fdd import config, conv, seg
 
 REGISTRY = (
     "exv_resid", "sc_resid", "capacity_resid", "approach", "th_coil_resid",
@@ -29,11 +29,12 @@ REGISTRY = (
     "i_resid", "tf_resid", "indoor_load_proxy",
 )
 
-MIN_BIN_N = 12                                  # >= 2 min of 10 s rows per bin
-TA_BIN_K = 2.0                                  # Ta bin step (K)
+# calibration from config/calibration.yaml (FDD-I-012 #2)
+MIN_BIN_N = config.cal("feat.min_bin_n")        # >= 2 min of 10 s rows per bin
+TA_BIN_K = config.cal("feat.ta_bin_k")          # Ta bin step (K)
 RPS_BAND_W = conv.COMP_RPS_FULLSCALE / 10.0     # 10 CompRps bands over full scale
-V1_NOMINAL = 230.0                              # rule #5: V1-covariate normalization
-LOAD_PROXY_WIN_MIN = 30.0                       # YSignal duty-cycle window (minutes)
+V1_NOMINAL = config.cal("feat.v1_nominal")      # rule #5: V1-covariate normalization
+LOAD_PROXY_WIN_MIN = config.cal("feat.load_proxy_win_min")   # YSignal duty-cycle window
 
 _COOLING_MODES = ("cooling", "cool_dehum")
 # quantities whose residuals need a binned baseline

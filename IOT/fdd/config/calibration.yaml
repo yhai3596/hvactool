@@ -1,0 +1,56 @@
+# Calibration assets (FDD-I-012 #2). Every value here is a CONFIG ASSET, not a code
+# constant: data growth triggers re-calibration by editing this file (not code), and each
+# change is traceable via source/date/scope. Modules read these at import; call
+# config.reload() after editing on disk. Values below match the pre-externalization
+# constants exactly (behavior unchanged).
+#
+# NOTE: two calibration numbers the instruction lists live inside TEST assertions, not
+# modules, so they are NOT read from here (changing them needs Project-authored test text):
+#   - envelope adjacent-capacity ratio [0.3, 3.0]  (test_envelope_physical_plausibility)
+#   - the 1e-6 K M0 self-consistency bound          (test_sh_phys_physical_self_consistency)
+
+steady:                       # M-SEG steady-state detector
+  rps_std_max:     {value: 1.5, source: sample-calibrated, date: 2026-07-01, scope: "M0 5h warm-winter sample; re-cal on lab transient data (M2)"}
+  exv_std_max:     {value: 6.0, source: sample-calibrated, date: 2026-07-01, scope: "M0 5h sample; re-cal on lab transient data"}
+  min_minutes:     {value: 5.0, source: physical,          date: 2026-07-01, scope: "startup-transient exclusion; physical, not data-derived"}
+  roll_window_min: {value: 2.0, source: physical,          date: 2026-07-01, scope: "rolling-std window; physical"}
+
+frost:                        # M-SEG frost-phase segmentation
+  th_onset_c:        {value: 0.0,  source: physical,               date: 2026-07-03, scope: "freezing point; physical"}
+  drift_rate_k_min:  {value: 0.05, source: 7-defrost+H2-calibrated, date: 2026-07-03, scope: "7 defrost events + H2 windows; splits clean vs frosting Th slope"}
+  slope_lag_min:     {value: 5.0,  source: sample-calibrated,       date: 2026-07-03, scope: "slope estimation lag"}
+  smooth_rows:       {value: 12,   source: derived-10s,             date: 2026-07-03, scope: "~2 min at 10 s timebase"}
+  accel_max_k_min2:  {value: 0.02, source: H2/H4-calibrated,        date: 2026-07-04, scope: "frost quasi-equilibrium plateau; H2/H4 windows"}
+  defrost_guard_min: {value: 5.0,  source: 7-defrost-calibrated,    date: 2026-07-04, scope: "terminal dive before St flip; 7 events"}
+
+sense:                        # M-SENSE trust thresholds (provisional, M4 recalibrates)
+  threshold_sh:         {value: 0.8,  source: sample-calibrated, date: 2026-07-01, scope: "sh channel; M4 recal"}
+  threshold_sc:         {value: 0.45, source: sample-calibrated, date: 2026-07-01, scope: "sc channel; M4 recal"}
+  off_eq_threshold:     {value: 1.0,  source: provisional,       date: 2026-07-04, scope: "off-cycle consensus deviation; M3 real-data recal"}
+  th_plateau_threshold: {value: 1.5,  source: provisional,       date: 2026-07-04, scope: "defrost-plateau Th-tc_sat; M3 recal"}
+  min_bin_n:            {value: 30,   source: statistical,       date: 2026-07-03, scope: "bin judgeability floor"}
+
+feat:                         # M-FEAT
+  ta_bin_k:           {value: 2.0,   source: spec,             date: 2026-07-02, scope: "ambient bin width (K); shared with sense"}
+  min_bin_n:          {value: 12,    source: derived-10s,      date: 2026-07-02, scope: ">= 2 min of 10 s rows per bin"}
+  v1_nominal:         {value: 230.0, source: fleet-spec,       date: 2026-07-02, scope: "V1 covariate normalization (208/230V fleet)"}
+  load_proxy_win_min: {value: 30.0,  source: spec,             date: 2026-07-02, scope: "YSignal duty-cycle window (min)"}
+
+drift:                        # M-DRIFT (M1 constants; real calibration deferred to M4)
+  baseline_n: {value: 28,  source: spec,  date: 2026-07-03, scope: "sigma/mu0 estimation window"}
+  cusum_k:    {value: 0.5, source: spec,  date: 2026-07-03, scope: "CUSUM slack (sigma); M4 recal on labels"}
+  cusum_h:    {value: 5.0, source: spec,  date: 2026-07-03, scope: "CUSUM threshold (sigma); M4 recal on labels"}
+
+label:                        # M-LABEL
+  join_window_days: {value: [-21, 3], source: spec,       date: 2026-07-03, scope: "platform event vs ticket window (event-precedes-ticket)"}
+  min_post_days:    {value: 5,        source: spec,       date: 2026-07-03, scope: "min non-NaN days for a closure verdict"}
+
+envelope:                     # M-BASE surrogate/plausibility bands
+  cap_band_lo: {value: 0.70, source: nominal-band, date: 2026-07-07, scope: "capacity level vs SKU nominal; per-condition AHRI refines (M3)"}
+  cap_band_hi: {value: 1.30, source: nominal-band, date: 2026-07-07, scope: "capacity level vs SKU nominal"}
+
+surrogate:                    # C4 surrogate rating mapping (31/55) + proxy
+  ta_tol:           {value: 3.0,  source: AHRI-tolerance, date: 2026-07-03, scope: "Ta within nominal +/- tol"}
+  cv_max:           {value: 0.05, source: statistical,    date: 2026-07-03, scope: "capacity CV within plateau"}
+  min_s:            {value: 600,  source: spec,           date: 2026-07-03, scope: "locked-freq plateau >= 10 min"}
+  defrost_ta_max_c: {value: 20.0, source: adjudicated,    date: 2026-07-03, scope: "no defrost/heating above ~20 C ambient"}

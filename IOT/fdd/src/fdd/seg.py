@@ -9,12 +9,15 @@ DoD (tests/test_m0_seg.py) on data/sample:
 import numpy as np
 import pandas as pd
 
-STEADY_MIN_MINUTES = 5.0
-ROLL_WINDOW_MIN = 2.0
-# thresholds calibrated on sample; re-calibrate when lab transient data arrives (M2)
-RPS_STD_MAX = 1.5
-EXV_STD_MAX = 6.0
-FALLBACK_CADENCE_S = 10.0   # sample cadence if Timestamp is unparseable
+from fdd import config
+
+# Calibration constants read from config/calibration.yaml (FDD-I-012 #2); re-cal on data
+# growth edits the config, not this code. Provenance lives in the config's source/date.
+STEADY_MIN_MINUTES = config.cal("steady.min_minutes")
+ROLL_WINDOW_MIN = config.cal("steady.roll_window_min")
+RPS_STD_MAX = config.cal("steady.rps_std_max")
+EXV_STD_MAX = config.cal("steady.exv_std_max")
+FALLBACK_CADENCE_S = 10.0   # sample cadence if Timestamp is unparseable (timebase, not cal)
 
 # ---- frost-phase segmentation (FDD-I-003; single source for sense & envelope) ----
 # Calibration provenance (7 confirmed defrosts + H2 certification windows):
@@ -26,10 +29,10 @@ FALLBACK_CADENCE_S = 10.0   # sample cadence if Timestamp is unparseable
 # - FROST_SLOPE_LAG_MIN = 5: slope estimation lag; rows without certified history
 #   (NaN slope inside the frost zone) are conservatively 'frosting' — clean must be
 #   POSITIVELY certified (漂移未启动), never assumed.
-FROST_TH_ONSET_C = 0.0
-FROST_DRIFT_RATE_K_MIN = 0.05
-FROST_SLOPE_LAG_MIN = 5.0
-FROST_SMOOTH_ROWS = 12          # ~2 min at the 10 s timebase
+FROST_TH_ONSET_C = config.cal("frost.th_onset_c")
+FROST_DRIFT_RATE_K_MIN = config.cal("frost.drift_rate_k_min")
+FROST_SLOPE_LAG_MIN = config.cal("frost.slope_lag_min")
+FROST_SMOOTH_ROWS = config.cal("frost.smooth_rows")     # ~2 min at the 10 s timebase
 _TIME_JUMP_FACTOR = 5.0         # gaps > 5x cadence break slope continuity (stitched chunks)
 # ---- dual-class rating anchor (FDD-I-004) ----
 # Frost-condition anchor = steady & frosting & rate-plateau & defrost-not-imminent.
@@ -38,8 +41,8 @@ _TIME_JUMP_FACTOR = 5.0         # gaps > 5x cadence break slope continuity (stit
 # 0 -> 0.2 K/min within ~10 min and pre-trigger runaway steepens sharply; 0.02 K/min^2
 # splits both. Defrost guard 5 min: the 7 confirmed events show the terminal dive
 # inside the last minutes before the St flip.
-FROST_ACCEL_MAX_K_MIN2 = 0.02
-DEFROST_GUARD_MIN = 5.0
+FROST_ACCEL_MAX_K_MIN2 = config.cal("frost.accel_max_k_min2")
+DEFROST_GUARD_MIN = config.cal("frost.defrost_guard_min")
 
 
 def _elapsed_seconds(df: pd.DataFrame) -> pd.Series:

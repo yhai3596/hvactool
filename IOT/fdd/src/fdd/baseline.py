@@ -14,11 +14,13 @@ L2 factory fingerprint (charge-state EXCLUDED) and L3 field baseline remain stub
 import numpy as np
 import pandas as pd
 
-from fdd import conv
+from fdd import config, conv
 
 ENVELOPE_TARGETS = ("Qh", "Qc", "tc_sat", "te_sat", "Td")
 _MODE_AC = {"heating": 5, "cooling": 4}
-SURR_LO, SURR_HI = 0.70, 1.30           # capacity-level band vs rated (plausibility)
+# capacity-level band vs rated (plausibility) from config/calibration.yaml (FDD-I-012 #2)
+SURR_LO = config.cal("envelope.cap_band_lo")
+SURR_HI = config.cal("envelope.cap_band_hi")
 
 
 def _materialized(df: pd.DataFrame) -> pd.DataFrame:
