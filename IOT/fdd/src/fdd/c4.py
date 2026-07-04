@@ -104,6 +104,16 @@ SURROGATE_TA_TOL = 3.0
 SURROGATE_CV_MAX = 0.05
 SURROGATE_MIN_S = 600.0     # locked-frequency plateau >= 10 min
 
+# H4 proxy anchor for 4860AA (FDD-I-006 #2): unit 44's low-temp defrost-cycling data
+# holds abundant frost quasi-equilibrium (~6097 frosting_steady rows) that the single
+# locked-freq certified H4 window (monotonic frost) missed. Proxy = frosting_steady rows
+# in the H4 Ta band; the post-defrost recovery band is excluded explicitly (the
+# pre-defrost band is already dropped by frost_phase's no_trigger guard).
+PROXY_H4_UNIT = "44"
+PROXY_H4_TA = (-18.0, -12.0)
+PROXY_DEFROST_EXCLUDE_MIN = 5.0
+_ANCHOR_COLS = ("segment_type", "steady", "frost_phase", "anchor_type", "rating_anchor")
+
 
 def _condition_class(name: str):
     for prefix in sorted(CONDITION_CLASS, key=len, reverse=True):
@@ -282,6 +292,67 @@ def _surrogate_windows(raw: pd.DataFrame) -> list:
     return out
 
 
+def _with_anchor(r: pd.DataFrame) -> pd.DataFrame:
+    """Segment a resampled chunk IN ISOLATION and carry the anchor columns, so the loaded
+    frame exposes rating_anchor/anchor_type/frost_phase (envelope + sense consume them).
+    Per-chunk segmentation keeps segment_id from spanning windows."""
+    from fdd import seg as _seg
+    w = _seg.segment(r)
+    for col in _ANCHOR_COLS:
+        r[col] = w[col].to_numpy()
+    return r
+
+
+def _post_defrost_exclude(w: pd.DataFrame) -> np.ndarray:
+    """Rows within PROXY_DEFROST_EXCLUDE_MIN after any defrost segment end."""
+    from fdd import seg as _seg
+    el = _seg._elapsed_seconds(w).to_numpy()
+    is_def = (w["segment_type"] == "defrost").to_numpy()
+    excl = np.zeros(len(w), dtype=bool)
+    guard = PROXY_DEFROST_EXCLUDE_MIN * 60.0
+    for i in range(len(w) - 1):
+        if is_def[i] and not is_def[i + 1]:
+            excl |= (el > el[i]) & (el <= el[i] + guard)
+    return excl
+
+
+def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
+    """4860AA H4 proxy anchors from unit-44 low-temp defrost-cycling data."""
+    chunks = []
+    for unit, anchor, f in _monitor_csvs(root):
+        if unit != PROXY_H4_UNIT:
+            continue
+        head = open(f, encoding="utf-8").readline()
+        if "QrH_W" not in head or "st1" not in head:
+            continue
+        raw = _read_monitor(f, anchor)
+        if not ((raw["Ta"] >= PROXY_H4_TA[0]) & (raw["Ta"] <= PROXY_H4_TA[1])).any():
+            continue
+        known = raw["ODU_CtrlMode"].isin(ACSTATE_TRANSLATE)
+        if (~known).any():
+            q = raw.loc[~known, "ODU_CtrlMode"].value_counts().to_dict()
+            enum_quarantined.append({"file": f.name, "window": "proxy-H4", "unit": unit,
+                                     "rows": {int(k): int(v) for k, v in q.items()}})
+        r = _resample_10s(_map_chunk(raw[known], f.name))
+        dup_ref[0] += r.attrs.get("duplicates_dropped", 0)
+        r = _with_anchor(r)
+        low = ((r["Ta"] >= PROXY_H4_TA[0]) & (r["Ta"] <= PROXY_H4_TA[1])
+               & (r["AcState"] == 5))
+        keep = r[(r["anchor_type"] == "frosting_steady") & low & ~_post_defrost_exclude(r)]
+        if not len(keep):
+            continue
+        keep = keep.copy()
+        keep["sku"] = "EODA19H-4860AA"
+        keep["unit"] = unit
+        keep["test_condition"] = "H4"
+        keep["condition_class"] = "rating"
+        keep["source_file"] = f.name
+        keep["h4_proxy"] = True
+        keep["source_unit"] = "44"
+        chunks.append(keep)
+    return chunks
+
+
 def load_lab(root) -> pd.DataFrame:
     """Load lab monitoring telemetry, C1-shaped, 10 s timebase, certified windows only.
 
@@ -327,7 +398,7 @@ def load_lab(root) -> pd.DataFrame:
                 # M3 re-validation should suspect the MAPPING first for these points.
                 r["surrogate_edge"] = ((unit == "55" and cond == "B")
                                        or (unit == "31" and cond == "H2"))
-                chunks.append(r)
+                chunks.append(_with_anchor(r))
             continue
         raw = None
         for _, w in wins.iterrows():
@@ -356,7 +427,10 @@ def load_lab(root) -> pd.DataFrame:
             r["test_condition"] = cond
             r["condition_class"] = cls
             r["source_file"] = f.name
-            chunks.append(r)
+            chunks.append(_with_anchor(r))
+    dup_ref = [dup_total]
+    chunks.extend(_proxy_h4_chunks(root, enum_quarantined, dup_ref))
+    dup_total = dup_ref[0]
     if not chunks:
         out = pd.DataFrame(columns=list(RAW_COLUMNS) + list(TAG_COLS))
     else:
@@ -364,6 +438,12 @@ def load_lab(root) -> pd.DataFrame:
     for c in NAN_FILLED:
         if c not in out.columns:
             out[c] = np.nan
+    if "h4_proxy" not in out.columns:
+        out["h4_proxy"] = False
+    else:
+        out["h4_proxy"] = out["h4_proxy"].fillna(False)
+    if "source_unit" not in out.columns:
+        out["source_unit"] = None
     out["compstate_derived"] = True
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]

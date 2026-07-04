@@ -82,11 +82,13 @@ def test_condition_coverage_minimum(lab):
 
 
 def test_envelope_holdout_dod(lab):
-    """Amended 2026-07-03: SKUs below 4 rating conditions are excluded from holdout
-    (fit-on-1-predict-1 is support-starved noise, not a model verdict); the coverage
-    test, not this one, is the messenger for insufficient conditions."""
+    """M-BASE L1 leave-one-rating-condition-out. Low-order physical regression;
+    frost conditions (H2/H4) carry a frost-phase covariate. H4 for 4860AA uses the
+    unit-44 low-temp proxy anchor (h4_proxy=True). MAPE/MAE thresholds are DoD, not
+    tunable; a proxy-anchor condition breaching them is a REPORTED signal, not a
+    threshold to relax."""
     from fdd import baseline, conv, seg
-    rating = lab[lab["condition_class"] == "rating"]
+    rating = lab[lab["rating_anchor"]]
     evaluated, failures = 0, []
     for sku, g in rating.groupby("sku"):
         conds = sorted(g["test_condition"].unique())
@@ -95,8 +97,8 @@ def test_envelope_holdout_dod(lab):
         for held in conds:
             train, test = g[g["test_condition"] != held], g[g["test_condition"] == held]
             model = baseline.fit_envelope(train, sku)
-            t = conv.materialize(test)
-            t = t[seg.segment(test)["steady"]]
+            t = seg.segment(test)
+            t = conv.materialize(test)[t["rating_anchor"]] if "rating_anchor" in t else conv.materialize(test)
             if len(t) < 30:
                 continue
             pred = baseline.predict_envelope(model, t)
@@ -104,15 +106,14 @@ def test_envelope_holdout_dod(lab):
             cap = "Qh" if mode == "heating" else "Qc"
             mape = ((pred[cap] - t[cap]).abs() / t[cap].abs().clip(lower=1e-9)).mean()
             if mape > 0.05:
-                failures.append((sku, held, cap, round(float(mape), 4)))
+                failures.append((sku, held, "MAPE", cap, round(float(mape), 4)))
             for col in ["Td", "tc_sat", "te_sat"]:
                 mae = (pred[col] - t[col]).abs().mean()
                 if mae > 1.0:
-                    failures.append((sku, held, col, round(float(mae), 3)))
+                    failures.append((sku, held, "MAE", col, round(float(mae), 3)))
             evaluated += 1
-    if evaluated == 0:
-        pytest.skip("no SKU offers >=4 rating conditions yet -- gated by coverage test / O1")
-    assert not failures, f"envelope DoD violations: {failures}"
+    assert evaluated > 0, "no SKU has >=4 rating conditions with >=30 anchor rows"
+    assert not failures, f"envelope DoD violations (proxy-anchor breaches are signals): {failures}"
 
 
 def test_ssd_transient_report(lab):
