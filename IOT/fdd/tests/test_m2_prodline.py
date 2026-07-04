@@ -22,15 +22,17 @@ import pathlib
 
 import pytest
 
+
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-PROD_DIR = ROOT / "data" / "raw" / "prodline"
+# PROD_DIR = ROOT / "data" / "raw" / "prodline"
+PROD_DIR = ROOT / "data" / "raw" / "factory" /"sample"
 _prod_present = PROD_DIR.exists() and any(PROD_DIR.iterdir())
 _key_present = bool(os.environ.get("FDD_HMAC_KEY"))
 
 pytestmark = [
     pytest.mark.m2,
     pytest.mark.skipif(not _prod_present,
-                       reason="awaiting O-track: prodline data not found at data/raw/prodline/"),
+                       reason="awaiting O-track: prodline data not found at data/raw/factory/sample/"),
     pytest.mark.skipif(not _key_present,
                        reason="awaiting O-track: HMAC salt protocol (FDD_HMAC_KEY unset)"),
 ]
