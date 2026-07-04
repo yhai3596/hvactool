@@ -95,6 +95,15 @@ CONDITION_CLASS = {
 }
 EXTREME_BASIS = "non-rating bench program (defrost / oil return / other)"
 
+# surrogate mapping for units WITHOUT bench certification windows (31/55), FDD-I-002 #5:
+# nominal-zone + locked-frequency, gated by BOTH (Ta within nominal±3K) AND
+# (capacity CV < 5% within the plateau); anything else stays UNMAPPED.
+SURROGATE_UNITS = ("31", "55")
+NOMINAL_TA = {"A": 35.0, "B": 27.8, "H1N": 8.3, "H2": 1.7, "H3": -8.3, "H4": -15.0}
+SURROGATE_TA_TOL = 3.0
+SURROGATE_CV_MAX = 0.05
+SURROGATE_MIN_S = 600.0     # locked-frequency plateau >= 10 min
+
 
 def _condition_class(name: str):
     for prefix in sorted(CONDITION_CLASS, key=len, reverse=True):
@@ -240,6 +249,39 @@ def _resample_10s(d: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _surrogate_windows(raw: pd.DataFrame) -> list:
+    """Locked-frequency plateaus qualifying as equivalent rating points (double gate).
+    Returns [(condition, index_slice, ta_med, cv, dur_s), ...]; 63-col dialect files
+    never reach here (caller filters on core-dictionary headers)."""
+    out = []
+    hz = raw["InvHz"]
+    run = hz > 0
+    plat = (hz != hz.shift()).cumsum()
+    for _, p in raw[run].groupby(plat[run]):
+        dur = (p["Timestamp"].iloc[-1] - p["Timestamp"].iloc[0]).total_seconds()
+        if dur < SURROGATE_MIN_S:
+            continue
+        ta = float(p["Ta"].median())
+        cond = next((c for c, nom in NOMINAL_TA.items()
+                     if abs(ta - nom) <= SURROGATE_TA_TOL), None)
+        if cond is None:
+            continue
+        heating = float(p["st1"].median()) == 1.0
+        if heating and cond in ("A", "B"):
+            continue                        # mode must match the nominal point
+        if (not heating) and cond not in ("A", "B"):
+            continue
+        q = p["QrH_W"] if heating else p["QrC_W"]
+        m = float(q.mean())
+        if m <= 0:
+            continue
+        cv = float(q.std() / m)
+        if cv >= SURROGATE_CV_MAX:
+            continue
+        out.append((cond, p.index, ta, cv, dur))
+    return out
+
+
 def load_lab(root) -> pd.DataFrame:
     """Load lab monitoring telemetry, C1-shaped, 10 s timebase, certified windows only.
 
@@ -251,6 +293,35 @@ def load_lab(root) -> pd.DataFrame:
     for unit, anchor, f in _monitor_csvs(root):
         wins = windows[windows["unit"] == unit]
         if not len(wins):
+            if unit not in SURROGATE_UNITS:
+                continue
+            # surrogate route (FDD-I-002 #5): 62-col core-dictionary files only
+            head = open(f, encoding="utf-8").readline()
+            if "QrC_W" not in head or "st1" not in head:
+                continue                    # 63-col dialect: unmapped until merged
+            raw = _read_monitor(f, anchor)
+            for cond, idx, ta_med, cv, dur in _surrogate_windows(raw):
+                sel = raw.loc[idx]
+                known = sel["ODU_CtrlMode"].isin(ACSTATE_TRANSLATE)
+                if (~known).any():
+                    q = sel.loc[~known, "ODU_CtrlMode"].value_counts().to_dict()
+                    enum_quarantined.append({"file": f.name, "window": f"surrogate-{cond}",
+                                             "unit": unit,
+                                             "rows": {int(k): int(v) for k, v in q.items()}})
+                    sel = sel[known]
+                if len(sel) < 30:
+                    continue
+                d = _map_chunk(sel, f.name)
+                r = _resample_10s(d)
+                dup_total += r.attrs.get("duplicates_dropped", 0)
+                r["sku"] = UNIT_SKU.get(unit, f"U{unit}")
+                r["unit"] = unit
+                r["test_condition"] = cond
+                r["condition_class"] = "rating"
+                r["source_file"] = f.name
+                r["surrogate_ta"] = ta_med
+                r["surrogate_cv"] = cv
+                chunks.append(r)
             continue
         raw = None
         for _, w in wins.iterrows():
@@ -310,6 +381,14 @@ def schema_diff(df: pd.DataFrame) -> dict:
 _EVENT_RULES = [("报c2", "C2"), ("c2故障", "C2"), ("报c3", "C3"), ("c3", "C3"),
                 ("复位", "复位"), ("断电", "断电"), ("除霜", "除霜")]
 
+# curated events not carried by filenames (extraction provenance in raw_text)
+CURATED_EVENTS = [
+    {"unit": "84", "ts": dt.datetime(2024, 7, 1, 18, 2, 41), "event_type": "探头硬失效",
+     "raw_text": "Th probe flyer +223C during defrost reversal "
+                 "(RamChecker_20240701174201.csv); M-SENSE hard-failure POSITIVE sample "
+                 "(FDD-I-002 #6 archival)"},
+]
+
 
 def load_lab_annotations(root) -> pd.DataFrame:
     """Event table from human-annotated monitoring filenames (unit 44 incident notes).
@@ -328,6 +407,7 @@ def load_lab_annotations(root) -> pd.DataFrame:
             rows.append({"unit": _unit_of(f.parent.name),
                          "ts": dt.datetime.strptime(m.group(1), "%Y%m%d%H%M%S"),
                          "event_type": etype, "raw_text": text})
+    rows.extend(CURATED_EVENTS)
     return pd.DataFrame(rows, columns=["unit", "ts", "event_type", "raw_text"])
 
 
