@@ -1,0 +1,26 @@
+# Unit -> SKU + data-type routing (FDD-I-012 #1). UPDATED WITH EACH DATA DELIVERY.
+#
+# data_type routes each unit's data:
+#   healthy_baseline : enters the rating-anchor / envelope / sense baseline pool.
+#   fault_injected   : EXCLUDED from the healthy baseline pool (its residuals are the
+#                      signal to learn from, not a clean reference). Add injected units
+#                      here as the refrigerant-undercharge gradient data arrives.
+#
+# Units present in delivered data but ABSENT here are reported UNMAPPED (c4 load attrs)
+# and never dropped — add them here (with sku + data_type) to bring them in.
+units:
+  "37": {sku: EODA19H-2436AA, data_type: healthy_baseline}
+  "44": {sku: EODA19H-4860AA, data_type: healthy_baseline}
+  "84": {sku: EODA19H-2436AA, data_type: healthy_baseline}
+  "85": {sku: EODA19H-4860AA, data_type: healthy_baseline}
+  "31": {sku: EODA19H-2436AA, data_type: healthy_baseline}
+  "55": {sku: EODA19H-2436AA, data_type: healthy_baseline}
+
+# SKU nominal rated cooling capacity (kW): 2436AA = 3 ton, 4860AA = 5 ton.
+sku_rated_kw:
+  EODA19H-2436AA: 10.5
+  EODA19H-4860AA: 17.6
+
+# H4 proxy anchor: ANY healthy unit of this SKU with qualifying low-temp defrost-cycling
+# frost-quasi-equilibrium segments (replaces the former single-unit source_unit=44).
+h4_proxy_sku: EODA19H-4860AA

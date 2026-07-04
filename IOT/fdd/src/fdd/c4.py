@@ -49,6 +49,7 @@ import re
 import numpy as np
 import pandas as pd
 
+from fdd import config
 from fdd.contracts.c1_telemetry import RAW_COLUMNS
 
 MONITOR_DIRNAME = "监控数据"
@@ -65,13 +66,12 @@ RENAME = {
 }
 # non-C1 columns ingested by decree (kept under original names as extras):
 KEEP_EXTRA = ("HDSH", "Hsuc", "Hliq", "DltH", "Gr", "coil", "Error_Code")
-UNIT_SKU = {  # 数据说明.xlsx — FINAL
-    "37": "EODA19H-2436AA", "84": "EODA19H-2436AA", "31": "EODA19H-2436AA",
-    "55": "EODA19H-2436AA", "44": "EODA19H-4860AA", "85": "EODA19H-4860AA",
-}
+# unit -> SKU + data_type + rated: externalized to config/unit_sku_map.yaml (FDD-I-012 #1),
+# updated with each data delivery. UNIT_SKU kept as a dict view for existing call sites.
+UNIT_SKU = {u: e["sku"] for u, e in config.unit_map().items()}
 ACSTATE_TRANSLATE = {4: 4, 11: 5, 13: 7}
 STATE_COLS = ("AcState", "CompState", "St")
-TAG_COLS = ("sku", "unit", "test_condition", "condition_class",
+TAG_COLS = ("sku", "unit", "data_type", "test_condition", "condition_class",
             "compstate_derived", "gap_flag", "source_file")
 DEFROST_TA_MAX_C = 20.0     # adjudicated: no defrost / no heating above ~20 C ambient
 
@@ -107,15 +107,15 @@ SURROGATE_MIN_S = 600.0     # locked-frequency plateau >= 10 min
 # SKU nominal rated capacity (kW): 2436AA = 3 ton, 4860AA = 5 ton. Anchor mean capacity
 # must fall in [0.7, 1.3] x nominal; per-condition AHRI rated would refine the band (M3),
 # but the nominal band already catches gross partial-load segments (the B 3 kW anchor).
-SKU_RATED_KW = {"EODA19H-2436AA": 10.5, "EODA19H-4860AA": 17.6}
+SKU_RATED_KW = config.sku_rated_kw()      # config/unit_sku_map.yaml
 SURROGATE_CAP_LO, SURROGATE_CAP_HI = 0.70, 1.30
 
-# H4 proxy anchor for 4860AA (FDD-I-006 #2): unit 44's low-temp defrost-cycling data
-# holds abundant frost quasi-equilibrium (~6097 frosting_steady rows) that the single
-# locked-freq certified H4 window (monotonic frost) missed. Proxy = frosting_steady rows
-# in the H4 Ta band; the post-defrost recovery band is excluded explicitly (the
-# pre-defrost band is already dropped by frost_phase's no_trigger guard).
-PROXY_H4_UNIT = "44"
+# H4 proxy anchor (FDD-I-006 #2, generalized FDD-I-012 #1): frost-quasi-equilibrium rows
+# in the H4 Ta band from ANY healthy unit of the h4_proxy SKU (was hardcoded unit 44).
+# The single locked-freq certified H4 window is monotonic frost (no anchors); the
+# defrost-cycling low-temp runs hold the frost quasi-equilibrium. Post-defrost recovery
+# band excluded explicitly (pre-defrost band dropped by frost_phase's no_trigger guard).
+H4_PROXY_SKU = config.h4_proxy_sku()
 PROXY_H4_TA = (-18.0, -12.0)
 PROXY_DEFROST_EXCLUDE_MIN = 5.0
 _ANCHOR_COLS = ("segment_type", "steady", "frost_phase", "anchor_type", "rating_anchor")
@@ -327,11 +327,14 @@ def _post_defrost_exclude(w: pd.DataFrame) -> np.ndarray:
 
 
 def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
-    """4860AA H4 proxy anchors from unit-44 low-temp defrost-cycling data."""
+    """H4 proxy anchors from ANY healthy h4_proxy-SKU unit's low-temp defrost-cycling data
+    (generalized from the former unit-44 hardcoding, FDD-I-012 #1)."""
     chunks = []
     for unit, anchor, f in _monitor_csvs(root):
-        if unit != PROXY_H4_UNIT:
+        if UNIT_SKU.get(unit) != H4_PROXY_SKU:
             continue
+        if config.unit_data_type(unit) != "healthy_baseline":
+            continue                        # injected units are not baseline anchors
         head = open(f, encoding="utf-8").readline()
         if "QrH_W" not in head or "st1" not in head:
             continue
@@ -352,13 +355,13 @@ def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
         if not len(keep):
             continue
         keep = keep.copy()
-        keep["sku"] = "EODA19H-4860AA"
+        keep["sku"] = UNIT_SKU[unit]
         keep["unit"] = unit
         keep["test_condition"] = "H4"
         keep["condition_class"] = "rating"
         keep["source_file"] = f.name
         keep["h4_proxy"] = True
-        keep["source_unit"] = "44"
+        keep["source_unit"] = unit          # actual unit, not hardcoded
         chunks.append(keep)
     return chunks
 
@@ -371,7 +374,11 @@ def load_lab(root) -> pd.DataFrame:
     root = pathlib.Path(root)
     windows = _bench_windows(root)
     chunks, dup_total, enum_quarantined = [], 0, []
+    unmapped_units = {}
     for unit, anchor, f in _monitor_csvs(root):
+        if UNIT_SKU.get(unit) is None:      # unit absent from config -> UNMAPPED, not dropped
+            unmapped_units[unit] = unmapped_units.get(unit, 0) + 1
+            continue
         wins = windows[windows["unit"] == unit]
         if not len(wins):
             if unit not in SURROGATE_UNITS:
@@ -456,10 +463,13 @@ def load_lab(root) -> pd.DataFrame:
     if "source_unit" not in out.columns:
         out["source_unit"] = None
     out["compstate_derived"] = True
+    # data_type routing (FDD-I-012 #1): healthy_baseline vs fault_injected, per config.
+    out["data_type"] = out["unit"].map(config.unit_data_type) if len(out) else None
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]
     out = out[ordered + extras]
     out.attrs["duplicates_dropped"] = dup_total
+    out.attrs["unmapped_units"] = unmapped_units      # units in data, absent from config
     out.attrs["enum_quarantined"] = enum_quarantined
     return out
 
