@@ -81,6 +81,9 @@ def test_condition_coverage_minimum(lab):
     assert (cov >= 4).all(), f"insufficient rating-condition coverage: {cov[cov < 4].to_dict()}"
 
 
+@pytest.mark.skip(reason="leave-one MAPE<=5% demoted to M3 field DoD (FDD-I-007): lab "
+                         "certification-point density (2-3 pts/mode) structurally cannot "
+                         "support leave-one-condition-out; awaiting M3 field data")
 def test_envelope_holdout_dod(lab):
     """M-BASE L1 leave-one-rating-condition-out. Low-order physical regression;
     frost conditions (H2/H4) carry a frost-phase covariate. H4 for 4860AA uses the
