@@ -134,6 +134,24 @@ def segment(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def transient_report(df: pd.DataFrame) -> pd.DataFrame:
+    """Per (sku, test_condition) steady-state-detector summary for the extreme-vs-rating
+    SSD validation (test_ssd_transient_report). One row per condition with:
+    condition_class, rows, steady_share (mean of the steady flag), anchor_rows (count of
+    rating_anchor==True). Uses the load-time per-chunk steady/rating_anchor columns —
+    segmenting the concatenated lab frame would let segment_id span conditions."""
+    d = df if "rating_anchor" in df.columns else segment(df)
+    keys = [k for k in ("sku", "test_condition") if k in d.columns]
+    g = d.groupby(keys, sort=False)
+    rep = pd.DataFrame({
+        "condition_class": g["condition_class"].first(),
+        "rows": g.size(),
+        "steady_share": g["steady"].mean(),
+        "anchor_rows": g["rating_anchor"].sum(),
+    }).reset_index()
+    return rep
+
+
 def summarize_segments(df: pd.DataFrame) -> pd.DataFrame:
     """Per-segment summary: type, duration, key means (for QA reports)."""
     out = df if "segment_id" in df.columns else segment(df)

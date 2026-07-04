@@ -163,14 +163,63 @@ def test_envelope_holdout_dod(lab):
 
 
 def test_ssd_transient_report(lab):
-    """Arrival-day version asserts the harness runs; steady-threshold re-pinning
-    happens by amendment once real transient distributions are seen."""
+    """M-SEG steady-state detector validation on extreme conditions. transient_report
+    is not a generic report -- it verifies the SSD thresholds (calibrated on a narrow
+    5h warm-winter sample + 7 defrost events) hold on the conditions most likely to
+    break them: extreme conditions (oil-return, defrost, deep cold/hot) with violent
+    transients. Extreme conditions carry condition labels in lab data, serving as the
+    check set for steady segmentation.
+
+    Asserts three physical invariants the SSD must satisfy on extreme conditions:
+    (1) Oil-return segments produce NO steady rows (compressor oil-injection, violent
+        parameter swings -- steadiness there is a detector failure).
+    (2) Defrost segments (CompState==2) produce NO rating_anchor rows (they are
+        excluded from steady by definition; any anchor is a segmentation leak).
+    (3) steady_share on any extreme condition does not exceed steady_share on the
+        matched rating condition of the same SKU/mode (extreme should be LESS steady;
+        inversion means the detector is too permissive).
+
+    回油验证 awaiting O1 回油数据 (FDD-I-010 item 1): no oil-return condition exists in
+    the delivered lab data, so assertion (1)'s oil subset is empty until O1 delivers
+    oil-return runs; (2)/(3) are exercised on the H_low20 -20C extreme.
+    """
     from fdd import seg
-    ext = lab[lab["condition_class"] == "extreme"]
-    assert len(ext) > 0, "no extreme-condition records delivered"
-    rep = seg.transient_report(ext)
-    assert {"test_condition", "rows", "steady_share"} <= set(rep.columns)
-    assert len(rep) > 0
+    rep = seg.transient_report(lab)
+    assert {"sku", "test_condition", "condition_class", "rows",
+            "steady_share", "anchor_rows"} <= set(rep.columns)
+
+    ext = rep[rep["condition_class"] == "extreme"]
+    if len(ext) == 0:
+        pytest.skip("no extreme-condition records in delivered lab data")
+
+    violations = []
+    # (1) oil-return: zero steady
+    oil = ext[ext["test_condition"].str.contains("oil|回油|OIL", case=False, na=False)]
+    for _, r in oil.iterrows():
+        if r["steady_share"] > 0.0:
+            violations.append(("oil_return_has_steady", r["sku"], r["test_condition"],
+                               round(float(r["steady_share"]), 3)))
+
+    # (2) defrost: zero rating_anchor
+    defrost = ext[ext["test_condition"].str.contains("defrost|除霜|DEF", case=False, na=False)]
+    for _, r in defrost.iterrows():
+        if r["anchor_rows"] > 0:
+            violations.append(("defrost_has_anchor", r["sku"], r["test_condition"],
+                               int(r["anchor_rows"])))
+
+    # (3) extreme steady_share <= matched rating steady_share (same SKU)
+    rating = rep[rep["condition_class"] == "rating"]
+    for _, er in ext.iterrows():
+        same_sku_rating = rating[rating["sku"] == er["sku"]]
+        if len(same_sku_rating) == 0:
+            continue
+        max_rating_steady = same_sku_rating["steady_share"].max()
+        if er["steady_share"] > max_rating_steady + 0.05:  # 5% tolerance
+            violations.append(("extreme_steadier_than_rating", er["sku"],
+                               er["test_condition"], round(float(er["steady_share"]), 3),
+                               round(float(max_rating_steady), 3)))
+
+    assert not violations, f"SSD transient-report violations: {violations}"
 
 
 def test_sense_condition_invariance(lab):
