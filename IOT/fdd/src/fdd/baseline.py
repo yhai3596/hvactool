@@ -36,11 +36,17 @@ def fit_envelope(train_df: pd.DataFrame, sku: str) -> dict:
     """Per-mode low-order physical regression. Design matrix = [Ta, frost, 1];
     frost column dropped when a mode has no frost variation (keeps it low-order)."""
     d = _materialized(train_df)
-    model = {"sku": sku, "heating": {}, "cooling": {}}
+    model = {"sku": sku, "heating": {}, "cooling": {},
+             "cond_ta": {"heating": {}, "cooling": {}},
+             "cond_frost": {"heating": {}, "cooling": {}}}
     for mode, ac in _MODE_AC.items():
         sub = d[d["AcState"] == ac]
         if not len(sub):
             continue
+        if "test_condition" in sub.columns:
+            for cond, cg in sub.groupby("test_condition"):
+                model["cond_ta"][mode][cond] = float(cg["Ta"].mean())
+                model["cond_frost"][mode][cond] = float(_frost_covariate(cg).mean())
         Ta = sub["Ta"].to_numpy(dtype=float)
         frost = _frost_covariate(sub)
         # A Ta slope is only real ACROSS conditions: a single lab condition spans ~1-2 K
@@ -94,6 +100,49 @@ def predict_envelope(model: dict, df: pd.DataFrame) -> pd.DataFrame:
                     pred[sel] = beta[0] * Ta[sel] + beta[1]
         out[tgt] = pred
     return out
+
+
+def capacity_ta_slope(model: dict, mode: str) -> float:
+    """Fitted capacity-vs-Ta slope (kW/K) for the mode's capacity (Qh heating / Qc
+    cooling). 0.0 for a single-condition (mean) model. Expected sign (FDD-I-009):
+    heating +1 (Qh rises with Ta), cooling -1 (Qc falls with Ta) — heat-pump physics."""
+    cap = "Qh" if mode == "heating" else "Qc"
+    c = model.get(mode, {}).get(cap)
+    if c is None or c["kind"] == "mean":
+        return 0.0
+    return float(c["beta"][0])
+
+
+def predicted_capacity(model: dict, mode: str, condition: str) -> float:
+    """Model-predicted capacity for a rating condition, evaluated at that condition's
+    mean Ta (and frost state when the frost covariate is used)."""
+    cap = "Qh" if mode == "heating" else "Qc"
+    c = model.get(mode, {}).get(cap)
+    ta = model.get("cond_ta", {}).get(mode, {}).get(condition)
+    if c is None or ta is None:
+        return float("nan")
+    if c["kind"] == "mean":
+        return float(c["value"])
+    beta = c["beta"]
+    if c.get("use_frost"):
+        fr = model.get("cond_frost", {}).get(mode, {}).get(condition, 0.0)
+        return float(beta[0] * ta + beta[1] * fr + beta[2])
+    return float(beta[0] * ta + beta[1])
+
+
+def has_pathological_extrapolation(model: dict, mode: str) -> bool:
+    """True if the mode's capacity model would produce a non-physical prediction. A
+    single-condition mode uses the mean (no extrapolation -> False); a linear model is
+    pathological only if it predicts non-positive capacity at any fitted condition."""
+    cap = "Qh" if mode == "heating" else "Qc"
+    c = model.get(mode, {}).get(cap)
+    if c is None or c["kind"] == "mean":
+        return False
+    for cond in model.get("cond_ta", {}).get(mode, {}):
+        pc = predicted_capacity(model, mode, cond)
+        if not np.isfinite(pc) or pc <= 0:
+            return True
+    return False
 
 
 def physical_plausibility(model: dict, train_df: pd.DataFrame, rated_kw: float) -> dict:

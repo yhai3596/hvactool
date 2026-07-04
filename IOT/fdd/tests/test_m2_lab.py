@@ -29,6 +29,7 @@ Red here = scheduled work signal, not a stop condition.
 """
 import pathlib
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -79,6 +80,48 @@ def test_condition_coverage_minimum(lab):
     cov = lab[lab["condition_class"] == "rating"].groupby("sku")["test_condition"].nunique()
     assert len(cov) > 0
     assert (cov >= 4).all(), f"insufficient rating-condition coverage: {cov[cov < 4].to_dict()}"
+
+
+def test_envelope_physical_plausibility(lab):
+    """M2 envelope DoD: physical plausibility, not leave-one-out MAPE (that is M3,
+    field data). Three checks per SKU/mode (FDD-I-008 two-tier DoD):
+    (1) MONOTONICITY (sign corrected FDD-I-009): heating Qh rises with Ta, cooling
+        Qc falls with Ta — standard heat-pump physics.
+    (2) MAGNITUDE (relaxed FDD-I-009): capacity positive, adjacent-condition capacity
+        ratio within [0.3, 3.0] (no order-of-magnitude jump). Absolute per-condition
+        rated-value check deferred to M3 (needs AHRI cert rated table).
+    (3) NO PATHOLOGICAL EXTRAPOLATION: single-condition mode uses mean, no slope
+        extrapolation across large Ta gaps.
+    """
+    from fdd import baseline
+    rating = lab[lab["rating_anchor"]]
+    violations = []
+    for sku, g in rating.groupby("sku"):
+        model = baseline.fit_envelope(g, sku)
+        for mode, cap_col, expect_sign in [("heating", "Qh", +1), ("cooling", "Qc", -1)]:
+            gm = g[g["AcState"] == 5] if mode == "heating" else g[g["AcState"] == 4]
+            conds = sorted(gm["test_condition"].unique())
+            if len(conds) < 2:
+                continue  # single-condition: monotonicity N/A, checked by (3)
+            # (1) monotonicity sign
+            slope = baseline.capacity_ta_slope(model, mode)
+            if np.sign(slope) != expect_sign and abs(slope) > 0.01:
+                violations.append((sku, mode, "monotonicity", round(float(slope), 4),
+                                   f"expected sign {expect_sign}"))
+            # (2) magnitude: positive + adjacent ratio in [0.3, 3.0]
+            caps = [baseline.predicted_capacity(model, mode, c) for c in conds]
+            if any(cval <= 0 for cval in caps):
+                violations.append((sku, mode, "non_positive_capacity", caps))
+            for i in range(len(caps) - 1):
+                ratio = caps[i + 1] / caps[i] if caps[i] > 0 else float("inf")
+                if not (0.3 <= ratio <= 3.0):
+                    violations.append((sku, mode, "magnitude_jump", conds[i:i+2],
+                                       round(float(ratio), 2)))
+        # (3) no pathological extrapolation
+        for mode in ["heating", "cooling"]:
+            if baseline.has_pathological_extrapolation(model, mode):
+                violations.append((sku, mode, "pathological_extrapolation"))
+    assert not violations, f"envelope physical-plausibility violations: {violations}"
 
 
 @pytest.mark.skip(reason="leave-one MAPE<=5% demoted to M3 field DoD (FDD-I-007): lab "
