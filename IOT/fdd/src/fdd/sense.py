@@ -38,6 +38,7 @@ MIN_BIN_N = 30
 
 # off-equalization (Ta-free ambient trust) — provisional, M3 real-data calibration
 OFF_MIN_HOURS = 4.0
+OFF_MIN_ROWS = 20                        # min off-cycle rows for a verdict
 OFF_EQ_THRESHOLD = 1.0                   # deviation from the settled-consensus median (K)
 OFF_CONSENSUS_TEMPS = ("Ta", "Th", "Ts", "Tl")
 # defrost-plateau Th trust
@@ -96,33 +97,34 @@ def _defrost_plateau_delta(df: pd.DataFrame) -> np.ndarray:
     return np.concatenate(out) if out else np.array([])
 
 
-def off_equalization_check(df: pd.DataFrame) -> dict:
-    """Ta-free trust via off equalization. In off segments (segment_type=='off')
-    lasting > OFF_MIN_HOURS, refrigerant has settled and OFF_CONSENSUS_TEMPS converge;
-    a sensor deviating from the settled-consensus median beyond OFF_EQ_THRESHOLD is
-    suspected drifting. Returns {sensor: {status, deviation}}; all no_reference when no
-    qualifying off segment exists (e.g. a continuously-running record)."""
-    work = seg.segment(conv.materialize(df))
-    elapsed = seg._elapsed_seconds(work)
-    result = {s: {"status": "no_reference", "deviation": np.nan} for s in SENSORS}
-    off = work[work["segment_type"] == "off"]
-    if not len(off):
-        return result
-    for _, g in off.groupby("segment_id"):
-        idx = g.index
-        dur_h = (elapsed.loc[idx].iloc[-1] - elapsed.loc[idx].iloc[0]) / 3600.0
-        if dur_h < OFF_MIN_HOURS:
-            continue
-        settled = g.iloc[len(g) // 2:]                      # 2nd half = settled
-        temps = [c for c in OFF_CONSENSUS_TEMPS if c in settled]
-        consensus = settled[temps].median(axis=1).median()  # robust cross-sensor center
-        for s in OFF_CONSENSUS_TEMPS:
-            if s not in settled:
-                continue
-            dev = float(settled[s].median() - consensus)
-            result[s] = {"status": "flagged" if abs(dev) > OFF_EQ_THRESHOLD else "ok",
-                         "deviation": dev}
-    return result
+def check_off_cycle_equalization(df: pd.DataFrame) -> pd.DataFrame:
+    """Ta-FREE trust source. In an off cycle (CompRps==0) the refrigerant settles and the
+    convergent temps (OFF_CONSENSUS_TEMPS) agree; a sensor deviating from the cross-sensor
+    consensus median by > OFF_EQ_THRESHOLD is suspected drifting. One row per sensor
+    [sensor, status, drift_flag, deviation]; pressures / absent temps -> no_reference.
+
+    Operates on the raw temp columns directly (no seg/materialize) so a short SETTLED off
+    segment (a synthetic M3-stub segment) is judgeable. Real running records feed this via
+    check(), which only passes off segments > OFF_MIN_HOURS."""
+    d = df[df["CompRps"] == 0] if "CompRps" in df.columns else df
+    temps = [c for c in OFF_CONSENSUS_TEMPS if c in d.columns]
+    judge = len(d) >= OFF_MIN_ROWS and len(temps) >= 3
+    med, consensus = {}, None
+    if judge:
+        settled = d.iloc[len(d) // 2:]                       # 2nd half = settled
+        med = {c: float(settled[c].median()) for c in temps}
+        consensus = float(np.median(list(med.values())))     # robust cross-sensor center
+    rows = []
+    for s in SENSORS:
+        if judge and s in med:
+            dev = med[s] - consensus
+            status = "flagged" if abs(dev) > OFF_EQ_THRESHOLD else "ok"
+            rows.append({"sensor": s, "status": status,
+                         "drift_flag": status == "flagged", "deviation": dev})
+        else:
+            rows.append({"sensor": s, "status": "no_reference",
+                         "drift_flag": False, "deviation": np.nan})
+    return pd.DataFrame(rows)
 
 
 def check(df: pd.DataFrame, reference: dict) -> pd.DataFrame:
@@ -158,8 +160,17 @@ def check(df: pd.DataFrame, reference: dict) -> pd.DataFrame:
                 vals[(mode, int(tb))] = float(np.median(v))
         ctx[ch] = vals
 
-    # --- Ta via off-equalization; Th via defrost plateau ---
-    off_eq = off_equalization_check(df)
+    # --- Ta via off-cycle equalization (only off segments > OFF_MIN_HOURS qualify) ---
+    ta_status, ta_dev = "no_reference", np.nan
+    work_full = seg.segment(conv.materialize(df))
+    el = seg._elapsed_seconds(work_full)
+    for _, g in work_full[work_full["segment_type"] == "off"].groupby("segment_id"):
+        dur_h = (el.loc[g.index].iloc[-1] - el.loc[g.index].iloc[0]) / 3600.0
+        if dur_h >= OFF_MIN_HOURS:
+            r = check_off_cycle_equalization(g).set_index("sensor").loc["Ta"]
+            ta_status = r["status"]
+            ta_dev = float(r["deviation"]) if pd.notna(r["deviation"]) else np.nan
+    # --- Th via defrost plateau ---
     th_status, th_dev = "no_reference", np.nan
     rp = reference.get("_th_plateau")
     plateau = _defrost_plateau_delta(df)
@@ -176,10 +187,10 @@ def check(df: pd.DataFrame, reference: dict) -> pd.DataFrame:
                       else "ok" if "ok" in statuses else "no_reference")
             reason = None if status != "no_reference" else "bin_uncovered"
             cstats = {c: ch_stats[c] for c in owning}
-        elif sensor == "Ta":                         # off-equalization
-            status = off_eq["Ta"]["status"]
+        elif sensor == "Ta":                         # off-cycle equalization
+            status = ta_status
             reason = None if status != "no_reference" else "no_off_segment"
-            cstats = {"off_equalization": off_eq["Ta"]["deviation"]}
+            cstats = {"off_equalization": ta_dev}
         elif sensor == "Th":                         # defrost plateau
             status = th_status
             reason = None if status != "no_reference" else "no_defrost_plateau"
