@@ -99,7 +99,12 @@ EXTREME_BASIS = "non-rating bench program (defrost / oil return / other)"
 # nominal-zone + locked-frequency, gated by BOTH (Ta within nominal±3K) AND
 # (capacity CV < 5% within the plateau); anything else stays UNMAPPED.
 SURROGATE_UNITS = ("31", "55")
-NOMINAL_TA = {"A": 35.0, "B": 27.8, "H1N": 8.3, "H2": 1.7, "H3": -8.3, "H4": -15.0}
+# AHRI 210/240 condition points (FDD-I-015), from config/calibration.yaml. CONDITION_POINTS
+# includes the same-temp variants A2/D (ambiguity-aware determination); _RESOLVED is the
+# primary rating-point set (no A2/D) used to LABEL pipeline rows unambiguously.
+CONDITION_POINTS = config.conditions()["points"]
+CONDITION_TOL = config.conditions()["tolerance_c"]
+_RESOLVED = {n: p for n, p in CONDITION_POINTS.items() if n not in ("A2", "D")}
 SURROGATE_TA_TOL = config.cal("surrogate.ta_tol")
 SURROGATE_CV_MAX = config.cal("surrogate.cv_max")
 SURROGATE_MIN_S = config.cal("surrogate.min_s")     # locked-frequency plateau >= 10 min
@@ -129,24 +134,113 @@ def _condition_class(name: str):
     return ("extreme", EXTREME_BASIS)
 
 
+def condition_of(ta: float, is_heating: bool):
+    """AHRI 210/240 condition determination by outdoor Ta + mode (FDD-I-015). Returns
+    (label, confidence): same-temp same-mode pairs -> ('A_or_A2'/'C_or_D', 'AMBIGUOUS');
+    no match -> (None, 'UNKNOWN_CONDITION'); one match -> (name, 'confident'). H12@19.4heat
+    vs C/D@19.4cool are mode-separable (not ambiguous). Tolerance = CONDITION_TOL (+-1.5 C)."""
+    mode = "heat" if is_heating else "cool"
+    cand = [n for n, p in CONDITION_POINTS.items()
+            if p["mode"] == mode and abs(ta - p["ta"]) <= CONDITION_TOL]
+    s = set(cand)
+    if {"A", "A2"} <= s:
+        return "A_or_A2", "AMBIGUOUS"
+    if {"C", "D"} <= s:
+        return "C_or_D", "AMBIGUOUS"
+    if len(cand) == 1:
+        return cand[0], "confident"
+    if not cand:
+        return None, "UNKNOWN_CONDITION"
+    return "/".join(sorted(cand)), "AMBIGUOUS"
+
+
+def _resolved_condition(ta: float, heating: bool, tol: float):
+    """Primary rating-point label for pipeline rows (no A2/D ambiguity), mode-aware."""
+    mode = "heat" if heating else "cool"
+    for n, p in _RESOLVED.items():
+        if p["mode"] == mode and abs(ta - p["ta"]) <= tol:
+            return n
+    return None
+
+
+def condition_segments(df: pd.DataFrame, roll_min: float = 5.0) -> pd.DataFrame:
+    """Split a record into stable-condition vs transition segments by Ta (FDD-I-015 #2).
+    Per-row AHRI condition via condition_of(Ta, mode); a row is 'stable' when its condition
+    label holds across the trailing roll_min-minute window (no cross-condition move), else
+    'transition' (not assigned to a condition, must not enter the anchor pool). Returns
+    df + [ahri_condition, condition_confidence, segment_kind]."""
+    from fdd import seg as _seg
+    out = df.copy()
+    heat = out["AcState"].to_numpy() == 5 if "AcState" in out else np.zeros(len(out), bool)
+    labels, confs = [], []
+    for ta, h in zip(out["Ta"].to_numpy(dtype=float), heat):
+        lab, conf = condition_of(ta, bool(h))
+        labels.append(lab)
+        confs.append(conf)
+    out["ahri_condition"] = labels
+    out["condition_confidence"] = confs
+    elapsed = _seg._elapsed_seconds(out)
+    cadence = float(np.median(np.diff(elapsed))) if len(out) > 1 else _seg.FALLBACK_CADENCE_S
+    win = max(2, int(round(roll_min * 60.0 / max(cadence, 1e-9))))
+    lab_ser = pd.Series(labels, index=out.index)
+    # stable = the condition label is constant (and not None) across the trailing window
+    same = lab_ser.groupby((lab_ser != lab_ser.shift()).cumsum()).transform("size")
+    stable = (lab_ser.notna()) & (same >= win)
+    out["segment_kind"] = np.where(stable, "stable", "transition")
+    return out
+
+
+def uncertainty_report(df: pd.DataFrame, unstable_min: float = 15.0) -> pd.DataFrame:
+    """Auto-produced human-review list (FDD-I-015 #3): condition segments flagged
+    AMBIGUOUS (same-temp A_or_A2 / C_or_D), UNKNOWN_CONDITION (Ta stable but in no band),
+    or UNSTABLE (a transition run longer than unstable_min minutes). One row per flagged
+    run: [flag, ahri_condition, unit, source_file, rows, dur_min, ta_median]."""
+    from fdd import seg as _seg
+    d = df if "segment_kind" in df.columns else condition_segments(df)
+    elapsed = _seg._elapsed_seconds(d)
+    run_id = ((d["ahri_condition"] != d["ahri_condition"].shift())
+              | (d["segment_kind"] != d["segment_kind"].shift())).cumsum()
+    rows = []
+    for _, g in d.groupby(run_id):
+        dur = (elapsed.loc[g.index].iloc[-1] - elapsed.loc[g.index].iloc[0]) / 60.0
+        conf = g["condition_confidence"].iloc[0]
+        kind = g["segment_kind"].iloc[0]
+        flag = None
+        if conf == "AMBIGUOUS":
+            flag = "AMBIGUOUS"
+        elif conf == "UNKNOWN_CONDITION" and kind == "stable":
+            flag = "UNKNOWN_CONDITION"
+        elif kind == "transition" and dur > unstable_min:
+            flag = "UNSTABLE"
+        if flag:
+            rows.append({"flag": flag, "ahri_condition": g["ahri_condition"].iloc[0],
+                         "unit": g["unit"].iloc[0] if "unit" in g else None,
+                         "source_file": g["source_file"].iloc[0] if "source_file" in g else None,
+                         "rows": len(g), "dur_min": round(float(dur), 1),
+                         "ta_median": round(float(g["Ta"].median()), 1)})
+    return pd.DataFrame(rows, columns=["flag", "ahri_condition", "unit", "source_file",
+                                       "rows", "dur_min", "ta_median"])
+
+
 def _reclassify(name: str, cls: str, basis: str, ta_med: float):
-    """Evidence-driven rating re-adjudication (Project 2026-07-03): split/upgrade
-    bench labels by MEASURED window ambient, never by label alone."""
+    """Evidence-driven rating re-adjudication + AHRI naming (FDD-I-015): split/upgrade
+    bench labels by MEASURED window ambient; project old names -> AHRI standard names
+    (bench H4 @-15 -> H4Full; 自动除霜 @1.7 -> H22)."""
     if name.startswith("H4"):
-        if abs(ta_med + 15.0) <= 3.0:
-            return "H4", "rating", CONDITION_CLASS["H4"][1]
+        if abs(ta_med + 15.0) <= 3.0:            # project old "H4" (-15) = AHRI H4Full
+            return "H4Full", "rating", CONDITION_CLASS["H4"][1]
         if abs(ta_med + 20.0) <= 3.0:
             return "H_low20", "extreme", (
-                "measured Ta≈-20 C, below AHRI 2023 M1 H4 (5 F/-15 C); provisional name "
+                "measured Ta≈-20 C, below AHRI H4Full (5 F/-15 C); provisional name "
                 "H_low20, official designation on the lab question list; split from "
                 "metadata label 美标H4 by measured Ta")
         return name, "extreme", f"H4-labelled window at unexpected Ta={ta_med:.1f} C"
     if name == "自动除霜":
-        if abs(ta_med - 1.7) <= 3.0:
-            return "H2", "rating", (
-                "AHRI H2 (1.7 C) frost-condition heating capacity point: window is pure "
+        if abs(ta_med - 1.7) <= 3.0:             # AHRI H22 (frost/defrost condition)
+            return "H22", "rating", (
+                "AHRI H22 (1.7 C) frost-condition heating capacity point: window is pure "
                 "heating (st1==1 throughout, reversal outside window; recon step-3), coil "
-                "in frost zone, ambient matches H2 nominal; bench label was 自动除霜")
+                "in frost zone, ambient matches H22 nominal; bench label was 自动除霜")
         return name, "extreme", EXTREME_BASIS + f" (measured Ta={ta_med:.1f} C)"
     return name, cls, basis
 
@@ -280,14 +374,9 @@ def _surrogate_windows(raw: pd.DataFrame, rated_kw: float) -> list:
         if dur < SURROGATE_MIN_S:
             continue
         ta = float(p["Ta"].median())
-        cond = next((c for c, nom in NOMINAL_TA.items()
-                     if abs(ta - nom) <= SURROGATE_TA_TOL), None)
-        if cond is None:
-            continue
         heating = float(p["st1"].median()) == 1.0
-        if heating and cond in ("A", "B"):
-            continue                        # mode must match the nominal point
-        if (not heating) and cond not in ("A", "B"):
+        cond = _resolved_condition(ta, heating, SURROGATE_TA_TOL)   # AHRI, mode-aware
+        if cond is None:
             continue
         q = p["QrH_W"] if heating else p["QrC_W"]
         m = float(q.mean())
@@ -358,7 +447,7 @@ def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
         keep = keep.copy()
         keep["sku"] = UNIT_SKU[unit]
         keep["unit"] = unit
-        keep["test_condition"] = "H4"
+        keep["test_condition"] = "H4Full"   # AHRI: 4860AA low-temp proxy = H4Full (-15)
         keep["condition_class"] = "rating"
         keep["source_file"] = f.name
         keep["h4_proxy"] = True
@@ -446,7 +535,7 @@ def load_lab(root) -> pd.DataFrame:
                 # unit x frosting condition, double uncertainty, lowest weight).
                 # M3 re-validation should suspect the MAPPING first for these points.
                 r["surrogate_edge"] = ((unit == "55" and cond == "B")
-                                       or (unit == "31" and cond == "H2"))
+                                       or (unit == "31" and cond == "H22"))
                 chunks.append(_with_anchor(r))
             continue
         raw = None

@@ -43,6 +43,8 @@
 - M3 大批量禁用逐行 PropsSI(慢 + native segfault 风险,几十亿行必反复触发);改预计算 R410A 饱和查表(1.0–46 bar,步长 0.0005 bar,露点/泡点各一张,90001 点)+ 线性插值,无 native 崩溃、可复现。此为 M3 前置技术项,M2 期消化;查表口径恒等于 CoolProp(离线预计算)。精度双门:指令精度 DoD <0.01K,但 M0 自洽测试(test_sh_phys_physical_self_consistency)将 materialize 的 te_sat 钉在直算 PropsSI 的 1e-6K 内——0.01 bar 粗表(误差 6e-5K)会击穿该封板测试,故步长收至 0.0005 bar(离网格最坏 5e-8K,数据落网格点即机器精度),封板 sh_phys/sc_phys 数值不移。查表用 conv._sat_temp_c_table,PropsSI 直算 conv._sat_temp_c 保留作生成/校验。
 - 标定值为配置资产(config/calibration.yaml + unit_sku_map.yaml,PyYAML):数据扩充触发重标改配置不改代码,每值带 source/date/scope 可追溯;模块 import 时经 config.cal(点路径)读取,值与外部化前完全一致(行为中性)。机台→SKU、data_type(健康/植入)、SKU 额定、H4 代理 SKU 均外部化,随数据交付更新;未知机台不丢弃(load_lab attrs.unmapped_units 报告)。两处标定数字在测试断言内(envelope 相邻比 [0.3,3.0]、M0 自洽 1e-6K),不外部化(改需 Project 授权测试原文)。
 - 植入机数据双路封堵必须成对:①anchor 层 rating_anchor 清零(c4._apply_data_type_routing),②coverage 门只数 healthy_baseline 工况——只做一条会假绿(植入工况计入健康覆盖→envelope 用故障数据拟合健康包络)。两路共用同一 data_type 分流函数,穿透测试(test_injected_unit_excluded_from_baseline)守住不回归。
+- 工况命名对齐 AHRI 210/240(FDD-I-015):项目旧名→AHRI 标准名 H1→H1N、H2→H22、H3→AHRI H4(−8.3)、H4→H4Full(−15);**关键**:项目旧"H4"是 −15℃ = AHRI **H4Full**,AHRI 的 H4 是 −8.3℃(项目无该温区数据)。代码工况标签统一 AHRI 标准名。判定 = condition_of(Ta, mode),容差 ±1.5℃(AHRI 干球 ±0.56 + 记录 ±1,算术和);同温同模式(A/A2@35、C/D@19.4)Ta 不可分→标 A_or_A2/C_or_D(频率/启停辅助判定下批);H12@19.4 制热 vs C/D@19.4 制冷靠模式区分。工况点/容差在 config/calibration.yaml。
+- 2436AA 健康工况实测(FDD-I-015 item4,排除 31 号 5 少冷媒文件):H22(旧 H2)健康锚=0——此前"H2 覆盖"几乎全是 2 个少冷媒文件(FDD-I-014 证 H2 99% 欠充);低温制热落 H4Full(−15,24 frosting_steady)非 AHRI H4(−8.3,无数据)。31 号 H2/H22 sense 自检红为该欠充污染在 sense 层的体现(非代码 bug,重标 fault_injected 后消,重标本批延后)。
 
 ## 验证法则
 

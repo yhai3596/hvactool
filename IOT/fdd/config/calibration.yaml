@@ -49,6 +49,23 @@ envelope:                     # M-BASE surrogate/plausibility bands
   cap_band_lo: {value: 0.70, source: nominal-band, date: 2026-07-07, scope: "capacity level vs SKU nominal; per-condition AHRI refines (M3)"}
   cap_band_hi: {value: 1.30, source: nominal-band, date: 2026-07-07, scope: "capacity level vs SKU nominal"}
 
+conditions:                   # AHRI 210/240 condition points (FDD-I-015). Ta determination.
+  tolerance_c: {value: 1.5, source: "AHRI DB +/-0.56 + record +/-1.0 (arithmetic sum)", date: 2026-07-08, scope: "Ta condition-assignment tolerance"}
+  # outdoor dry-bulb (C) + mode. Same-temp same-mode pairs (A/A2 @35, C/D @19.4) are
+  # ambiguous by Ta alone -> A_or_A2 / C_or_D (freq/cycling aux determination next batch).
+  # H12 @19.4 heat vs C/D @19.4 cool are mode-separable (not ambiguous).
+  points:
+    A:      {ta: 35.0,  mode: cool}
+    A2:     {ta: 35.0,  mode: cool}
+    B:      {ta: 27.8,  mode: cool}
+    C:      {ta: 19.4,  mode: cool}
+    D:      {ta: 19.4,  mode: cool}
+    H1N:    {ta: 8.3,   mode: heat}
+    H12:    {ta: 19.4,  mode: heat}
+    H22:    {ta: 1.7,   mode: heat}
+    H4:     {ta: -8.3,  mode: heat}
+    H4Full: {ta: -15.0, mode: heat}
+
 surrogate:                    # C4 surrogate rating mapping (31/55) + proxy
   ta_tol:           {value: 3.0,  source: AHRI-tolerance, date: 2026-07-03, scope: "Ta within nominal +/- tol"}
   cv_max:           {value: 0.05, source: statistical,    date: 2026-07-03, scope: "capacity CV within plateau"}

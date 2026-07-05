@@ -61,3 +61,10 @@ def cal(dotted: str):
     for key in dotted.split("."):
         node = node[key]
     return node["value"]
+
+
+def conditions() -> dict:
+    """AHRI 210/240 condition points + tolerance from calibration.yaml (FDD-I-015).
+    Returns {'tolerance_c': float, 'points': {name: {'ta': float, 'mode': 'heat'/'cool'}}}."""
+    c = _load("calibration.yaml")["conditions"]
+    return {"tolerance_c": c["tolerance_c"]["value"], "points": c["points"]}
