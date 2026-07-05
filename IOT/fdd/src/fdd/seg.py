@@ -21,7 +21,7 @@ FALLBACK_CADENCE_S = 10.0   # sample cadence if Timestamp is unparseable (timeba
 
 # ---- frost-phase segmentation (FDD-I-003; single source for sense & envelope) ----
 # Calibration provenance (7 confirmed defrosts + H2 certification windows):
-# - FROST_TH_ONSET_C = 0.0: clean-coil H1N runs sit at Th ≈ +1.8..+2.7 C; every observed
+# - FROST_TH_ONSET_C = 0.0: clean-coil H1 (47F) runs sit at Th ≈ +1.8..+2.7 C; every observed
 #   defrost initiated from Th ≤ −3.4 C; 0 C (freezing) splits the populations.
 # - FROST_DRIFT_RATE_K_MIN = 0.05: lab H2 windows (heavy frosting) measured Th drift
 #   0.09..0.23 K/min; field 5 h light-frost record drifts ≈0.01..0.03 K/min

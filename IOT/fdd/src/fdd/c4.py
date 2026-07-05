@@ -99,12 +99,25 @@ EXTREME_BASIS = "non-rating bench program (defrost / oil return / other)"
 # nominal-zone + locked-frequency, gated by BOTH (Ta within nominal±3K) AND
 # (capacity CV < 5% within the plateau); anything else stays UNMAPPED.
 SURROGATE_UNITS = ("31", "55")
-# AHRI 210/240 condition points (FDD-I-015), from config/calibration.yaml. CONDITION_POINTS
-# includes the same-temp variants A2/D (ambiguity-aware determination); _RESOLVED is the
-# primary rating-point set (no A2/D) used to LABEL pipeline rows unambiguously.
+# AHRI 210/240 condition points (FDD-I-015; letters renamed to AHRI 210/240-2026 Table 8
+# by FDD-I-016: H1N->H1, H22->H2, H4->H3, H4Full->H4, H12->NONSTD_HEAT, +H0 registered),
+# from config/calibration.yaml. CONDITION_POINTS includes the same-temp variants A2/D
+# (ambiguity-aware determination); _RESOLVED is the primary rating-point set (no A2/D)
+# used to LABEL pipeline rows unambiguously.
 CONDITION_POINTS = config.conditions()["points"]
 CONDITION_TOL = config.conditions()["tolerance_c"]
 _RESOLVED = {n: p for n, p in CONDITION_POINTS.items() if n not in ("A2", "D")}
+_TOL_EPS = 1e-9    # IEEE754 guard: keeps the +/-tolerance interval CLOSED at exact edges
+# FDD-I-016 capacity axis: full-load frequency bands (lab InvHz, Hz; closed intervals).
+# Field CompRps needs its own thresholds (M3) — never reuse these there.
+FULL_BAND_HZ = {"heat": tuple(config.cal("capacity.full_band_hz_heat")),
+                "cool": tuple(config.cal("capacity.full_band_hz_cool"))}
+CAPACITY_FULL = "Full"
+CAPACITY_UNKNOWN = "UNKNOWN_CAPACITY"
+# bench / AHRI-2023-M1 metadata names -> 2026 Table 8 letters (FDD-I-016 single naming
+# plane; applied to bench window labels in _reclassify — yaml keys already carry 2026
+# letters, so surrogate and certified windows land on ONE naming plane again)
+AHRI2026_NAME = {"H1N": "H1", "H22": "H2", "H4Full": "H4", "H12": "NONSTD_HEAT"}
 SURROGATE_TA_TOL = config.cal("surrogate.ta_tol")
 SURROGATE_CV_MAX = config.cal("surrogate.cv_max")
 SURROGATE_MIN_S = config.cal("surrogate.min_s")     # locked-frequency plateau >= 10 min
@@ -134,33 +147,65 @@ def _condition_class(name: str):
     return ("extreme", EXTREME_BASIS)
 
 
-def condition_of(ta: float, is_heating: bool):
-    """AHRI 210/240 condition determination by outdoor Ta + mode (FDD-I-015). Returns
-    (label, confidence): same-temp same-mode pairs -> ('A_or_A2'/'C_or_D', 'AMBIGUOUS');
-    no match -> (None, 'UNKNOWN_CONDITION'); one match -> (name, 'confident'). H12@19.4heat
-    vs C/D@19.4cool are mode-separable (not ambiguous). Tolerance = CONDITION_TOL (+-1.5 C)."""
-    mode = "heat" if is_heating else "cool"
-    cand = [n for n, p in CONDITION_POINTS.items()
-            if p["mode"] == mode and abs(ta - p["ta"]) <= CONDITION_TOL]
-    s = set(cand)
-    if {"A", "A2"} <= s:
-        return "A_or_A2", "AMBIGUOUS"
-    if {"C", "D"} <= s:
-        return "C_or_D", "AMBIGUOUS"
-    if len(cand) == 1:
-        return cand[0], "confident"
+def condition_of(ta: float, mode, freq_hz=None):
+    """AHRI 210/240 condition + capacity determination (FDD-I-015; contract FDD-I-016).
+
+    condition_of(Ta_c, mode, freq_hz) -> (letter, capacity, confidence)
+
+    mode: "heat" / "cool" (bool accepted for legacy call sites, True == heat).
+    letter/confidence by Ta: nearest condition center within +/-CONDITION_TOL (closed
+      interval). The nearest-center rule only adjudicates the H0 16.7 / NONSTD_HEAT 19.4
+      overlap — on non-overlapping points it degenerates to band membership. Same-center
+      same-mode pairs stay Ta-inseparable: A/A2 @35 -> ('A_or_A2', 'AMBIGUOUS'),
+      C/D @19.4 -> ('C_or_D', 'AMBIGUOUS'). No center in tolerance ->
+      (None, 'UNKNOWN_CONDITION'). NONSTD_HEAT = 19.4 C (67 F) heating lab verification
+      point, NOT an AHRI standard condition (anchor/envelope handling is downstream).
+    capacity by actual frequency, ORTHOGONAL to letter (still computed when letter is
+      unknown): freq inside the mode's full-load band (closed, lab InvHz) -> 'Full';
+      below (part load), above (anomaly — the band never self-widens) or missing ->
+      'UNKNOWN_CAPACITY'. Field CompRps thresholds are a separate calibration (M3)."""
+    if isinstance(mode, (bool, np.bool_)):
+        mode = "heat" if mode else "cool"
+    cand = [(abs(ta - p["ta"]), n) for n, p in CONDITION_POINTS.items()
+            if p["mode"] == mode and abs(ta - p["ta"]) <= CONDITION_TOL + _TOL_EPS]
     if not cand:
-        return None, "UNKNOWN_CONDITION"
-    return "/".join(sorted(cand)), "AMBIGUOUS"
+        letter, conf = None, "UNKNOWN_CONDITION"
+    else:
+        nearest = min(cand)[1]
+        center = CONDITION_POINTS[nearest]["ta"]
+        pair = sorted(n for _, n in cand if CONDITION_POINTS[n]["ta"] == center)
+        if pair == ["A", "A2"]:
+            letter, conf = "A_or_A2", "AMBIGUOUS"
+        elif pair == ["C", "D"]:
+            letter, conf = "C_or_D", "AMBIGUOUS"
+        elif len(pair) == 1:
+            letter, conf = pair[0], "confident"
+        else:
+            letter, conf = "/".join(pair), "AMBIGUOUS"
+    band = FULL_BAND_HZ.get(mode)
+    f = None
+    if freq_hz is not None and band is not None:
+        try:
+            f = float(freq_hz)
+        except (TypeError, ValueError):
+            f = None
+        if f is not None and np.isnan(f):
+            f = None
+    cap = (CAPACITY_FULL if f is not None
+           and band[0] - _TOL_EPS <= f <= band[1] + _TOL_EPS else CAPACITY_UNKNOWN)
+    return letter, cap, conf
 
 
 def _resolved_condition(ta: float, heating: bool, tol: float):
-    """Primary rating-point label for pipeline rows (no A2/D ambiguity), mode-aware."""
+    """Primary rating-point label for pipeline rows (no A2/D ambiguity), mode-aware.
+    Nearest center within tol: required once H0 (16.7) and NONSTD_HEAT (19.4) are both
+    registered — at surrogate tol=3.0 their bands overlap, and registry order must not
+    decide. On the pre-FDD-I-016 registry this is behavior-identical to first-match
+    (no two same-mode points sat closer than 2 x tol)."""
     mode = "heat" if heating else "cool"
-    for n, p in _RESOLVED.items():
-        if p["mode"] == mode and abs(ta - p["ta"]) <= tol:
-            return n
-    return None
+    cand = [(abs(ta - p["ta"]), n) for n, p in _RESOLVED.items()
+            if p["mode"] == mode and abs(ta - p["ta"]) <= tol + _TOL_EPS]
+    return min(cand)[1] if cand else None
 
 
 def condition_segments(df: pd.DataFrame, roll_min: float = 5.0) -> pd.DataFrame:
@@ -174,7 +219,7 @@ def condition_segments(df: pd.DataFrame, roll_min: float = 5.0) -> pd.DataFrame:
     heat = out["AcState"].to_numpy() == 5 if "AcState" in out else np.zeros(len(out), bool)
     labels, confs = [], []
     for ta, h in zip(out["Ta"].to_numpy(dtype=float), heat):
-        lab, conf = condition_of(ta, bool(h))
+        lab, _cap, conf = condition_of(ta, "heat" if h else "cool")
         labels.append(lab)
         confs.append(conf)
     out["ahri_condition"] = labels
@@ -223,24 +268,33 @@ def uncertainty_report(df: pd.DataFrame, unstable_min: float = 15.0) -> pd.DataF
 
 
 def _reclassify(name: str, cls: str, basis: str, ta_med: float):
-    """Evidence-driven rating re-adjudication + AHRI naming (FDD-I-015): split/upgrade
-    bench labels by MEASURED window ambient; project old names -> AHRI standard names
-    (bench H4 @-15 -> H4Full; 自动除霜 @1.7 -> H22)."""
+    """Evidence-driven rating re-adjudication + AHRI naming: split/upgrade bench labels
+    by MEASURED window ambient (FDD-I-015); bench / 2023-M1 metadata names normalized to
+    AHRI 210/240-2026 Table 8 letters via AHRI2026_NAME (FDD-I-016), so certified and
+    surrogate windows share one naming plane (bench H4 @-15 -> H4; 自动除霜 @1.7 -> H2)."""
+    name = AHRI2026_NAME.get(name, name)
+    if name == "NONSTD_HEAT":
+        # 19.4 C (67 F) heating lab verification point, not an AHRI standard condition:
+        # must not count as rating coverage (dormant today — no H12 windows in delivered
+        # data); envelope retention / checklist handling stay downstream (FDD-I-016).
+        return name, "extreme", (
+            "19.4 C (67 F) heating lab verification point, non-AHRI-standard "
+            "(FDD-I-016 NONSTD_HEAT; bench metadata label H12)")
     if name.startswith("H4"):
-        if abs(ta_med + 15.0) <= 3.0:            # project old "H4" (-15) = AHRI H4Full
-            return "H4Full", "rating", CONDITION_CLASS["H4"][1]
+        if abs(ta_med + 15.0) <= 3.0:            # bench H4 (-15) = AHRI 2026 H4
+            return "H4", "rating", CONDITION_CLASS["H4"][1]
         if abs(ta_med + 20.0) <= 3.0:
             return "H_low20", "extreme", (
-                "measured Ta≈-20 C, below AHRI H4Full (5 F/-15 C); provisional name "
+                "measured Ta≈-20 C, below AHRI H4 (5 F/-15 C); provisional name "
                 "H_low20, official designation on the lab question list; split from "
                 "metadata label 美标H4 by measured Ta")
         return name, "extreme", f"H4-labelled window at unexpected Ta={ta_med:.1f} C"
     if name == "自动除霜":
-        if abs(ta_med - 1.7) <= 3.0:             # AHRI H22 (frost/defrost condition)
-            return "H22", "rating", (
-                "AHRI H22 (1.7 C) frost-condition heating capacity point: window is pure "
+        if abs(ta_med - 1.7) <= 3.0:             # AHRI H2 (frost/defrost condition)
+            return "H2", "rating", (
+                "AHRI H2 (1.7 C) frost-condition heating capacity point: window is pure "
                 "heating (st1==1 throughout, reversal outside window; recon step-3), coil "
-                "in frost zone, ambient matches H22 nominal; bench label was 自动除霜")
+                "in frost zone, ambient matches H2 nominal; bench label was 自动除霜")
         return name, "extreme", EXTREME_BASIS + f" (measured Ta={ta_med:.1f} C)"
     return name, cls, basis
 
@@ -447,7 +501,7 @@ def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
         keep = keep.copy()
         keep["sku"] = UNIT_SKU[unit]
         keep["unit"] = unit
-        keep["test_condition"] = "H4Full"   # AHRI: 4860AA low-temp proxy = H4Full (-15)
+        keep["test_condition"] = "H4"   # 4860AA low-temp proxy = AHRI 2026 H4 (-15)
         keep["condition_class"] = "rating"
         keep["source_file"] = f.name
         keep["h4_proxy"] = True
@@ -535,7 +589,7 @@ def load_lab(root) -> pd.DataFrame:
                 # unit x frosting condition, double uncertainty, lowest weight).
                 # M3 re-validation should suspect the MAPPING first for these points.
                 r["surrogate_edge"] = ((unit == "55" and cond == "B")
-                                       or (unit == "31" and cond == "H22"))
+                                       or (unit == "31" and cond == "H2"))
                 chunks.append(_with_anchor(r))
             continue
         raw = None

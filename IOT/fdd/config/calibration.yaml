@@ -49,22 +49,31 @@ envelope:                     # M-BASE surrogate/plausibility bands
   cap_band_lo: {value: 0.70, source: nominal-band, date: 2026-07-07, scope: "capacity level vs SKU nominal; per-condition AHRI refines (M3)"}
   cap_band_hi: {value: 1.30, source: nominal-band, date: 2026-07-07, scope: "capacity level vs SKU nominal"}
 
-conditions:                   # AHRI 210/240 condition points (FDD-I-015). Ta determination.
+conditions:                   # AHRI 210/240 condition points. Ta determination (FDD-I-015);
+  # letters per AHRI 210/240-2026 Table 8 (FDD-I-016 rename: H1N->H1, H22->H2, H4->H3,
+  # H4Full->H4, H12->NONSTD_HEAT; H0 newly registered, no data yet).
   tolerance_c: {value: 1.5, source: "AHRI DB +/-0.56 + record +/-1.0 (arithmetic sum)", date: 2026-07-08, scope: "Ta condition-assignment tolerance"}
   # outdoor dry-bulb (C) + mode. Same-temp same-mode pairs (A/A2 @35, C/D @19.4) are
   # ambiguous by Ta alone -> A_or_A2 / C_or_D (freq/cycling aux determination next batch).
-  # H12 @19.4 heat vs C/D @19.4 cool are mode-separable (not ambiguous).
+  # NONSTD_HEAT @19.4 heat vs C/D @19.4 cool are mode-separable (not ambiguous).
+  # NONSTD_HEAT = 67F heating lab verification point, NOT an AHRI standard condition.
+  # H0 (16.7) and NONSTD_HEAT (19.4) bands overlap at tolerance 1.5 -> nearest-center rule.
   points:
-    A:      {ta: 35.0,  mode: cool}
-    A2:     {ta: 35.0,  mode: cool}
-    B:      {ta: 27.8,  mode: cool}
-    C:      {ta: 19.4,  mode: cool}
-    D:      {ta: 19.4,  mode: cool}
-    H1N:    {ta: 8.3,   mode: heat}
-    H12:    {ta: 19.4,  mode: heat}
-    H22:    {ta: 1.7,   mode: heat}
-    H4:     {ta: -8.3,  mode: heat}
-    H4Full: {ta: -15.0, mode: heat}
+    A:           {ta: 35.0,  mode: cool}
+    A2:          {ta: 35.0,  mode: cool}
+    B:           {ta: 27.8,  mode: cool}
+    C:           {ta: 19.4,  mode: cool}
+    D:           {ta: 19.4,  mode: cool}
+    H0:          {ta: 16.7,  mode: heat}
+    H1:          {ta: 8.3,   mode: heat}
+    H2:          {ta: 1.7,   mode: heat}
+    H3:          {ta: -8.3,  mode: heat}
+    H4:          {ta: -15.0, mode: heat}
+    NONSTD_HEAT: {ta: 19.4,  mode: heat}
+
+capacity:                     # FDD-I-016 capacity axis: full-load frequency bands (closed)
+  full_band_hz_heat: {value: [70.0, 86.0], source: "FDD-I-016 Alan-approved full-load band; 2436AA lab InvHz plateaus", date: 2026-07-05, scope: "lab InvHz (Hz) ONLY; field CompRps needs separate thresholds (M3); band never self-widens (above-band = anomaly, reported not absorbed)"}
+  full_band_hz_cool: {value: [66.0, 76.0], source: "FDD-I-016 Alan-approved full-load band; 2436AA lab InvHz plateaus", date: 2026-07-05, scope: "lab InvHz (Hz) ONLY; field CompRps needs separate thresholds (M3)"}
 
 surrogate:                    # C4 surrogate rating mapping (31/55) + proxy
   ta_tol:           {value: 3.0,  source: AHRI-tolerance, date: 2026-07-03, scope: "Ta within nominal +/- tol"}
