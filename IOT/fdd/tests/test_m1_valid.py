@@ -27,6 +27,7 @@ import pandas as pd
 import pytest
 
 from fdd import diag, valid
+from fdd.diag import diagnose
 
 pytestmark = pytest.mark.m1
 
@@ -110,3 +111,56 @@ def test_diag_indoor_nonspecific_flag():
            "tf_resid": 0.0, "i_resid": 0.0, "approach": 0.0}
     out = diag.diagnose(row, mode="heating")
     assert out["fault_hypothesis"] == "indoor_side_nonspecific"
+
+
+# ---------------- diag cooling branch (FDD-I-019 attachment, transcribed verbatim) ----
+
+LEAK_ROW_COOL_EARLY = dict(mode='cooling', exv_resid=0.0, sh_resid=0.5,
+                           sc_resid=-2.0, capacity_resid=-0.10)  # sc+capacity 双证
+LEAK_ROW_COOL_SCONLY = dict(mode='cooling', exv_resid=0.0, sh_resid=0.5,
+                            sc_resid=-2.0, capacity_resid=0.0)   # sc 单证(capacity 未触发)
+LEAK_ROW_COOL_ADV   = dict(mode='cooling', exv_resid=0.0, sh_resid=5.0,
+                           sc_resid=-2.0, capacity_resid=-0.10)
+RESTRICT_ROW_COOL   = dict(mode='cooling', exv_resid=0.0, sh_resid=5.0,
+                           sc_resid=+2.5, capacity_resid=-0.05)
+
+def test_leak_cooling_early_two_features():
+    out = diagnose(LEAK_ROW_COOL_EARLY, mode='cooling')
+    assert out['fault_hypothesis'] == 'refrigerant_low_or_leak'
+    feats = {e['feature'] for e in out['evidence']}
+    assert 'sc_resid' in feats and 'capacity_resid' in feats   # 双证时 capacity 入 evidence
+    assert 'exv_resid' not in feats      # DK-009(a)(d)
+    assert 'sh_resid' not in feats       # 早期:SSH 正常带只作上下文
+    assert out['confidence'] >= 0.65
+
+def test_leak_cooling_early_sc_only():
+    # ★sc 低但 capacity 未低:仍判 refrigerant_low(sc 为主证),置信低于双证
+    out = diagnose(LEAK_ROW_COOL_SCONLY, mode='cooling')
+    assert out['fault_hypothesis'] == 'refrigerant_low_or_leak'
+    feats = {e['feature'] for e in out['evidence']}
+    assert 'sc_resid' in feats
+    assert 'capacity_resid' not in feats   # 未触发,不入 evidence
+    assert 0.5 <= out['confidence'] < 0.65
+
+def test_leak_cooling_advanced_sh_self_gated():
+    out = diagnose(LEAK_ROW_COOL_ADV, mode='cooling', exv_saturated=False)
+    assert out['fault_hypothesis'] == 'refrigerant_low_or_leak'
+    feats = {e['feature'] for e in out['evidence']}
+    assert 'sh_resid' in feats           # DK-009(c):制冷 Sh 自门控
+    assert 'exv_resid' not in feats
+
+def test_metering_restriction_cooling():
+    out = diagnose(RESTRICT_ROW_COOL, mode='cooling')
+    assert out['fault_hypothesis'] == 'metering_restriction'
+    sc_ev = [e for e in out['evidence'] if e['feature'] == 'sc_resid'][0]
+    assert sc_ev['direction'] == +1      # SC 正向 = 对 refrigerant_low 的反证方向
+
+def test_cooling_exv_alone_not_leak():
+    row = dict(mode='cooling', exv_resid=+25.0, sh_resid=0.0,
+               sc_resid=0.0, capacity_resid=0.0)
+    out = diagnose(row, mode='cooling')
+    assert out['fault_hypothesis'] != 'refrigerant_low_or_leak'
+
+def test_cooling_tolerates_missing_dsh():
+    out = diagnose(LEAK_ROW_COOL_EARLY, mode='cooling')   # 无 dsh_phys 键
+    assert out['fault_hypothesis'] == 'refrigerant_low_or_leak'

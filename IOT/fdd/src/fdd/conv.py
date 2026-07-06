@@ -133,6 +133,7 @@ def materialize(df: pd.DataFrame) -> pd.DataFrame:
     out["tc_sat"] = _sat_temp_c_table(out["hp_abs"], quality=0.0)   # bubble (table interp)
     out["sc_phys"] = out["tc_sat"] - out["Tl"]          # rule #2: no -1 term
     out["sh_phys"] = out["Ts"] - out["te_sat"]
+    out["dsh_phys"] = out["Td"] - out["tc_sat"]         # discharge superheat (D-N6, FDD-I-019)
     out["mode"] = out["AcState"].map(ACSTATE).fillna("unknown")
     out["reversing"] = out["St"]                        # rule #7: 4-way valve position
     out["tcs_gap"] = out["tc_sat"] - out["Tcs"]         # rule #8: target, not measurement

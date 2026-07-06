@@ -74,7 +74,8 @@ UNIT_SKU = {u: e["sku"] for u, e in config.unit_map().items()}
 ACSTATE_TRANSLATE = {4: 4, 11: 5, 13: 7}
 STATE_COLS = ("AcState", "CompState", "St")
 TAG_COLS = ("sku", "unit", "data_type", "test_condition", "condition_class",
-            "compstate_derived", "gap_flag", "source_file", "envelope_input")
+            "compstate_derived", "gap_flag", "source_file", "envelope_input",
+            "cooling_ref_quarantine")
 DEFROST_TA_MAX_C = config.cal("surrogate.defrost_ta_max_c")   # no defrost/heating above ~20 C
 
 NAN_FILLED = sorted(set(RAW_COLUMNS) - {"Timestamp"} - {
@@ -533,6 +534,23 @@ def _apply_data_type_routing(out: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _apply_cooling_ref_quarantine(out: pd.DataFrame) -> pd.DataFrame:
+    """DK-016 (FDD-I-019-R1): flag unit-level-anomaly rows for cooling-side reference
+    exclusion (u31 trial-production x condition A, EEV partial opening 286-316). Rows
+    stay LOADED — the flag only marks them out of every cooling reference pool /
+    calibration statistic / sh-sc baseline; they remain the first real sample of the
+    exv-anomaly channel (DK-009-d)."""
+    out["cooling_ref_quarantine"] = False
+    if not len(out) or "source_file" not in out.columns:
+        return out
+    q = {(u, e["file"], e["test_condition"])
+         for u in config.unit_map() for e in config.cooling_ref_quarantine(u)}
+    if q:
+        keys = zip(out["unit"], out["source_file"], out["test_condition"])
+        out["cooling_ref_quarantine"] = [k in q for k in keys]
+    return out
+
+
 def _derive_envelope_input(out: pd.DataFrame) -> pd.DataFrame:
     """FDD-I-018: decouple the L1 envelope fit input from the rating-anchor pool
     (NONSTD_HEAT rules 1/2, decision register DK-007).
@@ -715,6 +733,7 @@ def load_lab(root) -> pd.DataFrame:
                          zip(out["unit"], out["source_file"])] if len(out) else None)
     out = _apply_data_type_routing(out)
     out = _derive_envelope_input(out)      # FDD-I-018: fit-input plane (rules 1/2)
+    out = _apply_cooling_ref_quarantine(out)   # DK-016: u31xA cooling-side flag
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]
     out = out[ordered + extras]

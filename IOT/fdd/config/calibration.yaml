@@ -75,6 +75,14 @@ capacity:                     # FDD-I-016 capacity axis: full-load frequency ban
   full_band_hz_heat: {value: [70.0, 86.0], source: "FDD-I-016 Alan-approved full-load band; 2436AA lab InvHz plateaus", date: 2026-07-05, scope: "lab InvHz (Hz) ONLY; field CompRps needs separate thresholds (M3); band never self-widens (above-band = anomaly, reported not absorbed)"}
   full_band_hz_cool: {value: [66.0, 76.0], source: "FDD-I-016 Alan-approved full-load band; 2436AA lab InvHz plateaus", date: 2026-07-05, scope: "lab InvHz (Hz) ONLY; field CompRps needs separate thresholds (M3)"}
 
+diag:                         # M-DIAG v0 cooling-branch constants (FDD-I-019/-R1; M4 recalibrates on UC gradient)
+  sh_norm_band_cool: {value: 3.0,  source: "FDD-I-019; plane: per_unit_bin (DK-017 — cooling sh_resid reference = per-unit x same-bin ONLY, cross-unit/global reference FORBIDDEN; clean per-unit-x-condition std <=0.74 K so 3.0 K ~ 4 sigma conservative)", date: 2026-07-06, scope: "cooling sh_resid normal band (K); M4 UC-gradient recal"}
+  sh_high_cool:      {value: 3.0,  source: "FDD-I-019; band edge = high threshold (residual, NOT absolute SSH)", date: 2026-07-06, scope: "cooling sh_resid high threshold (K); M4 recal"}
+  sc_low:            {value: -1.5, source: "FDD-I-019 (v0 lineage)", date: 2026-07-06, scope: "cooling sc_resid low threshold (K), early/advanced leak main channel"}
+  sc_high:           {value: 1.5,  source: "FDD-I-019; SC_LOW mirror, metering-restriction direction", date: 2026-07-06, scope: "cooling sc_resid high threshold (K); M4 recal"}
+  cap_low:           {value: -0.07, source: "FDD-I-019 (v0 lineage); corroboration NOT hard gate (star change)", date: 2026-07-06, scope: "cooling capacity_resid corroboration threshold (fraction)"}
+  dsh_safety_min_k:  {value: 5.0,  source: "PROVISIONAL (FDD-I-019 DSH annotation clause, value pending Alan review); common compressor min-discharge-superheat safety practice", date: 2026-07-06, scope: "dsh_phys below this appends a compressor-safety checklist line; annotation ONLY, never an AND gate (DK-015); K-scale precision per DK-018"}
+
 surrogate:                    # C4 surrogate rating mapping (31/55) + proxy
   ta_tol:           {value: 3.0,  source: AHRI-tolerance, date: 2026-07-03, scope: "Ta within nominal +/- tol"}
   cv_max:           {value: 0.05, source: statistical,    date: 2026-07-03, scope: "capacity CV within plateau"}

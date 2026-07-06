@@ -60,6 +60,14 @@ def data_type_of(unit: str, source_file: str = None):
     return ent.get("data_type")
 
 
+def cooling_ref_quarantine(unit: str) -> list:
+    """DK-016 (FDD-I-019-R1): per-unit list of {file, test_condition} whose rows carry a
+    cooling-side QUARANTINE FLAG (reference pools / calibration statistics / sh-sc
+    baselines must exclude them); rows stay loaded — never deleted."""
+    ent = unit_map().get(str(unit))
+    return (ent or {}).get("cooling_ref_quarantine") or []
+
+
 def sku_rated_kw() -> dict:
     return _load("unit_sku_map.yaml")["sku_rated_kw"]
 

@@ -23,6 +23,7 @@ DERIVED = {
     "tc_sat":      "CoolProp Tsat(hp_abs, R410A, bubble)",
     "sc_phys":     "tc_sat - Tl            # NO -1 (rule #2)",
     "sh_phys":     "Ts - te_sat",
+    "dsh_phys":    "Td - tc_sat            # discharge superheat (D-N6, FDD-I-019; annotation/safety plane; DK-018 vs firmware HDSH: cross-pipeline convention diff, bias<=0.3K & steady P95<=1.5K)",
     "reversing":   "St                     # 1 heating position, 0 defrost/cooling (rule #7)",
     "tcs_gap":     "tc_sat - Tcs           # control-target tracking gap (rule #8)",
     "p_parasitic": "PowerIn - PowerComp - fan_power_est",

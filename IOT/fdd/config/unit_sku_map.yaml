@@ -27,6 +27,15 @@ units:
       RamChecker_20231209130220.csv: fault_injected
       RamChecker_20231209144220.csv: fault_injected
       RamChecker_20231209162220.csv: fault_injected
+    # DK-016 (FDD-I-019-R1 ruling 1): trial-production unit 31 x condition-A cooling EEV
+    # partial opening (Exv 286-316, 104 steady rows, 3 files) = unit-level anomaly.
+    # QUARANTINE FLAG for every cooling-side reference pool / calibration statistic /
+    # sh-sc baseline; rows are NOT deleted (kept loaded as the first real sample of the
+    # exv-anomaly channel, DK-009-d). Mechanism question -> O-VENDOR (organizational).
+    cooling_ref_quarantine:
+      - {file: RamChecker_20231123172117.csv, test_condition: A}
+      - {file: RamChecker_20231123205133.csv, test_condition: A}
+      - {file: RamChecker_20231127105005.csv, test_condition: A}
   "55": {sku: EODA19H-2436AA, data_type: healthy_baseline}
 
 # SKU nominal rated cooling capacity (kW): 2436AA = 3 ton, 4860AA = 5 ton.
