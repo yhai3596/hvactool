@@ -111,7 +111,7 @@ def test_envelope_physical_plausibility(lab):
         extrapolation across large Ta gaps.
     """
     from fdd import baseline
-    rating = lab[lab["rating_anchor"]]
+    rating = lab[lab["envelope_input"]]
     violations = []
     for sku, g in rating.groupby("sku"):
         model = baseline.fit_envelope(g, sku)
@@ -151,7 +151,7 @@ def test_envelope_holdout_dod(lab):
     tunable; a proxy-anchor condition breaching them is a REPORTED signal, not a
     threshold to relax."""
     from fdd import baseline, conv, seg
-    rating = lab[lab["rating_anchor"]]
+    rating = lab[lab["envelope_input"]]
     evaluated, failures = 0, []
     for sku, g in rating.groupby("sku"):
         conds = sorted(g["test_condition"].unique())

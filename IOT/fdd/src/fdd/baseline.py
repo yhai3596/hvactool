@@ -36,7 +36,12 @@ def _frost_covariate(sub: pd.DataFrame) -> np.ndarray:
 
 def fit_envelope(train_df: pd.DataFrame, sku: str) -> dict:
     """Per-mode low-order physical regression. Design matrix = [Ta, frost, 1];
-    frost column dropped when a mode has no frost variation (keeps it low-order)."""
+    frost column dropped when a mode has no frost variation (keeps it low-order).
+    Fit-input row selection (FDD-I-018): when the frame carries the envelope_input
+    plane, fit ONLY those rows — the fit input is envelope_input, decoupled from
+    rating_anchor (NONSTD rule 2); idempotent on pre-filtered frames."""
+    if "envelope_input" in train_df.columns:
+        train_df = train_df[train_df["envelope_input"].fillna(False).astype(bool)]
     d = _materialized(train_df)
     model = {"sku": sku, "heating": {}, "cooling": {},
              "cond_ta": {"heating": {}, "cooling": {}},

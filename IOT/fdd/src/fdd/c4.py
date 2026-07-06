@@ -74,7 +74,7 @@ UNIT_SKU = {u: e["sku"] for u, e in config.unit_map().items()}
 ACSTATE_TRANSLATE = {4: 4, 11: 5, 13: 7}
 STATE_COLS = ("AcState", "CompState", "St")
 TAG_COLS = ("sku", "unit", "data_type", "test_condition", "condition_class",
-            "compstate_derived", "gap_flag", "source_file")
+            "compstate_derived", "gap_flag", "source_file", "envelope_input")
 DEFROST_TA_MAX_C = config.cal("surrogate.defrost_ta_max_c")   # no defrost/heating above ~20 C
 
 NAN_FILLED = sorted(set(RAW_COLUMNS) - {"Timestamp"} - {
@@ -533,6 +533,67 @@ def _apply_data_type_routing(out: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _derive_envelope_input(out: pd.DataFrame) -> pd.DataFrame:
+    """FDD-I-018: decouple the L1 envelope fit input from the rating-anchor pool
+    (NONSTD_HEAT rules 1/2, decision register DK-007).
+      - rating_anchor  : rating-coverage gate / O-CERT magnitude plane. NONSTD_HEAT
+        rows forced False (rule 1 — a non-AHRI point never counts as rating material;
+        anchor_type is KEPT: steadiness is a seg-level physical fact, not a naming one).
+      - envelope_input : L1 envelope fit input. Healthy steady-anchor rows INCLUDING
+        NONSTD_HEAT (rule 2 — healthy 19.4 C heating data extends the high-Ta end).
+      - fault_injected rows: both False (FDD-I-017 exclusion kept).
+    All other healthy steady-anchor rows carry both True (behavior unchanged). Runs
+    AFTER _apply_data_type_routing at the same single choke point."""
+    if "envelope_input" not in out.columns:
+        out["envelope_input"] = False
+    if not len(out):
+        return out
+    idx = out.index
+    nonstd = (out["test_condition"] == "NONSTD_HEAT") if "test_condition" in out.columns \
+        else pd.Series(False, index=idx)
+    steady_anchor = out["anchor_type"].notna() if "anchor_type" in out.columns \
+        else pd.Series(False, index=idx)
+    healthy = (out["data_type"] == "healthy_baseline") if "data_type" in out.columns \
+        else pd.Series(True, index=idx)
+    out.loc[nonstd, "rating_anchor"] = False                       # rule 1
+    out["envelope_input"] = healthy & steady_anchor & (out["rating_anchor"] | nonstd)
+    return out
+
+
+def load_lab_for_test() -> pd.DataFrame:
+    """Synthetic three-class lab table for the FDD-I-018 unit tests (rule-1/2 pinning),
+    same pattern as _make_synthetic_injected_unit: rows flow through the REAL anchor
+    segmentation (_with_anchor), the REAL data_type routing and the REAL envelope_input
+    derivation — nothing is hand-set, so a regression in any of those layers reddens
+    the spec tests. Adds the alias columns the spec tests consume: ahri_condition
+    (== test_condition on synthetic rows) and is_steady_anchor (anchor_type set)."""
+    def _steady(unit, cond, cls, ta, data_type):
+        n = 120
+        r = pd.DataFrame({
+            "Timestamp": pd.date_range("2026-01-01", periods=n, freq="10s"),
+            "CompState": 1, "St": 1, "AcState": 5,
+            "Th": 2.0, "Ta": float(ta), "CompRps": 60.0, "Exv": 300.0,
+            "Lp": 8.0, "Hp": 22.0,
+        })
+        r = _with_anchor(r)
+        r["unit"] = unit
+        r["sku"] = "EODA19H-2436AA"
+        r["test_condition"] = cond
+        r["condition_class"] = cls
+        r["data_type"] = data_type
+        r["source_file"] = f"synthetic_{cond}.csv"
+        return r
+    healthy = _steady("SYN-H", "H1", "rating", 8.3, "healthy_baseline")
+    nonstd = _steady("SYN-N", "NONSTD_HEAT", "extreme", 19.4, "healthy_baseline")
+    fault = _steady("31", "H2", "rating", 1.7, "fault_injected")
+    out = pd.concat([healthy, nonstd, fault], ignore_index=True)
+    out = _apply_data_type_routing(out)
+    out = _derive_envelope_input(out)
+    out["ahri_condition"] = out["test_condition"]
+    out["is_steady_anchor"] = out["anchor_type"].notna()
+    return out
+
+
 def _make_synthetic_injected_unit() -> pd.DataFrame:
     """Synthetic fault-injected unit for the anchor-split regression test: ~20 min of
     steady clean-coil heating rows that WOULD be rating_anchor if healthy, tagged
@@ -653,6 +714,7 @@ def load_lab(root) -> pd.DataFrame:
     out["data_type"] = ([config.data_type_of(u, s) for u, s in
                          zip(out["unit"], out["source_file"])] if len(out) else None)
     out = _apply_data_type_routing(out)
+    out = _derive_envelope_input(out)      # FDD-I-018: fit-input plane (rules 1/2)
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]
     out = out[ordered + extras]
