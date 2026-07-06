@@ -39,9 +39,25 @@ def unit_sku(unit: str):
 
 
 def unit_data_type(unit: str):
-    """'healthy_baseline' | 'fault_injected' | None (unmapped)."""
+    """'healthy_baseline' | 'fault_injected' | None (unmapped). Unit-level default;
+    file-level overrides (FDD-I-017) are resolved by data_type_of()."""
     ent = unit_map().get(str(unit))
     return ent.get("data_type") if ent else None
+
+
+def data_type_of(unit: str, source_file: str = None):
+    """data_type for (unit, source_file): per-file override from the unit's
+    file_data_type map (FDD-I-017, keyed by bare file name) else the unit default.
+    Lets a healthy unit carry individually fault-injected runs (e.g. unit 31's five
+    2023-12-09 undercharge files) without relabeling the whole unit."""
+    ent = unit_map().get(str(unit))
+    if ent is None:
+        return None
+    if source_file:
+        override = ent.get("file_data_type") or {}
+        if source_file in override:
+            return override[source_file]
+    return ent.get("data_type")
 
 
 def sku_rated_kw() -> dict:

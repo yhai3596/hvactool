@@ -12,7 +12,9 @@ Pinned items (Project instruction 2026-07-03 + adjudications):
   Rows with any OTHER value are QUARANTINED (option A adjudication 2026-07-03): never
   translated, never loaded; counts registered in df.attrs["enum_quarantined"] and routed
   to the vendor question sheet (observed: 5 = cooling pre-stop seconds, 10 = startup
-  transition, 0/1/2/3 = stop family; observation only, not a translation).
+  transition, 0/1/2/3 = stop family; FDD-I-017 raw-plane audit additionally observed
+  12 (2436AA, 2135 rows, outside windows), 8/65/66 (tiny) and negative glitch values
+  -125/-101/-16/-1/14/121; observation only, not a translation).
 - CompState derivation (adjudicated 2026-07-03 with domain conditions: defrost only in
   heating context and ambient < 20 C; cooling keeps St==0 as its NORMAL position, St does
   not flip in cooling / warm ambient; mode transitions are infrequent so instantaneous
@@ -477,8 +479,8 @@ def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
     for unit, anchor, f in _monitor_csvs(root):
         if UNIT_SKU.get(unit) != H4_PROXY_SKU:
             continue
-        if config.unit_data_type(unit) != "healthy_baseline":
-            continue                        # injected units are not baseline anchors
+        if config.data_type_of(unit, f.name) != "healthy_baseline":
+            continue                # injected units/files are not baseline anchors
         head = open(f, encoding="utf-8").readline()
         if "QrH_W" not in head or "st1" not in head:
             continue
@@ -511,14 +513,23 @@ def _proxy_h4_chunks(root, enum_quarantined, dup_ref) -> list:
 
 
 def _apply_data_type_routing(out: pd.DataFrame) -> pd.DataFrame:
-    """Fault-injected units NEVER enter the healthy baseline/anchor pool — their residuals
-    are the signal to learn, not a clean reference. rating_anchor/anchor_type are cleared
-    (rows stay loaded for the diagnostic chain). Shared by load_lab and the injected-unit
-    penetration test so the coverage gate and the anchor split cannot drift apart."""
+    """Fault-injected units/files NEVER enter the healthy baseline/anchor pool — their
+    residuals are the signal to learn, not a clean reference. Rows STAY LOADED for the
+    diagnostic chain (controlled fault-injection assets are never dropped); what gets
+    neutralized at this single choke point (FDD-I-013 double-path lesson):
+      - rating_anchor/anchor_type cleared (anchor layer);
+      - condition_class 'rating' -> 'fault_injected' (FDD-I-017): every rating-class
+        consumer (sense invariance pool, coverage gate, transient report, envelope
+        anchor pool) excludes injected rows through the SAME split, instead of each
+        consumer needing its own data_type filter.
+    Shared by load_lab and the injected-unit penetration test so the coverage gate and
+    the anchor split cannot drift apart."""
     if len(out) and "data_type" in out.columns:
         injected = out["data_type"] == "fault_injected"
         out.loc[injected, "rating_anchor"] = False
         out.loc[injected, "anchor_type"] = None
+        if "condition_class" in out.columns:
+            out.loc[injected, "condition_class"] = "fault_injected"
     return out
 
 
@@ -637,8 +648,10 @@ def load_lab(root) -> pd.DataFrame:
     if "source_unit" not in out.columns:
         out["source_unit"] = None
     out["compstate_derived"] = True
-    # data_type routing (FDD-I-012 #1): healthy_baseline vs fault_injected, per config.
-    out["data_type"] = out["unit"].map(config.unit_data_type) if len(out) else None
+    # data_type routing (FDD-I-012 #1; per-file overrides FDD-I-017): healthy_baseline
+    # vs fault_injected, resolved per (unit, source_file) from config.
+    out["data_type"] = ([config.data_type_of(u, s) for u, s in
+                         zip(out["unit"], out["source_file"])] if len(out) else None)
     out = _apply_data_type_routing(out)
     ordered = [c for c in RAW_COLUMNS if c in out.columns] + list(TAG_COLS)
     extras = [c for c in out.columns if c not in ordered]

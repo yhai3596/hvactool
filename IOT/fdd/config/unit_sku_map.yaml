@@ -13,7 +13,20 @@ units:
   "44": {sku: EODA19H-4860AA, data_type: healthy_baseline}
   "84": {sku: EODA19H-2436AA, data_type: healthy_baseline}
   "85": {sku: EODA19H-4860AA, data_type: healthy_baseline}
-  "31": {sku: EODA19H-2436AA, data_type: healthy_baseline}
+  "31":
+    sku: EODA19H-2436AA
+    data_type: healthy_baseline
+    # FDD-I-017 file-level routing (minimal relabel): FDD-I-014-audited 2023-12-09
+    # 50%-undercharge runs. NO severity tier parsed this batch (undercharge naming
+    # spec has three open confirmations: SKU coding / single-vs-multi tier per file /
+    # legacy migration). Controlled fault-injection assets: rows still LOAD, routed
+    # out of the healthy baseline pool by c4._apply_data_type_routing.
+    file_data_type:
+      RamChecker_20231209094220.csv: fault_injected
+      RamChecker_20231209112220.csv: fault_injected
+      RamChecker_20231209130220.csv: fault_injected
+      RamChecker_20231209144220.csv: fault_injected
+      RamChecker_20231209162220.csv: fault_injected
   "55": {sku: EODA19H-2436AA, data_type: healthy_baseline}
 
 # SKU nominal rated cooling capacity (kW): 2436AA = 3 ton, 4860AA = 5 ton.
