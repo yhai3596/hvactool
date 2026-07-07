@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>全年能耗电费 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=213">
+<link rel="stylesheet" href="css/site.css?v=213">
+</head>
+<body data-page="energy" data-units="1" class="tool-page">
+<div id="app">
+  <div class="tool-layout wide-input">
+    <div>
+      <div class="panel">
+        <div class="panel-title">工况输入 · INPUT（AHRI 当量满负荷小时法）</div>
+        <div class="panel-body">
+          <div class="form-grid cols3">
+            <div class="field"><label>州（美国）</label><select id="state"></select></div>
+            <div class="field"><label>制冷满负荷小时 CLH（h）</label><input id="clh" type="number" step="any"></div>
+            <div class="field"><label>制热满负荷小时 HLH（h）</label><input id="hlh" type="number" step="any"></div>
+            <div class="field"><label>房屋面积（<span data-ul="area"></span>）</label><input id="area" data-uk="area" type="number" step="any" value="185"></div>
+            <div class="field"><label>制冷能力（<span data-ul="power"></span>）</label>
+              <div class="field-inline">
+                <input id="capC" data-uk="power" type="number" step="any" value="10.55">
+                <button class="btn small ghost" id="estBtn" title="按面积与气候估算">按面积估算</button>
+              </div>
+            </div>
+            <div class="field"><label>制热能力（<span data-ul="power"></span>）</label><input id="capH" data-uk="power" type="number" step="any" value="10.55"></div>
+            <div class="field"><label>电价（¢/kWh）</label><input id="rate" type="number" step="any"></div>
+            <div class="field"><label>机型 A：SEER2 / HSPF2</label>
+              <div class="field-inline"><input id="seerA" type="number" step="any" value="14.3"><input id="hspfA" type="number" step="any" value="7.5"></div>
+            </div>
+            <div class="field"><label>机型 B（对比，选填）</label>
+              <div class="field-inline"><input id="seerB" type="number" step="any" value="17.0"><input id="hspfB" type="number" step="any" value="8.5"></div>
+            </div>
+          </div>
+          <div class="btn-row"><button class="btn" id="calcBtn">测 算</button></div>
+          <div class="note">
+            方法：全年制冷耗电 = 制冷能力(Btu/h) × CLH ÷ SEER2 ÷ 1000；制热耗电 = 制热能力 × HLH ÷ HSPF2 ÷ 1000（AHRI 210/240 当量满负荷小时简化法，热泵除霜与低温衰减已折入 HSPF2）。<br>
+            CLH / HLH 与电价为<b>州级内置参考值</b>（ENERGY STAR / EIA 量级，选州自动填入，请按当地实际修改）。极寒州热泵可能需电辅热，实际制热费用会更高。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">测算结果 · RESULT</div>
+      <div class="panel-body">
+        <div id="saveBanner" class="result-banner" style="display:none"></div>
+        <div class="kv-grid" id="resGrid"></div>
+        <canvas id="barCv" width="380" height="240" style="width:100%;margin-top:12px;display:none"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/lib/config.js?v=213"></script>
+<script src="js/lib/units.js?v=213"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/lib/shell.js?v=213"></script>
+<script src="js/lib/api.js?v=213"></script>
+<script>
+const $ = id => document.getElementById(id);
+/* [州, CLH, HLH, 居民电价 ¢/kWh] — ENERGY STAR/EIA 量级内置估计，可手改 */
+const STATES = [
+['Alabama',1600,1200,15],['Alaska',100,3500,24],['Arizona',2200,900,14],['Arkansas',1500,1400,12.5],
+['California',900,1300,30],['Colorado',700,2400,15],['Connecticut',600,2600,33],['Delaware',1000,2000,16],
+['District of Columbia',1100,1800,17],['Florida',2700,500,15],['Georgia',1600,1300,14],['Hawaii',2500,0,42],
+['Idaho',600,2600,11],['Illinois',800,2400,16],['Indiana',900,2300,15],['Iowa',800,2600,13.5],
+['Kansas',1200,2000,14],['Kentucky',1100,1900,13],['Louisiana',2100,900,12],['Maine',400,3000,27],
+['Maryland',1000,2000,17],['Massachusetts',500,2700,29],['Michigan',600,2700,18.5],['Minnesota',600,3200,14.5],
+['Mississippi',1900,1100,13],['Missouri',1200,2100,13],['Montana',400,3000,12],['Nebraska',1000,2400,11.5],
+['Nevada',1600,1300,14],['New Hampshire',500,2900,30],['New Jersey',800,2200,18],['New Mexico',1300,1600,14.5],
+['New York',600,2600,23],['North Carolina',1300,1500,14],['North Dakota',500,3400,11],['Ohio',800,2400,16],
+['Oklahoma',1600,1500,12],['Oregon',400,2400,13.5],['Pennsylvania',800,2400,18],['Rhode Island',500,2600,32],
+['South Carolina',1600,1300,14],['South Dakota',700,2800,12.5],['Tennessee',1300,1600,12.5],['Texas',2000,900,14.5],
+['Utah',900,2300,11.5],['Vermont',400,3100,21],['Virginia',1100,1800,14.5],['Washington',300,2400,11],
+['West Virginia',800,2300,14],['Wisconsin',600,2900,17],['Wyoming',400,3000,11.5]];
+
+$('state').innerHTML = STATES.map((s, i) => `<option value="${i}"${s[0]==='Texas'?' selected':''}>${s[0]}</option>`).join('');
+function fillState() {
+  const s = STATES[+$('state').value];
+  $('clh').value = s[1]; $('hlh').value = s[2]; $('rate').value = s[3];
+}
+$('state').onchange = fillState;
+fillState();
+
+/* 按面积估算：制冷 sqft/ton、制热 Btu/sqft 按气候分档（内部用 ft² 与 Btu/h） */
+$('estBtn').onclick = () => {
+  const aFt = Units.toSI('area', parseFloat($('area').value)) * 10.7639;   // m² → ft²
+  const clh = +$('clh').value, hlh = +$('hlh').value;
+  const sqftPerTon = clh > 2000 ? 500 : clh > 1400 ? 600 : clh > 900 ? 700 : 800;
+  const btuPerSqftHeat = hlh > 2800 ? 40 : hlh > 2000 ? 34 : hlh > 1200 ? 28 : 20;
+  const capC_kW = Math.round(aFt / sqftPerTon * 12) * 1000 / 3412.141633;  // 取整千 Btu/h
+  const capH_kW = Math.round(aFt * btuPerSqftHeat / 1000) * 1000 / 3412.141633;
+  const put = (el, kW) => el.value = Units.nice(Units.sysIn === 'ip' ? kW * 3412.141633 : kW);
+  put($('capC'), capC_kW);
+  put($('capH'), capH_kW);
+  toast(`按 ${Math.round(aFt)} ft² 估算：制冷 ${(aFt/sqftPerTon).toFixed(1)} 冷吨（${sqftPerTon} ft²/ton），制热 ${btuPerSqftHeat} Btu/ft²`);
+};
+
+const kv = (k, v, u, cls) => `<div class="kv ${cls||''}"><div class="k">${k}</div><div class="v">${v}<small>${u||''}</small></div></div>`;
+
+function annual(seer2, hspf2) {
+  const capC_btu = Units.toSI('power', parseFloat($('capC').value)) * 3412.141633;
+  const capH_btu = Units.toSI('power', parseFloat($('capH').value)) * 3412.141633;
+  const clh = +$('clh').value, hlh = +$('hlh').value, rate = +$('rate').value / 100;
+  const kwhC = seer2 > 0 ? capC_btu * clh / seer2 / 1000 : 0;
+  const kwhH = hspf2 > 0 ? capH_btu * hlh / hspf2 / 1000 : 0;
+  return { kwhC, kwhH, kwh: kwhC + kwhH, cost: (kwhC + kwhH) * rate };
+}
+
+let lastA = null, lastB = null;
+$('calcBtn').onclick = () => {
+  lastA = annual(+$('seerA').value, +$('hspfA').value);
+  lastB = (+$('seerB').value > 0 && +$('hspfB').value > 0) ? annual(+$('seerB').value, +$('hspfB').value) : null;
+  render();
+};
+
+function render() {
+  if (!lastA) return;
+  const A = lastA, B = lastB;
+  let html =
+    kv('A · 制冷耗电', fmtN(A.kwhC, 0), 'kWh/年') +
+    kv('A · 制热耗电', fmtN(A.kwhH, 0), 'kWh/年') +
+    kv('A · 全年耗电', fmtN(A.kwh, 0), 'kWh', 'hl') +
+    kv('A · 全年电费', '$' + fmtN(A.cost, 0), '', 'hl');
+  if (B) {
+    html +=
+      kv('B · 制冷耗电', fmtN(B.kwhC, 0), 'kWh/年') +
+      kv('B · 制热耗电', fmtN(B.kwhH, 0), 'kWh/年') +
+      kv('B · 全年耗电', fmtN(B.kwh, 0), 'kWh') +
+      kv('B · 全年电费', '$' + fmtN(B.cost, 0)) +
+      kv('B 相对 A 年省', '$' + fmtN(A.cost - B.cost, 0), '', 'warn') +
+      kv('省电比例', fmtN((1 - B.kwh / A.kwh) * 100, 1), '%');
+  }
+  $('resGrid').innerHTML = html;
+  const b = $('saveBanner');
+  b.style.display = '';
+  b.className = 'result-banner';
+  b.textContent = B
+    ? `机型 B 每年省 $${fmtN(A.cost - B.cost,0)}（${fmtN((1-B.kwh/A.kwh)*100,1)}%），10 年累计约 $${fmtN((A.cost-B.cost)*10,0)}`
+    : `全年预计耗电 ${fmtN(A.kwh,0)} kWh，电费 $${fmtN(A.cost,0)}`;
+  drawBar(A, B);
+}
+
+function drawBar(A, B) {
+  const cv = $('barCv'); cv.style.display = '';
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const cCold = cssv('--cold'), cHot = cssv('--hot');
+  const items = [['A 制冷', A.kwhC, cCold], ['A 制热', A.kwhH, cHot]];
+  if (B) items.push(['B 制冷', B.kwhC, cCold], ['B 制热', B.kwhH, cHot]);
+  const max = Math.max(...items.map(i => i[1]), 1);
+  const bw = Math.min(64, (cv.width - 60) / items.length - 18);
+  ctx.font = '11px Consolas';
+  items.forEach(([lbl, v, color], i) => {
+    const x = 40 + i * ((cv.width - 60) / items.length);
+    const h = v / max * 170;
+    ctx.globalAlpha = lbl.startsWith('B') ? .65 : 1;
+    ctx.fillStyle = color;
+    ctx.fillRect(x, 200 - h, bw, h);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = cssv('--num'); ctx.textAlign = 'center';
+    ctx.fillText(Math.round(v).toLocaleString(), x + bw/2, 194 - h);
+    ctx.fillStyle = cssv('--text-dim');
+    ctx.fillText(lbl, x + bw/2, 216);
+  });
+  ctx.fillStyle = cssv('--text-faint'); ctx.textAlign = 'left';
+  ctx.fillText('kWh / 年', 8, 14);
+}
+
+Units.onOut(render);
+window.addEventListener('hvac-theme-change', () => lastA && drawBar(lastA, lastB));
+</script>
+</body>
+</html>

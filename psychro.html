@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>湿空气计算 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=213">
+<link rel="stylesheet" href="css/site.css?v=213">
+</head>
+<body data-page="psychro" data-units="1" class="tool-page">
+<div id="app">
+  <div class="tool-layout">
+    <div>
+      <div class="panel">
+        <div class="panel-title">湿空气状态 · MOIST AIR</div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field"><label>大气压（<span data-ul="press"></span>）</label><input id="pAtm" data-uk="press" type="number" step="any" value="101.325"></div>
+            <div class="field"><label>或按海拔取压（<span data-ul="len"></span>）</label>
+              <div class="field-inline">
+                <input id="alt" data-uk="len" type="number" step="any" placeholder="如 1600">
+                <button class="btn small ghost" id="altBtn">代入</button>
+              </div>
+            </div>
+            <div class="field"><label>已知参数组合</label>
+              <select id="combo">
+                <option value="tdb,rh">干球温度 + 相对湿度</option>
+                <option value="tdb,twb">干球温度 + 湿球温度</option>
+                <option value="tdb,tdp">干球温度 + 露点温度</option>
+                <option value="tdb,w">干球温度 + 含湿量</option>
+                <option value="tdb,h">干球温度 + 比焓</option>
+                <option value="twb,rh">湿球温度 + 相对湿度</option>
+              </select>
+            </div>
+            <div></div>
+            <div class="field"><label id="lblA">—</label><input id="valA" type="number" step="any"></div>
+            <div class="field"><label id="lblB">—</label><input id="valB" type="number" step="any"></div>
+          </div>
+          <div class="btn-row"><button class="btn" id="calcBtn">计 算</button></div>
+          <div class="note">ASHRAE RP-1485 湿空气模型（CoolProp HAProps）。含湿量按干空气计；比焓基准 0°C 干空气（美制表册基准 0°F，绝对值有系统差，差值计算不受影响）。<br><b>图上交互</b>：直接点击右侧焓湿图任意位置取点（干球温度 + 含湿量）自动计算。</div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:10px">
+        <div class="panel-title">计算结果 · RESULT</div>
+        <div class="panel-body"><div class="kv-grid" id="resGrid"></div></div>
+      </div>
+
+      <div class="panel" style="margin-top:10px">
+        <div class="panel-title">水蒸气饱和温压换算 · WATER SATURATION</div>
+        <div class="panel-body">
+          <div class="form-grid cols3">
+            <div class="field"><label>已知</label>
+              <select id="wsBy"><option value="T">温度 → 饱和压力</option><option value="P">压力 → 饱和温度</option></select>
+            </div>
+            <div class="field"><label id="wsLbl">温度</label><input id="wsVal" type="number" step="any" value="100"></div>
+            <div class="field"><label>&nbsp;</label><button class="btn small" id="wsBtn">换 算</button></div>
+          </div>
+          <div class="kv-grid" id="wsGrid" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">焓湿图（可点击取点） · PSYCHROMETRIC CHART</div>
+      <canvas id="psyCv" width="560" height="640" style="width:100%;display:block;cursor:crosshair"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="js/lib/config.js?v=213"></script>
+<script src="js/lib/units.js?v=213"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/lib/shell.js?v=213"></script>
+<script src="js/lib/api.js?v=213"></script>
+<script>
+const $ = id => document.getElementById(id);
+/* 组合项：kind 用于单位换算；默认值为 SI */
+const FIELDS = {
+  tdb: { label: '干球温度', kind: 'temp', def: 35 },
+  twb: { label: '湿球温度', kind: 'temp', def: 24 },
+  tdp: { label: '露点温度', kind: 'temp', def: 19 },
+  rh:  { label: '相对湿度（%）', kind: null, def: 40 },
+  w:   { label: '含湿量', kind: 'humr', def: 14 },
+  h:   { label: '比焓', kind: 'h', def: 70 },
+};
+function setupCombo() {
+  const [a, b] = $('combo').value.split(',');
+  for (const [id, key] of [['A', a], ['B', b]]) {
+    const f = FIELDS[key];
+    $('lbl' + id).innerHTML = f.kind ? `${f.label}（<span data-ul="${f.kind}"></span>）` : f.label;
+    const el = $('val' + id);
+    if (f.kind && Units.sysIn === 'ip') {
+      const conv = { temp: v => v * 1.8 + 32, humr: v => v * 7, h: v => v * 0.4299226 };
+      el.value = Units.nice(conv[f.kind](f.def));
+    } else el.value = f.def;
+    if (f.kind) el.dataset.uk = f.kind; else delete el.dataset.uk;
+  }
+  Units.relabel();
+}
+$('combo').onchange = setupCombo;
+
+$('altBtn').onclick = () => {
+  const z = Units.toSI('len', parseFloat($('alt').value));
+  if (isNaN(z)) return;
+  const pk = 101.325 * Math.pow(1 - 2.25577e-5 * z, 5.2559);
+  $('pAtm').value = Units.nice(Units.sysIn === 'ip' ? pk * 0.1450377377 : pk);
+};
+
+const kv = (k, v, u, cls) => `<div class="kv ${cls||''}"><div class="k">${k}</div><div class="v">${v}<small>${u||''}</small></div></div>`;
+const V = (kind, siv, d = 2) => fmtN(Units.val(kind, siv), d);
+
+let last = null;
+
+async function calc(params) {
+  try {
+    const j = await api('/api/psychro', params);
+    last = j;
+    render();
+    drawChart();
+  } catch (e) { toast(e.message, true); }
+}
+
+$('calcBtn').onclick = () => {
+  const [a, b] = $('combo').value.split(',');
+  const params = { p: Units.toSI('press', parseFloat($('pAtm').value)) };
+  for (const [key, el] of [[a, 'valA'], [b, 'valB']]) {
+    const f = FIELDS[key];
+    let v = parseFloat($(el).value);
+    if (f.kind) v = Units.toSI(f.kind, v);
+    params[key] = v;
+  }
+  calc(params);
+};
+
+function render() {
+  if (!last) return;
+  const j = last;
+  $('resGrid').innerHTML =
+    kv('干球温度 Tdb', V('temp', j.tdb), Units.u('temp'), 'hl') +
+    kv('湿球温度 Twb', V('temp', j.twb), Units.u('temp'), 'hl') +
+    kv('露点温度 Tdp', V('temp', j.tdp), Units.u('temp')) +
+    kv('相对湿度 RH', fmtN(j.rh, 1), '%', 'hl') +
+    kv('含湿量 W', V('humr', j.w), Units.u('humr')) +
+    kv('比焓 h', V('h', j.h), Units.u('h')) +
+    kv('比容 v', V('vspec', j.v, 4), Units.u('vspec')) +
+    kv('湿空气密度 ρ', V('rho', j.rho, 4), Units.u('rho')) +
+    kv('水蒸气分压', V('press', j.p_w, 3), Units.u('press')) +
+    kv('饱和水蒸气压@Tdb', V('press', j.p_ws, 3), Units.u('press')) +
+    kv('大气压', V('press', j.p, 2), Units.u('press'));
+}
+
+/* ============ 焓湿图 ============ */
+const cv = $('psyCv'), ctx = cv.getContext('2d');
+const CH = { tMin: -10, tMax: 50, wMax: 30, l: 46, r: 58, t: 16, b: 40 };
+const CV_DW = 560, CV_DH = 640;
+let LW = CV_DW, LH = CV_DH;
+function prepCanvas() {
+  const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 2.5);
+  const r = cv.getBoundingClientRect();
+  LW = Math.round(r.width) || CV_DW;
+  LH = Math.round(LW * CV_DH / CV_DW);
+  const bw = Math.round(LW * dpr), bh = Math.round(LH * dpr);
+  if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; cv.style.height = LH + 'px'; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+/* 前端近似式（仅绘曲线族；点计算走 CoolProp） */
+const pwsBuck = t => 0.61121 * Math.exp((18.678 - t / 234.5) * (t / (257.14 + t)));   // kPa
+function wFromRH(t, rh, P) {
+  const pw = rh / 100 * pwsBuck(t);
+  return 622 * pw / (P - pw);            // g/kg
+}
+const hMoist = (t, w) => 1.006 * t + w / 1000 * (2501 + 1.86 * t);   // kJ/kg
+
+function drawChart() {
+  prepCanvas();
+  const W = LW, H = LH;
+  const X = t => CH.l + (t - CH.tMin) / (CH.tMax - CH.tMin) * (W - CH.l - CH.r);
+  const Y = w => H - CH.b - w / CH.wMax * (H - CH.t - CH.b);
+  const P = last ? last.p : 101.325;
+  ctx.clearRect(0, 0, W, H);
+
+  const cGrid = cssv('--tbl-line'), cTxt = cssv('--text-dim'), cAcc = cssv('--accent');
+  ctx.font = '11px Consolas';
+  ctx.lineWidth = 1;
+
+  // 网格与坐标
+  for (let t = CH.tMin; t <= CH.tMax; t += 5) {
+    ctx.strokeStyle = cGrid;
+    ctx.beginPath(); ctx.moveTo(X(t), CH.t); ctx.lineTo(X(t), H - CH.b); ctx.stroke();
+    ctx.fillStyle = cTxt; ctx.textAlign = 'center';
+    ctx.fillText(Units.sysOut === 'ip' ? Math.round(t * 1.8 + 32) : t, X(t), H - CH.b + 15);
+  }
+  for (let w = 0; w <= CH.wMax; w += 5) {
+    ctx.strokeStyle = cGrid;
+    ctx.beginPath(); ctx.moveTo(CH.l, Y(w)); ctx.lineTo(W - CH.r, Y(w)); ctx.stroke();
+    ctx.fillStyle = cTxt; ctx.textAlign = 'left';
+    ctx.fillText(Units.sysOut === 'ip' ? Math.round(w * 7) : w, W - CH.r + 6, Y(w) + 3);
+  }
+  ctx.fillStyle = cssv('--text-dim'); ctx.textAlign = 'center';
+  ctx.fillText(`干球温度 ${Units.u('temp')}`, (CH.l + W - CH.r) / 2, H - 6);
+  ctx.save(); ctx.translate(W - 12, H / 2); ctx.rotate(Math.PI / 2);
+  ctx.fillText(`含湿量 ${Units.u('humr')}`, 0, 0); ctx.restore();
+
+  // 等焓线（20~110 kJ/kg）
+  ctx.strokeStyle = cTxt; ctx.lineWidth = 1; ctx.setLineDash([2, 5]); ctx.globalAlpha = .45;
+  for (let h = 20; h <= 110; h += 15) {
+    ctx.beginPath();
+    let started = false;
+    for (let t = CH.tMin; t <= CH.tMax; t += 1) {
+      const w = (h - 1.006 * t) / (2501 + 1.86 * t) * 1000;
+      if (w < 0 || w > CH.wMax) { started = false; continue; }
+      const wSat = wFromRH(t, 100, P);
+      if (w > wSat) { started = false; continue; }
+      started ? ctx.lineTo(X(t), Y(w)) : ctx.moveTo(X(t), Y(w));
+      started = true;
+    }
+    ctx.stroke();
+  }
+  ctx.setLineDash([]); ctx.globalAlpha = 1;
+
+  // RH 曲线族
+  for (const rh of [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]) {
+    ctx.beginPath();
+    let lastPt = null;
+    for (let t = CH.tMin; t <= CH.tMax; t += 0.5) {
+      const w = wFromRH(t, rh, P);
+      if (w > CH.wMax) break;
+      const x = X(t), y = Y(w);
+      lastPt === null ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      lastPt = { x, y, t, w };
+    }
+    ctx.strokeStyle = cAcc;
+    ctx.lineWidth = rh === 100 ? 2.4 : 1.1;
+    ctx.globalAlpha = rh === 100 ? 1 : 0.7;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    if (lastPt) {
+      ctx.fillStyle = cAcc; ctx.textAlign = 'left'; ctx.globalAlpha = .95; ctx.font = 'bold 11px Consolas';
+      ctx.fillText(rh + '%', Math.min(lastPt.x + 3, W - CH.r - 24), Math.max(lastPt.y - 3, CH.t + 10));
+      ctx.globalAlpha = 1; ctx.font = '11px Consolas';
+    }
+  }
+  ctx.lineWidth = 1;
+
+  // 状态点
+  if (last && last.tdb >= CH.tMin && last.tdb <= CH.tMax && last.w <= CH.wMax) {
+    const x = X(last.tdb), y = Y(last.w);
+    const cPt = cssv('--warn');
+    // 引导线
+    ctx.strokeStyle = cPt; ctx.globalAlpha = .4; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, H - CH.b); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(W - CH.r, y); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.fillStyle = cPt;
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fill();
+    ctx.strokeStyle = cPt; ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.stroke();
+    ctx.font = '11px Consolas'; ctx.textAlign = 'left';
+    const bx = Math.min(x + 12, W - 190), by = Math.max(y - 52, CH.t);
+    ctx.fillStyle = cssv('--panel'); ctx.strokeStyle = cssv('--panel-border');
+    ctx.beginPath(); ctx.roundRect(bx, by, 180, 46, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = cssv('--num');
+    ctx.fillText(`Tdb ${V('temp', last.tdb, 1)}${Units.u('temp')}  RH ${fmtN(last.rh, 0)}%`, bx + 8, by + 16);
+    ctx.fillText(`W ${V('humr', last.w, 1)}  h ${V('h', last.h, 1)}`, bx + 8, by + 32);
+  }
+}
+
+/* 点击取点：干球 + 含湿量 */
+cv.addEventListener('click', ev => {
+  const r = cv.getBoundingClientRect();
+  const px = (ev.clientX - r.left) * LW / r.width;
+  const py = (ev.clientY - r.top) * LH / r.height;
+  const t = CH.tMin + (px - CH.l) / (LW - CH.l - CH.r) * (CH.tMax - CH.tMin);
+  let w = (LH - CH.b - py) / (LH - CH.t - CH.b) * CH.wMax;
+  if (t < CH.tMin || t > CH.tMax || w < 0) return;
+  const P = last ? last.p : Units.toSI('press', parseFloat($('pAtm').value)) || 101.325;
+  w = Math.min(w, wFromRH(t, 100, P) - 0.05);          // 夹到饱和线以下
+  if (w <= 0) return;
+  $('combo').value = 'tdb,w';
+  setupCombo();
+  $('valA').value = Units.nice(Units.sysIn === 'ip' ? t * 1.8 + 32 : +t.toFixed(1));
+  $('valB').value = Units.nice(Units.sysIn === 'ip' ? w * 7 : +w.toFixed(2));
+  calc({ p: P, tdb: t, w: w });
+});
+
+/* 水蒸气饱和 */
+$('wsBy').onchange = () => {
+  const t = $('wsBy').value === 'T';
+  $('wsLbl').innerHTML = t ? '温度（<span data-ul="temp"></span>）' : '压力（绝对，<span data-ul="press"></span>）';
+  $('wsVal').dataset.uk = t ? 'temp' : 'press';
+  $('wsVal').value = t ? Units.nice(Units.sysIn === 'ip' ? 212 : 100) : Units.nice(Units.sysIn === 'ip' ? 14.696 : 101.325);
+  Units.relabel();
+};
+$('wsBtn').onclick = async () => {
+  try {
+    const t = $('wsBy').value === 'T';
+    const j = await api('/api/watersat', { by: $('wsBy').value, value: Units.toSI(t ? 'temp' : 'press', parseFloat($('wsVal').value)) });
+    $('wsGrid').innerHTML = j.p_sat !== undefined
+      ? kv('饱和压力', V('press', j.p_sat, 3), Units.u('press'), 'hl') + kv('对应温度', V('temp', j.t), Units.u('temp'))
+      : kv('饱和温度', V('temp', j.t_sat), Units.u('temp'), 'hl') + kv('对应压力', V('press', j.p, 3), Units.u('press'));
+  } catch (e) { toast(e.message, true); }
+};
+
+Units.onOut(() => { render(); drawChart(); });
+Units.onIn(() => { $('wsBy').onchange(); });
+window.addEventListener('hvac-theme-change', drawChart);
+
+document.addEventListener('DOMContentLoaded', () => {
+  setupCombo();
+  $('wsBy').onchange();
+  $('calcBtn').click();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>单位换算 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=213">
+<link rel="stylesheet" href="css/site.css?v=213">
+</head>
+<body data-page="units" class="tool-page">
+<div id="app">
+  <div class="panel">
+    <div class="panel-title">美制 / 公制单位换算 · UNIT CONVERTER</div>
+    <div class="panel-body">
+      <div class="auth-tabs" id="catTabs" style="flex-wrap:wrap"></div>
+      <div class="form-grid cols3" style="max-width:720px">
+        <div class="field"><label>数值</label><input id="val" type="number" step="any" value="1"></div>
+        <div class="field"><label>单位</label><select id="from"></select></div>
+        <div class="field"><label>&nbsp;</label><div style="font-size:11px;color:#4b6f94;padding-top:8px">输入即时换算 ↓</div></div>
+      </div>
+      <div class="kv-grid" id="out" style="margin-top:14px"></div>
+      <div class="note" id="catNote"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/lib/config.js?v=213"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/lib/shell.js?v=213"></script>
+<script src="js/lib/api.js?v=213"></script>
+<script>
+const $ = id => document.getElementById(id);
+/* 每类以首个单位为基准；factor = 1 基准单位等于多少该单位（即 v_base * factor = v_unit） */
+const CATS = {
+  '长度': { note: '', units: { 'm': 1, 'mm': 1000, 'cm': 100, 'km': 0.001, 'in 英寸': 39.37007874, 'ft 英尺': 3.280839895, 'yd 码': 1.093613298, 'mile 英里': 6.213711922e-4 } },
+  '面积': { note: '', units: { 'm²': 1, 'cm²': 1e4, 'ft²': 10.76391042, 'in²': 1550.0031, 'acre 英亩': 2.471053815e-4, '亩': 0.0015 } },
+  '体积': { note: '', units: { 'm³': 1, 'L': 1000, 'gal 美加仑': 264.1720524, 'ft³': 35.31466672, 'in³': 61023.74409, 'qt 美夸脱': 1056.688209, 'fl oz 美液盎司': 33814.02270 } },
+  '质量': { note: '', units: { 'kg': 1, 'g': 1000, 't 公吨': 0.001, 'lb 磅': 2.204622622, 'oz 盎司': 35.27396195, 'short ton 美吨': 1.102311311e-3 } },
+  '温度': { special: true, units: ['°C', '°F', 'K', '°R'] },
+  '压力': { note: '注意区分绝对压力与表压：psia = psig + 14.696（标准大气）', units: { 'kPa': 1, 'Pa': 1000, 'MPa': 0.001, 'bar': 0.01, 'psi': 0.1450377377, 'atm': 9.869232667e-3, 'mmHg / Torr': 7.500616827, 'inHg': 0.2952998751, 'inH₂O': 4.014630787, 'mH₂O': 0.1019716213, 'kgf/cm²': 0.0101971621 } },
+  '体积流量': { note: '', units: { 'm³/h': 1, 'L/s': 0.2777777778, 'm³/s': 1/3600, 'CFM (ft³/min)': 0.5885777703, 'GPM 美加仑/分': 4.402867539 } },
+  '流速': { note: '', units: { 'm/s': 1, 'km/h': 3.6, 'FPM (ft/min)': 196.8503937, 'mph 英里/时': 2.236936292 } },
+  '功率 / 冷量': { note: '1 冷吨(RT)=12000 Btu/h；1 HP(机械)=745.7 W；1 匹(制冷俗称)≈2.5 kW 未列入', units: { 'kW': 1, 'W': 1000, 'Btu/h': 3412.141633, 'RT 美制冷吨': 0.2843451361, 'kcal/h': 859.8452279, 'HP 马力': 1.34102209, 'MBH (1000Btu/h)': 3.412141633 } },
+  '能量': { note: '1 therm = 100,000 Btu', units: { 'kWh': 1, 'kJ': 3600, 'MJ': 3.6, 'Btu': 3412.141633, 'kcal': 859.8452279, 'therm': 0.03412141633, 'ton·h 冷吨时': 0.2843451361 } },
+  '密度': { note: '', units: { 'kg/m³': 1, 'g/cm³': 0.001, 'lb/ft³': 0.06242796058 } },
+  '传热系数': { note: 'U 值换算', units: { 'W/(m²·K)': 1, 'Btu/(h·ft²·°F)': 0.1761101838, 'kcal/(h·m²·°C)': 0.8598452279 } },
+};
+
+let cat = '长度';
+function renderTabs() {
+  $('catTabs').innerHTML = Object.keys(CATS).map(c =>
+    `<button class="${c===cat?'on':''}" data-c="${c}" style="flex:none;padding:7px 14px;font-size:12px;letter-spacing:1px">${c}</button>`).join('');
+  $('catTabs').querySelectorAll('button').forEach(b => b.onclick = () => { cat = b.dataset.c; renderTabs(); renderFrom(); calc(); });
+}
+function renderFrom() {
+  const c = CATS[cat];
+  const list = c.special ? c.units : Object.keys(c.units);
+  $('from').innerHTML = list.map(u => `<option>${u}</option>`).join('');
+  $('catNote').textContent = c.note || '';
+}
+function tempToC(v, u) {
+  if (u === '°C') return v;
+  if (u === '°F') return (v - 32) / 1.8;
+  if (u === 'K') return v - 273.15;
+  return (v - 491.67) / 1.8;   // °R
+}
+function tempFromC(c, u) {
+  if (u === '°C') return c;
+  if (u === '°F') return c * 1.8 + 32;
+  if (u === 'K') return c + 273.15;
+  return (c + 273.15) * 1.8;
+}
+function fmtSmart(v) {
+  if (!isFinite(v)) return '—';
+  const a = Math.abs(v);
+  if (a !== 0 && (a >= 1e7 || a < 1e-4)) return v.toExponential(5);
+  return parseFloat(v.toPrecision(8)).toString();
+}
+function calc() {
+  const v = parseFloat($('val').value);
+  const from = $('from').value;
+  const c = CATS[cat];
+  let html = '';
+  if (isNaN(v)) { $('out').innerHTML = ''; return; }
+  if (c.special) {
+    const cv = tempToC(v, from);
+    for (const u of c.units) {
+      if (u === from) continue;
+      html += `<div class="kv"><div class="k">${u}</div><div class="v">${fmtSmart(tempFromC(cv, u))}</div></div>`;
+    }
+  } else {
+    const base = v / c.units[from];
+    for (const [u, f] of Object.entries(c.units)) {
+      if (u === from) continue;
+      html += `<div class="kv"><div class="k">${u}</div><div class="v">${fmtSmart(base * f)}</div></div>`;
+    }
+  }
+  $('out').innerHTML = html;
+}
+$('val').oninput = calc;
+$('from').onchange = calc;
+renderTabs(); renderFrom(); calc();
+</script>
+</body>
+</html>

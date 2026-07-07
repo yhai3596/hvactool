@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统仿真 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=213">
+<link rel="stylesheet" href="css/site.css?v=213">
+</head>
+<body data-page="sim" data-fixed-theme="dark">
+<div id="app">
+
+  <!-- ============ 头部 ============ -->
+  <header>
+    <h1>HVAC 变频一拖一系统动态仿真</h1>
+    <span class="sub">INVERTER HEAT-PUMP SIMULATOR</span>
+    <div class="ref-group">
+      <span class="lbl">冷媒</span>
+      <button class="ref-btn active" data-ref="R410A">R410A</button>
+      <button class="ref-btn" data-ref="R32">R32</button>
+      <button class="ref-btn" data-ref="R454B">R454B</button>
+    </div>
+    <div class="ref-group">
+      <span class="lbl">单位</span>
+      <button class="ref-btn active" data-us="si">公制</button>
+      <button class="ref-btn" data-us="ip">美制</button>
+    </div>
+    <div class="mode-group">
+      <button class="mode-btn active" data-mode="cooling">制 冷</button>
+      <button class="mode-btn" data-mode="heating">制 热</button>
+      <button class="mode-btn" data-mode="defrost">化 霜</button>
+      <button class="mode-btn" data-mode="oilreturn">回 油</button>
+    </div>
+  </header>
+
+  <!-- ============ 状态栏 ============ -->
+  <div id="statusbar">
+    <div id="procState"><span class="dot"></span><span id="procName">制冷运行</span></div>
+    <div id="seqProgress"><span id="seqStep">—</span><span class="bar"><i id="seqBar"></i></span></div>
+    <div id="procDesc">压缩机排出高温高压气体 → 室外冷凝器放热冷凝 → EXV 节流 → 室内蒸发器吸热蒸发 → 回到压缩机。</div>
+    <div id="hints"></div>
+  </div>
+
+  <div class="layout">
+    <div class="col-left">
+
+      <!-- ============ 场景 ============ -->
+      <div class="panel" id="scenePanel">
+        <svg id="scene" viewBox="0 0 1200 640" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#071226"/><stop offset="1" stop-color="#0a1a30"/>
+            </linearGradient>
+            <linearGradient id="roomG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#101c30"/><stop offset="1" stop-color="#0d1626"/>
+            </linearGradient>
+            <linearGradient id="compG" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#1b3350"/><stop offset=".5" stop-color="#2c4f78"/><stop offset="1" stop-color="#16293f"/>
+            </linearGradient>
+            <linearGradient id="accG" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#15283e"/><stop offset=".5" stop-color="#22405f"/><stop offset="1" stop-color="#122236"/>
+            </linearGradient>
+            <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="2.4" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="bigGlow" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="7" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <clipPath id="cfClip"><rect x="692" y="257" width="236" height="18" rx="9"/></clipPath>
+            <clipPath id="fanClip"><circle cx="150" cy="385" r="70"/></clipPath>
+          </defs>
+
+          <!-- 天空 / 地面 -->
+          <rect x="0" y="0" width="1200" height="640" fill="url(#skyG)"/>
+          <circle id="sun" cx="590" cy="112" r="24" fill="#fbbf24" opacity="0" filter="url(#bigGlow)"/>
+          <g id="snow"></g>
+          <rect x="0" y="545" width="1200" height="95" fill="#0b1424"/>
+          <line x1="0" y1="545" x2="1200" y2="545" stroke="#1b3350" stroke-width="1.5"/>
+          <text id="sceneMode" x="600" y="634" text-anchor="middle" font-size="18" letter-spacing="8" fill="#1a3a5c" font-weight="700">COOLING · 制冷运行</text>
+
+          <!-- ============ 室外机 ============ -->
+          <text class="svg-label" x="60" y="215">OUTDOOR UNIT · 室外机</text>
+          <rect class="casing" x="40" y="225" width="415" height="315" rx="10"/>
+          <line x1="285" y1="225" x2="285" y2="540" stroke="#1c3450" stroke-width="1.2"/>
+          <!-- 顶部格栅 -->
+          <g stroke="#1c3450" stroke-width="1"><line x1="55" y1="234" x2="440" y2="234"/><line x1="55" y1="240" x2="440" y2="240"/></g>
+
+          <!-- 外风机 -->
+          <g id="outAir"></g>
+          <circle cx="150" cy="385" r="76" fill="#081120" stroke="#1c3450" stroke-width="1.4"/>
+          <g id="outFanBlades" clip-path="url(#fanClip)">
+            <g id="outFanRot" transform="rotate(0 150 385)">
+              <path d="M150,385 C120,345 130,318 152,312 C150,340 158,362 150,385" fill="#2d5a86" opacity=".9"/>
+              <path d="M150,385 C196,372 214,394 208,416 C182,404 162,398 150,385" fill="#2d5a86" opacity=".9"/>
+              <path d="M150,385 C134,430 106,436 90,420 C112,404 138,398 150,385" fill="#2d5a86" opacity=".9"/>
+            </g>
+            <circle cx="150" cy="385" r="13" fill="#3b6c9e" stroke="#5c93c9" stroke-width="1.5"/>
+          </g>
+          <!-- 风机格栅 -->
+          <g stroke="#24405c" stroke-width="1" fill="none" opacity=".85">
+            <circle cx="150" cy="385" r="74"/><circle cx="150" cy="385" r="56"/><circle cx="150" cy="385" r="38"/><circle cx="150" cy="385" r="20"/>
+          </g>
+          <text class="svg-label-s" x="150" y="480" text-anchor="middle">外风机</text>
+          <text id="outFanRpm" x="150" y="494" text-anchor="middle" font-size="10" font-family="Consolas" fill="#5c93c9">— rpm</text>
+
+          <!-- 气液分离器 -->
+          <rect x="294" y="452" width="27" height="80" rx="12" fill="url(#accG)" stroke="#33587e" stroke-width="1.2"/>
+          <text class="svg-label-s" x="307" y="446" text-anchor="middle">气液分离器</text>
+
+          <!-- 压缩机 -->
+          <ellipse id="compGlow" cx="360" cy="535" rx="42" ry="8" fill="#22d3ee" opacity=".12" filter="url(#bigGlow)"/>
+          <g id="compBody">
+            <rect x="330" y="438" width="60" height="97" rx="16" fill="url(#compG)" stroke="#3d6ea3" stroke-width="1.5"/>
+            <ellipse cx="360" cy="442" rx="30" ry="9" fill="#2c4f78" stroke="#3d6ea3" stroke-width="1.2"/>
+            <g id="compSwirl" transform="rotate(0 360 478)" opacity=".8">
+              <path d="M360,478 m-14,0 a14,14 0 0 1 14,-14" stroke="#7dd3fc" stroke-width="2.5" fill="none"/>
+              <path d="M360,478 m14,0 a14,14 0 0 1 -14,14" stroke="#7dd3fc" stroke-width="2.5" fill="none"/>
+            </g>
+            <text id="compHzTxt" x="360" y="512" text-anchor="middle" font-size="13" font-family="Consolas" fill="#a5f3fc" font-weight="700">60 Hz</text>
+            <text class="svg-label-s" x="360" y="527" text-anchor="middle">压缩机</text>
+          </g>
+
+          <!-- 四通阀 -->
+          <g id="v4">
+            <rect x="330" y="280" width="70" height="40" rx="8" fill="#0f2138" stroke="#33587e" stroke-width="1.4"/>
+            <path id="v4Hot" d="M365,318 L392,300" stroke="#f87171" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+            <path id="v4Cold" d="M338,300 L342,318" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+            <rect id="v4Slider" x="336" y="285" width="22" height="8" rx="3" fill="#5c93c9"/>
+            <text class="svg-label-s" x="365" y="274" text-anchor="middle">四通阀</text>
+            <text font-size="8" fill="#55708c" x="362" y="332">D</text>
+            <text font-size="8" fill="#55708c" x="322" y="303">E</text>
+            <text font-size="8" fill="#55708c" x="403" y="303">C</text>
+            <text font-size="8" fill="#55708c" x="344" y="332">S</text>
+          </g>
+
+          <!-- 室外换热器（翅片盘管） -->
+          <g id="outCoilSlab">
+            <rect x="394" y="300" width="44" height="235" rx="4" fill="#0c1a2c" stroke="#2a4a6e" stroke-width="1.2"/>
+            <g id="outCoilFins" stroke="#1e3a5c" stroke-width="1">
+              <line x1="399" y1="304" x2="399" y2="531"/><line x1="405" y1="304" x2="405" y2="531"/>
+              <line x1="411" y1="304" x2="411" y2="531"/><line x1="417" y1="304" x2="417" y2="531"/>
+              <line x1="423" y1="304" x2="423" y2="531"/><line x1="429" y1="304" x2="429" y2="531"/>
+              <line x1="435" y1="304" x2="435" y2="531"/>
+            </g>
+          </g>
+
+          <!-- ============ 房屋 ============ -->
+          <polygon points="620,192 905,82 1190,192" fill="#0e1c31" stroke="#2a4a6e" stroke-width="2"/>
+          <rect x="650" y="192" width="510" height="368" fill="url(#roomG)" stroke="#2a4a6e" stroke-width="2"/>
+          <text class="svg-label" x="1052" y="216">INDOOR · 室内</text>
+          <!-- 穿墙套管 -->
+          <rect x="643" y="313" width="14" height="14" rx="3" fill="#0f2138" stroke="#2a4a6e"/>
+          <rect x="643" y="343" width="14" height="14" rx="3" fill="#0f2138" stroke="#2a4a6e"/>
+
+          <!-- 家具 -->
+          <g opacity=".85">
+            <rect x="1000" y="492" width="128" height="46" rx="8" fill="#14263e"/>
+            <rect x="1006" y="470" width="116" height="30" rx="8" fill="#183050"/>
+            <rect x="996" y="486" width="14" height="52" rx="5" fill="#183050"/>
+            <rect x="1118" y="486" width="14" height="52" rx="5" fill="#183050"/>
+            <!-- 植物 -->
+            <rect x="1146" y="516" width="22" height="22" rx="3" fill="#14263e"/>
+            <path d="M1157,518 C1150,498 1144,494 1140,486 M1157,518 C1158,494 1164,488 1170,480 M1157,518 C1150,504 1166,500 1172,496" stroke="#1f7a54" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <!-- 茶几 -->
+            <rect x="890" y="516" width="70" height="8" rx="3" fill="#183050"/>
+            <rect x="898" y="524" width="6" height="14" fill="#14263e"/><rect x="946" y="524" width="6" height="14" fill="#14263e"/>
+          </g>
+          <line x1="650" y1="560" x2="1160" y2="560" stroke="#1b3350" stroke-width="1.5"/>
+
+          <!-- ============ 室内机 ============ -->
+          <g id="idu">
+            <rect x="670" y="200" width="280" height="80" rx="14" fill="#0f1e33" stroke="#33587e" stroke-width="1.6"/>
+            <text class="svg-label-s" x="700" y="196">室内机</text>
+            <!-- 内换热器 -->
+            <g stroke="#1e3a5c" stroke-width="1" opacity=".9">
+              <line x1="694" y1="224" x2="694" y2="256"/><line x1="710" y1="224" x2="710" y2="256"/>
+              <line x1="726" y1="224" x2="726" y2="256"/><line x1="742" y1="224" x2="742" y2="256"/>
+              <line x1="758" y1="224" x2="758" y2="256"/><line x1="774" y1="224" x2="774" y2="256"/>
+              <line x1="790" y1="224" x2="790" y2="256"/><line x1="806" y1="224" x2="806" y2="256"/>
+              <line x1="822" y1="224" x2="822" y2="256"/><line x1="838" y1="224" x2="838" y2="256"/>
+              <line x1="854" y1="224" x2="854" y2="256"/><line x1="870" y1="224" x2="870" y2="256"/>
+              <line x1="886" y1="224" x2="886" y2="256"/><line x1="902" y1="224" x2="902" y2="256"/>
+              <line x1="918" y1="224" x2="918" y2="256"/>
+            </g>
+            <!-- 贯流风扇 -->
+            <rect x="692" y="257" width="236" height="18" rx="9" fill="#0a1728" stroke="#24405c" stroke-width="1"/>
+            <g id="cfHatch" clip-path="url(#cfClip)" stroke="#3b6c9e" stroke-width="1.6" opacity=".8"></g>
+            <!-- 导风板 -->
+            <g id="louver" stroke="#5c93c9" stroke-width="2" stroke-linecap="round">
+              <line x1="700" y1="281" x2="716" y2="286"/><line x1="760" y1="281" x2="776" y2="286"/>
+              <line x1="820" y1="281" x2="836" y2="286"/><line x1="880" y1="281" x2="896" y2="286"/>
+            </g>
+          </g>
+          <g id="inAir"></g>
+          <g id="inReturn" stroke="#4b6f94" stroke-width="1.6" fill="none" opacity=".6">
+            <path d="M760,182 l6,8 l6,-8"/><path d="M800,182 l6,8 l6,-8"/><path d="M840,182 l6,8 l6,-8"/>
+          </g>
+
+          <!-- ============ 管路 ============ -->
+          <g id="pipes">
+            <!-- 排气管：压缩机 → 四通阀 D -->
+            <path id="pDis"     class="pipe-base" stroke-width="6" d="M365,438 L365,320"/>
+            <!-- 四通阀 C → 外盘顶部 -->
+            <path id="pV4C"     class="pipe-base" stroke-width="6" d="M400,300 L416,300 L416,308"/>
+            <!-- 室外盘管 -->
+            <path id="pCoilOut" class="pipe-base" stroke-width="5" d="M416,308 C438,338 394,358 416,388 C438,418 394,438 416,468 C438,498 400,508 416,530"/>
+            <!-- 外盘底部 → EXV -->
+            <path id="pLiqA"    class="pipe-base" stroke-width="4" d="M416,530 L444,530 L444,356"/>
+            <!-- EXV → 液管 → 内盘右下 -->
+            <path id="pLiqB"    class="pipe-base" stroke-width="4" d="M444,340 L444,296 L520,296 L520,350 L965,350 L965,252 L930,252"/>
+            <!-- 室内盘管（左上气侧 → 右下液侧） -->
+            <path id="pCoilIn"  class="pipe-base" stroke-width="5" d="M690,230 L930,230 L930,241 L690,241 L690,252 L930,252"/>
+            <!-- 气管：四通阀 E → 内盘左上 -->
+            <path id="pGasLine" class="pipe-base" stroke-width="6" d="M330,300 L330,240 L545,240 L545,320 L665,320 L665,230 L690,230"/>
+            <!-- 回气：四通阀 S → 气液分离器 → 压缩机 -->
+            <path id="pSuc"     class="pipe-base" stroke-width="6" d="M340,320 L340,360 L307,360 L307,495 L330,495"/>
+          </g>
+          <g id="pipeFlows">
+            <path id="fDis"     class="pipe-flow" stroke-width="3.5" d="M365,438 L365,320"/>
+            <path id="fV4C"     class="pipe-flow" stroke-width="3.5" d="M400,300 L416,300 L416,308"/>
+            <path id="fCoilOut" class="pipe-flow" stroke-width="3"   d="M416,308 C438,338 394,358 416,388 C438,418 394,438 416,468 C438,498 400,508 416,530"/>
+            <path id="fLiqA"    class="pipe-flow" stroke-width="2.2" d="M416,530 L444,530 L444,356"/>
+            <path id="fLiqB"    class="pipe-flow" stroke-width="2.2" d="M444,340 L444,296 L520,296 L520,350 L965,350 L965,252 L930,252"/>
+            <path id="fCoilIn"  class="pipe-flow" stroke-width="3"   d="M690,230 L930,230 L930,241 L690,241 L690,252 L930,252"/>
+            <path id="fGasLine" class="pipe-flow" stroke-width="3.5" d="M330,300 L330,240 L545,240 L545,320 L665,320 L665,230 L690,230"/>
+            <path id="fSuc"     class="pipe-flow" stroke-width="3.5" d="M340,320 L340,360 L307,360 L307,495 L330,495"/>
+          </g>
+
+          <!-- EXV -->
+          <g id="exvG">
+            <polygon points="444,340 436,348 452,348" fill="#0f2138" stroke="#67e8f9" stroke-width="1.4"/>
+            <polygon points="444,356 436,348 452,348" fill="#0f2138" stroke="#67e8f9" stroke-width="1.4"/>
+            <rect x="452" y="330" width="14" height="12" rx="2" fill="#183050" stroke="#33587e"/>
+            <circle id="exvArc" cx="444" cy="348" r="15" fill="none" stroke="#67e8f9" stroke-width="2.5"
+                    stroke-dasharray="47 95" stroke-linecap="round" transform="rotate(-90 444 348)" opacity=".9"/>
+            <text class="svg-label-s" x="470" y="352">EXV</text>
+          </g>
+
+          <!-- 结霜 / 化霜效果 -->
+          <rect id="frost" x="394" y="300" width="44" height="235" rx="4" fill="#dff3ff" opacity="0"/>
+          <g id="icicles" fill="#cfeeff" opacity="0">
+            <polygon points="400,535 404,535 402,548"/><polygon points="412,535 416,535 414,552"/>
+            <polygon points="424,535 428,535 426,547"/><polygon points="433,535 437,535 435,544"/>
+          </g>
+          <g id="drips"></g>
+          <g id="steam"></g>
+
+          <!-- 冷媒粒子 -->
+          <g id="particles"></g>
+          <g id="oilDots"></g>
+
+          <!-- ============ 测点标签 ============ -->
+          <g id="chips" font-family="Consolas">
+            <!-- 排气 -->
+            <g>
+              <line x1="252" y1="172" x2="365" y2="392" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
+              <rect class="chip-bg" x="122" y="150" width="130" height="44" rx="6"/>
+              <text class="chip-t" x="130" y="164">排气 DISCHARGE</text>
+              <text class="chip-v" id="cDisT" x="130" y="178">— °C</text>
+              <text class="chip-v" id="cDisP" x="130" y="190" fill="#c4b5fd">— MPa</text>
+            </g>
+            <!-- 回气 -->
+            <g>
+              <line x1="252" y1="578" x2="307" y2="522" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
+              <rect class="chip-bg" x="130" y="566" width="130" height="44" rx="6"/>
+              <text class="chip-t" x="138" y="580">回气 SUCTION</text>
+              <text class="chip-v" id="cSucT" x="138" y="594">— °C</text>
+              <text class="chip-v" id="cSucP" x="138" y="606" fill="#c4b5fd">— MPa</text>
+            </g>
+            <!-- 外盘 -->
+            <g>
+              <line x1="386" y1="580" x2="420" y2="540" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
+              <rect class="chip-bg" x="380" y="566" width="140" height="44" rx="6"/>
+              <text class="chip-t" x="388" y="580">室外盘管 <tspan id="cOCRole">冷凝器</tspan></text>
+              <text class="chip-v" id="cOCMid" x="388" y="594">中 — °C</text>
+              <text class="chip-v" id="cOCOut" x="388" y="606">出 — °C</text>
+              <text class="chip-v" id="cFrost" x="462" y="594" fill="#a5f3fc"></text>
+            </g>
+            <!-- EXV 开度 -->
+            <g>
+              <rect class="chip-bg" x="462" y="368" width="96" height="30" rx="6"/>
+              <text class="chip-t" x="470" y="381">EXV 开度</text>
+              <text class="chip-v" id="cExv" x="470" y="393" fill="#67e8f9">— %</text>
+            </g>
+            <!-- 内盘 -->
+            <g>
+              <line x1="988" y1="300" x2="932" y2="248" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
+              <rect class="chip-bg" x="984" y="292" width="140" height="44" rx="6"/>
+              <text class="chip-t" x="992" y="306">室内盘管 <tspan id="cICRole">蒸发器</tspan></text>
+              <text class="chip-v" id="cICMid" x="992" y="320">中 — °C</text>
+              <text class="chip-v" id="cICOut" x="992" y="332">出 — °C</text>
+            </g>
+            <!-- 出风 -->
+            <g>
+              <rect class="chip-bg" x="742" y="316" width="108" height="30" rx="6"/>
+              <text class="chip-t" x="750" y="329">内侧出风</text>
+              <text class="chip-v" id="cSupply" x="750" y="341" fill="#fda4af">— °C</text>
+            </g>
+            <!-- 室温/回风 -->
+            <g>
+              <rect class="chip-bg" x="1012" y="228" width="112" height="30" rx="6"/>
+              <text class="chip-t" x="1020" y="241">回风 / 室温</text>
+              <text class="chip-v" id="cRoom" x="1020" y="253" fill="#fda4af">— °C</text>
+            </g>
+            <!-- 室外环境 -->
+            <g>
+              <rect class="chip-bg" x="470" y="66" width="112" height="30" rx="6"/>
+              <text class="chip-t" x="478" y="79">室外环境</text>
+              <text class="chip-v" id="cAmb" x="478" y="91" fill="#fda4af">— °C</text>
+            </g>
+            <!-- 外机出风 -->
+            <g>
+              <rect class="chip-bg" x="14" y="572" width="106" height="30" rx="6"/>
+              <text class="chip-t" x="22" y="585">外机出风</text>
+              <text class="chip-v" id="cOutAir" x="22" y="597" fill="#fda4af">— °C</text>
+            </g>
+          </g>
+        </svg>
+        <div class="legend">
+          <span class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="none" stroke="#7dd3fc" stroke-width="1.6"/></svg>气态</span>
+          <span class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#7dd3fc"/></svg>液态</span>
+          <span class="li"><svg width="20" height="12"><circle cx="5" cy="6" r="3.5" fill="#7dd3fc"/><circle cx="14" cy="6" r="3.5" fill="none" stroke="#7dd3fc" stroke-width="1.5"/></svg>两相</span>
+          <span class="li"><svg width="34" height="12"><defs><linearGradient id="lgT" x1="0" x2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#f87171"/></linearGradient></defs><rect x="1" y="3" width="32" height="6" rx="3" fill="url(#lgT)"/></svg>颜色=温度</span>
+        </div>
+      </div>
+
+      <!-- ============ 控制台 ============ -->
+      <div class="panel" id="controls">
+        <div class="ctl-head">
+          <span class="title">手动调节 · MANUAL CONTROL</span>
+          <span class="note">可单独或同时调节多个参数，系统将动态过渡到新工况</span>
+          <button id="resetBtn">恢复默认</button>
+        </div>
+        <div class="sliders" id="sliders"></div>
+      </div>
+    </div>
+
+    <div class="col-right">
+      <!-- ============ 压焓图 ============ -->
+      <div class="panel" id="phPanel">
+        <div class="panel-title">压焓图 · P-h DIAGRAM <span id="phRef" style="color:#a78bfa;font-family:Consolas">R410A</span></div>
+        <canvas id="phCanvas" width="406" height="330"></canvas>
+      </div>
+
+      <!-- ============ 性能 ============ -->
+      <div class="panel">
+        <div class="panel-title">系统性能 · PERFORMANCE</div>
+        <div id="stats">
+          <div class="stat"><div class="k" id="capLbl">制冷量</div><div class="v" id="stCap">—<small> kW</small></div></div>
+          <div class="stat"><div class="k">输入功率</div><div class="v" id="stPow">—<small> kW</small></div></div>
+          <div class="stat"><div class="k">COP</div><div class="v" id="stCop">—</div></div>
+          <div class="stat"><div class="k">质量流量</div><div class="v" id="stMdot">—<small> g/s</small></div></div>
+          <div class="stat"><div class="k">压比</div><div class="v" id="stPr">—</div></div>
+        </div>
+      </div>
+
+      <!-- ============ 测点 ============ -->
+      <div class="panel">
+        <div class="panel-title">运行测点 · SENSORS</div>
+        <div id="sensorGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>基于简化稳态热力模型的教学演示 · 数值为定性参考，非选型依据 · R410A / R32 / R454B 物性为拟合近似</footer>
+</div>
+
+<script src="js/lib/config.js?v=213"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/lib/shell.js?v=213"></script>
+<script src="js/refprops.js?v=213"></script>
+<script src="js/model.js?v=213"></script>
+<script src="js/phdiagram.js?v=213"></script>
+<script src="js/scene.js?v=213"></script>
+<script src="js/sequence.js?v=213"></script>
+<script src="js/ui.js?v=213"></script>
+<script src="js/main.js?v=213"></script>
+</body>
+</html>
