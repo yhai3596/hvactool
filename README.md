@@ -190,6 +190,11 @@ HVAC/
 - 水力页 EC(H)R 限值系数 A/B/α 默认值请按 GB 50189-2015 具体分档核对
 - `sim.html` 仿真为教学定性模型；`refprops` / `phcalc` / `psychro` 为 CoolProp 高精度计算
 
+## 文档
+
+- 📖 [使用说明](docs/使用说明.md) — 9 个页面的详细操作手册（输入 / 输出 / 步骤 / 注意）
+- 📣 系统介绍（对外发布版）：[知乎版](docs/介绍-知乎.md) · [公众号版](docs/介绍-公众号.md) · [CSDN 版](docs/介绍-CSDN.md)
+
 ## 更新日志
 
 见 [CHANGELOG.md](CHANGELOG.md)。

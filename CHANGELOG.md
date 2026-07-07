@@ -12,6 +12,7 @@
 - **自动续期**：本机 acme.sh + GoDaddy API（`dns_gd`）全自动 DNS-01 验证；`--install-cert --reloadcmd` 续期后自动 scp 证书到服务器并 reload nginx；Windows 计划任务 `acme-hvac-renew` 每日检查（`renew-hvac.bat`），临期自动续，2026-09-05 首次自动续期
 - **首份 README 生产化**：加入在线地址、部署架构图、部署/更新流程、证书续期运维、API 表
 - **一键部署脚本**：`deploy.sh`（Windows 双击 `deploy-hvac.bat`）——本机中转打包上传，智能判断：仅 `server.py` 变化才重启后端并等就绪，前端静态改动即时生效零中断；含服务器侧 HTTP 200 验证。因服务器出境受限无法自行 `git pull`，故由本机中转
+- **配套文档**（`docs/`）：使用说明手册（9 页详解）+ 系统介绍 3 篇（知乎 / 公众号 / CSDN 发布版，介绍工具特点与国内服务器部署实战）
 
 ## v2.3 — 2026-07-07
 
