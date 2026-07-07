@@ -52,9 +52,12 @@ _LOCK = threading.Lock()
 STATE = {
     "lab": None,
     "bins": None,        # 逐机×同箱健康基线缓存(装载后按需构建)
+    "sense_ref": {},     # 逐机 sense 参照缓存(批量检测复用)
     "load": {"state": "idle", "error": None, "hint": None, "seconds": None},
     "selftest": {"state": "idle", "suite": None, "output": "", "summary": None,
                  "rc": None, "seconds": None},
+    "batch": {"state": "idle", "total": 0, "done": 0, "current": None,
+              "seconds": None, "error": None, "summary": None, "results": None},
 }
 
 
@@ -190,6 +193,7 @@ def _do_load():
         with _LOCK:
             STATE["lab"] = lab
             STATE["bins"] = None      # 基线缓存随数据重建
+            STATE["sense_ref"] = {}
             STATE["load"] = {"state": "done", "error": None, "hint": None,
                              "seconds": round(time.time() - t0, 1)}
     except Exception as e:  # noqa: BLE001 — 前端需要完整失败原因
@@ -459,7 +463,8 @@ def api_browse(body):
     for p in sorted(base.iterdir()):
         r = str(p.relative_to(labroot)).replace("\\", "/")
         if p.is_dir():
-            dirs.append({"name": p.name, "rel": r})
+            n_csv = sum(1 for _ in p.rglob("*.csv"))
+            dirs.append({"name": p.name, "rel": r, "path": str(p), "n_csv": n_csv})
         elif p.suffix.lower() == ".csv":
             files.append({"name": p.name, "rel": r, "path": str(p),
                           "size_kb": int(round(p.stat().st_size / 1024))})
@@ -655,9 +660,14 @@ _HYP_RANK = {"refrigerant_low_or_leak": 3, "metering_restriction": 2,
 
 
 def api_detect(body):
-    """文件级检测与诊断:体检 → 稳态分段 → 逐机基线残差 → 逐段 M-DIAG → sense 信任检验。"""
     p = _resolve_path(body)
-    payload, frame, unit = _profile_file(p, body.get("unit") or None)
+    return _detect_file(p, body.get("unit") or None)
+
+
+def _detect_file(p: pathlib.Path, unit_override=None):
+    """文件级检测与诊断核心(单文件与批量共用):
+    体检 → 稳态分段 → 逐机三级基线残差 → 逐段 M-DIAG → sense 信任检验。"""
+    payload, frame, unit = _profile_file(p, unit_override)
     out = {"profile": payload, "unit": unit, "baseline": None,
            "segments": [], "sensors": None, "sensor_note": None, "summary": None}
     if frame is None:
@@ -761,7 +771,11 @@ def api_detect(body):
             out["sensor_note"] = (f"机台 {unit} 健康行不足({len(hu)}<100),"
                                   "跳过传感器信任检验。")
         else:
-            ref = sense.fit_reference(conv.materialize(hu))
+            ref = STATE["sense_ref"].get(str(unit))
+            if ref is None:
+                ref = sense.fit_reference(conv.materialize(hu))
+                with _LOCK:
+                    STATE["sense_ref"][str(unit)] = ref
             chk = sense.check(mm, ref)
             out["sensors"] = chk.to_dict(orient="records")
             if (chk["status"] == "flagged").any():
@@ -802,6 +816,156 @@ def api_detect(body):
                       "segments_diagnosed": len(diagnosed),
                       "segments_no_baseline": undiagnosed}
     return out
+
+
+# ------------------------------------------------------- 批量检验(设备级汇总)
+
+_ABNORMAL_VERDICTS = ("疑似少冷媒/泄漏", "疑似节流受限", "内机侧非特异异常")
+
+
+def _collect_batch_paths(body):
+    if body.get("paths"):
+        paths = [pathlib.Path(str(x).strip().strip('"')) for x in body["paths"]]
+        missing = [str(x) for x in paths if not x.exists()]
+        if missing:
+            raise ApiError("以下文件不存在:" + ";".join(missing[:3]),
+                           "重新选取后再启动批量检验。")
+        bad = [str(x) for x in paths if x.suffix.lower() != ".csv"]
+        if bad:
+            raise ApiError("仅支持 .csv 文件:" + bad[0])
+        return paths
+    d = (body.get("dir") or "").strip().strip('"').strip("'")
+    if not d:
+        raise ApiError("未选择目录或文件列表",
+                       "在目录树点「选此目录批量」,或多选上传文件后再启动。")
+    dp = pathlib.Path(d)
+    if not dp.is_dir():
+        raise ApiError(f"目录不存在:{dp}")
+    paths = sorted(dp.rglob("*.csv"))
+    if not paths:
+        raise ApiError("目录内(含子目录)没有 .csv 文件")
+    if len(paths) > 500:
+        raise ApiError(f"目录内 CSV 达 {len(paths)} 个,超过 500 上限",
+                       "选择更小的子目录分批检验。")
+    return paths
+
+
+def _batch_summary(results):
+    units = {}
+    for r in results:
+        u = r["unit"] or "未知"
+        e = units.setdefault(u, {"files": 0, "errors": 0, "abnormal": 0,
+                                 "undiagnosable": 0, "counts": {}, "worst": None,
+                                 "sensor_flagged_files": 0, "timeline": []})
+        e["files"] += 1
+        if r["error"]:
+            e["errors"] += 1
+            e["timeline"].append({"t": r["t_anchor"], "file": r["file"],
+                                  "verdict": "错误", "conf": None})
+            continue
+        for k, v in (r["counts"] or {}).items():
+            e["counts"][k] = e["counts"].get(k, 0) + v
+        if r["verdict"] in _ABNORMAL_VERDICTS:
+            e["abnormal"] += 1
+            if (e["worst"] is None
+                    or (r["worst_conf"] or 0) > (e["worst"].get("conf") or 0)):
+                e["worst"] = {"file": r["file"], "verdict": r["verdict"],
+                              "conf": r["worst_conf"], "t": r["t_anchor"]}
+        if r["verdict"] and "不可判" in r["verdict"]:
+            e["undiagnosable"] += 1
+        if r["sensors_flagged"]:
+            e["sensor_flagged_files"] += 1
+        e["timeline"].append({"t": r["t_anchor"], "file": r["file"],
+                              "verdict": r["verdict"], "conf": r["worst_conf"]})
+    for e in units.values():
+        e["timeline"].sort(key=lambda x: (x["t"] or ""))
+    return {"files": len(results),
+            "files_error": sum(1 for r in results if r["error"]),
+            "files_abnormal": sum(1 for r in results
+                                  if r["verdict"] in _ABNORMAL_VERDICTS),
+            "files_undiagnosable": sum(1 for r in results
+                                       if r["verdict"] and "不可判" in r["verdict"]),
+            "files_clean": sum(1 for r in results if r["verdict"] == "未见异常"),
+            "units": units}
+
+
+def _run_batch(paths, unit_override):
+    t0 = time.time()
+    results = []
+    try:
+        for i, p in enumerate(paths):
+            with _LOCK:
+                STATE["batch"]["done"] = i
+                STATE["batch"]["current"] = p.name
+            row = {"file": p.name, "path": str(p), "unit": None, "ok": False,
+                   "verdict": None, "detail": None, "counts": {},
+                   "seg_total": 0, "seg_diag": 0, "seg_nobase": 0,
+                   "worst_conf": None, "sensors_flagged": [], "issues": 0,
+                   "t_anchor": None, "error": None}
+            m = re.search(r"_(\d{14})", p.stem)
+            if m:
+                s14 = m.group(1)
+                row["t_anchor"] = (f"{s14[:4]}-{s14[4:6]}-{s14[6:8]} "
+                                   f"{s14[8:10]}:{s14[10:12]}")
+            try:
+                d = _detect_file(p, unit_override)
+                sm = d.get("summary") or {}
+                diagnosed = [s for s in d.get("segments", []) if s.get("diagnosis")]
+                worst = max((s["diagnosis"]["confidence"] for s in diagnosed
+                             if s["diagnosis"]["fault_hypothesis"] != "none"),
+                            default=None)
+                row.update({
+                    "unit": d.get("unit"), "ok": True,
+                    "verdict": sm.get("verdict"), "detail": sm.get("detail"),
+                    "counts": sm.get("counts") or {},
+                    "seg_total": sm.get("segments_total", 0),
+                    "seg_diag": sm.get("segments_diagnosed", 0),
+                    "seg_nobase": sm.get("segments_no_baseline", 0),
+                    "worst_conf": worst,
+                    "sensors_flagged": [x["sensor"] for x in (d.get("sensors") or [])
+                                        if x.get("status") == "flagged"],
+                    "issues": len((d.get("profile") or {}).get("issues") or []),
+                })
+            except ApiError as e:
+                row["error"] = e.error
+            except Exception as e:  # noqa: BLE001
+                row["error"] = f"{type(e).__name__}: {e}"
+            results.append(row)
+        with _LOCK:
+            STATE["batch"].update({"state": "done", "done": len(paths),
+                                   "current": None,
+                                   "seconds": round(time.time() - t0, 1),
+                                   "summary": _batch_summary(results),
+                                   "results": results})
+    except Exception as e:  # noqa: BLE001
+        traceback.print_exc()
+        with _LOCK:
+            STATE["batch"].update({"state": "error",
+                                   "error": f"{type(e).__name__}: {e}",
+                                   "seconds": round(time.time() - t0, 1)})
+
+
+def api_batch(body):
+    with _LOCK:
+        if STATE["batch"]["state"] == "running":
+            raise ApiError("已有批量检验在运行", "等当前批次完成后再启动下一批。")
+    if STATE["lab"] is None:
+        raise ApiError("健康基线数据尚未装载",
+                       "先到「① 数据总览」装载——批量诊断的残差以逐机健康基线为参照。")
+    paths = _collect_batch_paths(body)
+    unit_override = (body.get("unit") or "").strip() or None
+    _baseline_bins()          # 预构建基线(在请求线程内,失败即时报错)
+    with _LOCK:
+        STATE["batch"] = {"state": "running", "total": len(paths), "done": 0,
+                          "current": None, "seconds": None, "error": None,
+                          "summary": None, "results": None}
+    threading.Thread(target=_run_batch, args=(paths, unit_override),
+                     daemon=True).start()
+    return {"state": "running", "total": len(paths)}
+
+
+def api_batch_status(_body=None):
+    return dict(STATE["batch"])
 
 
 # ---------------------------------------------------------------- 系统自检
@@ -875,6 +1039,7 @@ ROUTES_GET = {
     "/api/load/status": api_load_status,
     "/api/overview": api_overview,
     "/api/selftest/status": api_selftest_status,
+    "/api/batch/status": api_batch_status,
     "/api/manual": api_manual,
 }
 ROUTES_POST = {
@@ -883,6 +1048,7 @@ ROUTES_POST = {
     "/api/materialize": api_materialize,
     "/api/filecheck": api_filecheck,
     "/api/detect": api_detect,
+    "/api/batch": api_batch,
     "/api/browse": api_browse,
     "/api/upload": api_upload,
     "/api/selftest": api_selftest,

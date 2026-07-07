@@ -191,8 +191,8 @@ ul.doc{line-height:1.9;padding-left:20px}
     <h2>1. 选取文件</h2>
     <div style="margin-bottom:8px">
       <button class="mini" id="btnBrowse">浏览实验室数据(data/raw/lab)</button>
-      <button class="mini" onclick="document.getElementById('fcUpload').click()">从本机选取上传…</button>
-      <input type="file" id="fcUpload" accept=".csv" style="display:none">
+      <button class="mini" onclick="document.getElementById('fcUpload').click()">从本机选取上传(可多选)…</button>
+      <input type="file" id="fcUpload" accept=".csv" multiple style="display:none">
       <label class="f" style="display:inline-block;margin:0 0 0 10px;vertical-align:middle">
         <select id="fcUnit" style="width:auto;padding:5px 8px">
           <option value="">机台:自动识别</option>
@@ -215,9 +215,11 @@ ul.doc{line-height:1.9;padding-left:20px}
     <h2 style="margin-top:14px">2. 运行分析</h2>
     <button class="act" id="btnFc">快速体检</button>
     <button class="act" id="btnDetect" style="margin-left:8px;background:#7b1fa2">检测与诊断</button>
-    <span class="muted" style="margin-left:8px" id="detHint">「检测与诊断」需先在①装载数据(作为逐机基线)</span>
+    <span class="muted" style="margin-left:8px" id="detHint">诊断需先在①装载数据(作为逐机基线);选中目录或多文件时自动进入批量模式</span>
+    <div id="batchProg" style="display:none;margin-top:10px"></div>
     <div id="fcOut"></div>
     <div id="detOut"></div>
+    <div id="batchOut"></div>
   </div>
 </section>
 
@@ -350,37 +352,53 @@ $("#btnCalc").addEventListener("click",async()=>{
  html+=(r.hints||[]).map(h=>`<div class="alert a-warn">${esc(h)}</div>`).join("");
  $("#ccOut").innerHTML=`<div class="result-card" style="background:#fff">${html}</div>`;});
 
-/* ---------- ④ 运行数据:文件选取 ---------- */
-let SEL={path:null,name:null};
-function setSel(path,name,source,extra){SEL={path,name};$("#fcPath").value="";
- $("#fcSel").style.display="block";
- $("#fcSel").innerHTML=`已选取:<b>${esc(name)}</b> <span class="muted">(${esc(source)})</span>`+
-  (extra?`<br><span class="muted">${esc(extra)}</span>`:"");}
+/* ---------- ④ 运行数据:文件/目录/多文件选取 ---------- */
+let SEL={kind:null,path:null,paths:[],dir:null};
+function setSel(sel,labelHtml,extra){SEL=Object.assign({kind:null,path:null,paths:[],dir:null},sel);
+ $("#fcPath").value="";$("#fcSel").style.display="block";
+ $("#fcSel").innerHTML=`已选取:${labelHtml}`+(extra?`<br><span class="muted">${esc(extra)}</span>`:"");}
 function currentPath(){const m=$("#fcPath").value.trim();return m||SEL.path||"";}
+function batchMode(){return !$("#fcPath").value.trim()&&(SEL.kind==="dir"||SEL.kind==="files");}
 $("#btnBrowse").addEventListener("click",()=>{const b=$("#fcBrowser");
  if(b.style.display==="none"){b.style.display="block";loadDir("");}else b.style.display="none";});
 async function loadDir(rel){const b=$("#fcBrowser");b.innerHTML="<span class='spin'></span>读取目录…";
  try{const d=await api("/api/browse",{rel});
   const parent=(d.rel||"").split("/").slice(0,-1).join("/");
+  const curAbs=d.root+(d.rel?"\\"+d.rel.replace(/\//g,"\\"):"");
   let h=`<div class="muted" style="margin-bottom:6px">位置:lab/${esc(d.rel||"")}`+
-   (d.rel?` &nbsp;<a href="#" class="bDir" data-rel="${esc(parent)}">⬆ 上一级</a>`:"")+`</div>`;
-  h+=d.dirs.map(x=>`<div><a href="#" class="bDir" data-rel="${esc(x.rel)}">📁 ${esc(x.name)}</a></div>`).join("");
+   (d.rel?` &nbsp;<a href="#" class="bDir" data-rel="${esc(parent)}">⬆ 上一级</a>`:"")+
+   ` &nbsp;<a href="#" class="bDirPick" data-path="${esc(curAbs)}" data-name="${esc(d.rel||"lab 根目录")}">[批量检验当前目录]</a></div>`;
+  h+=d.dirs.map(x=>`<div><a href="#" class="bDir" data-rel="${esc(x.rel)}">📁 ${esc(x.name)}</a>
+   <a href="#" class="bDirPick" data-path="${esc(x.path)}" data-name="${esc(x.name)}" style="margin-left:6px;font-size:12px">[批量,${x.n_csv} 个 CSV]</a></div>`).join("");
   h+=d.files.map((x,i)=>`<div><a href="#" class="bFile" data-i="${i}">📄 ${esc(x.name)}</a> <span class="muted">${x.size_kb} KB</span></div>`).join("");
   b.innerHTML=h||"<span class='muted'>(空目录)</span>";b._files=d.files;}
  catch(e){b.innerHTML="<span class='muted'>目录读取失败(见提示)。</span>";}}
 $("#fcBrowser").addEventListener("click",e=>{const a=e.target.closest("a");if(!a)return;e.preventDefault();
  if(a.classList.contains("bDir"))loadDir(a.dataset.rel);
+ else if(a.classList.contains("bDirPick"))
+  setSel({kind:"dir",dir:a.dataset.path},`目录 <b>${esc(a.dataset.name)}</b> <span class="muted">(批量模式,含子目录全部 CSV)</span>`,
+   "机台从各文件所在目录自动识别;「机台」下拉保持「自动」即可。");
  else if(a.classList.contains("bFile")){const f=$("#fcBrowser")._files[+a.dataset.i];
-  setSel(f.path,f.name,"实验室数据目录");}});
-$("#fcUpload").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;
- if(f.size>80*1024*1024){toast("文件超过 80MB 上限");e.target.value="";return;}
- $("#fcSel").style.display="block";$("#fcSel").innerHTML="<span class='spin'></span>上传中…";
- try{const buf=await f.arrayBuffer();const u=new Uint8Array(buf);let s="";const CH=0x8000;
-  for(let i=0;i<u.length;i+=CH)s+=String.fromCharCode.apply(null,u.subarray(i,i+CH));
-  const r=await api("/api/upload",{name:f.name,content_b64:btoa(s)});
-  setSel(r.path,r.name,"本机上传(临时目录)",r.note);toast("上传完成:"+esc(r.name),true);}
- catch(err){$("#fcSel").style.display="none";}
- e.target.value="";});
+  setSel({kind:"file",path:f.path},`<b>${esc(f.name)}</b> <span class="muted">(实验室数据目录)</span>`);}});
+$("#fcUpload").addEventListener("change",async e=>{const fs=[...e.target.files];if(!fs.length)return;
+ $("#fcSel").style.display="block";
+ const paths=[],names=[];
+ for(let k=0;k<fs.length;k++){const f=fs[k];
+  if(f.size>80*1024*1024){toast(esc(f.name)+" 超过 80MB 上限,已跳过");continue;}
+  $("#fcSel").innerHTML=`<span class='spin'></span>上传中 ${k+1}/${fs.length}:${esc(f.name)}…`;
+  try{const buf=await f.arrayBuffer();const u=new Uint8Array(buf);let s="";const CH=0x8000;
+   for(let i=0;i<u.length;i+=CH)s+=String.fromCharCode.apply(null,u.subarray(i,i+CH));
+   const r=await api("/api/upload",{name:f.name,content_b64:btoa(s)});
+   paths.push(r.path);names.push(r.name);}
+  catch(err){/* toast 已由 api() 弹出 */}}
+ if(!paths.length){$("#fcSel").style.display="none";e.target.value="";return;}
+ if(paths.length===1)
+  setSel({kind:"file",path:paths[0]},`<b>${esc(names[0])}</b> <span class="muted">(本机上传,临时目录)</span>`,
+   "上传文件无目录上下文,请在「机台」下拉框选择后再诊断。");
+ else
+  setSel({kind:"files",paths},`<b>${paths.length} 个上传文件</b> <span class="muted">(批量模式,临时目录)</span>`,
+   "上传文件无目录上下文:请在「机台」下拉框选择(整批同机台);混装多机台请分批。");
+ toast(`上传完成:${paths.length} 个文件`,true);e.target.value="";});
 
 /* ---------- ④ 快速体检 ---------- */
 function renderProfile(r){const i=r.info;
@@ -420,7 +438,7 @@ function segDetail(s){let h="";
   h+=`<h3>现场核查清单</h3><ul>`+o.field_checklist.map(c=>`<li>${esc(c)}</li>`).join("")+`</ul>`;
   if(o.severity)h+=`<div class="muted">severity=${(+o.severity.estimate).toFixed(3)}(fitted=${o.severity.fitted},方向性代理)</div>`;}
  return h||"<span class='muted'>(无详情)</span>";}
-function renderDetect(r){const sm=r.summary||{};
+function detectHtml(r){const sm=r.summary||{};
  const vClass=/少冷媒|泄漏/.test(sm.verdict)?"hy-refrigerant_low_or_leak":
   /节流/.test(sm.verdict)?"hy-metering_restriction":
   /未见异常/.test(sm.verdict)?"hy-none":"";
@@ -449,14 +467,91 @@ function renderDetect(r){const sm=r.summary||{};
    <tr class="segdet" data-i="${i}" style="display:none"><td colspan="13">${segDetail(s)}</td></tr>`;}).join("")+"</table>";}
  else h+=`<div class="alert a-warn">没有 ≥2 分钟的稳态段,无法段级诊断。</div>`;
  h+=`<h3 style="margin-top:14px">体检画像</h3>`+renderProfile(r.profile);
- $("#detOut").innerHTML=`<div class="result-card" style="background:#fff">${h}</div>`;
- document.querySelectorAll(".segrow").forEach(tr=>tr.addEventListener("click",()=>{
-  const det=document.querySelector(`.segdet[data-i="${tr.dataset.i}"]`);
-  det.style.display=det.style.display==="none"?"":"none";}));}
-$("#btnDetect").addEventListener("click",async()=>{$("#fcOut").innerHTML="";
+ return h;}
+function bindSegRows(root){root.querySelectorAll(".segrow").forEach(tr=>tr.addEventListener("click",()=>{
+ const det=root.querySelector(`.segdet[data-i="${tr.dataset.i}"]`);
+ if(det)det.style.display=det.style.display==="none"?"":"none";}));}
+function renderDetect(r){$("#detOut").innerHTML=`<div class="result-card" style="background:#fff">${detectHtml(r)}</div>`;
+ bindSegRows($("#detOut"));}
+$("#btnDetect").addEventListener("click",async()=>{
+ $("#fcOut").innerHTML="";$("#detOut").innerHTML="";$("#batchOut").innerHTML="";
+ if(batchMode()){startBatch();return;}
  $("#detOut").innerHTML="<span class='spin'></span>检测与诊断中(分段 → 逐机基线 → 逐段诊断 → 传感器检验)…";
  try{const r=await api("/api/detect",{path:currentPath(),unit:$("#fcUnit").value});renderDetect(r);}
  catch(e){$("#detOut").innerHTML="";}});
+
+/* ---------- ④ 批量检验(设备级) ---------- */
+let BATCH=null,pollBatch=null;
+function vBadge(v){const map={"未见异常":"b-green","疑似少冷媒/泄漏":"b-red","疑似节流受限":"b-orange",
+ "内机侧非特异异常":"b-blue","错误":"b-red"};
+ return `<span class="badge ${map[v]||"b-gray"}">${esc(v||"—")}</span>`;}
+async function startBatch(){
+ const body=SEL.kind==="dir"?{dir:SEL.dir}:{paths:SEL.paths};
+ body.unit=$("#fcUnit").value;
+ let st;try{st=await api("/api/batch",body);}catch(e){return;}
+ const pg=$("#batchProg");pg.style.display="block";
+ pg.innerHTML=`<span class='spin'></span>批量检验中 0/${st.total}…`;
+ if(pollBatch)clearInterval(pollBatch);
+ pollBatch=setInterval(async()=>{const s=await api("/api/batch/status");
+  if(s.state==="running"){const pct=Math.round(100*s.done/Math.max(s.total,1));
+   pg.innerHTML=`<span class='spin'></span>批量检验中 ${s.done}/${s.total}(当前:${esc(s.current||"")})
+    <div class="confbar" style="max-width:420px"><i style="width:${pct}%"></i></div>`;return;}
+  clearInterval(pollBatch);pg.style.display="none";
+  if(s.state==="error"){toast("批量检验失败:"+esc(s.error));return;}
+  BATCH=s;renderBatch(s);toast(`批量检验完成:${s.total} 个文件(${s.seconds}s)`,true);},1500);}
+function renderBatch(s){const sm=s.summary;
+ let h=`<div class="result-card" style="background:#fff">
+  <h2 style="margin:0 0 8px">批量检验报告 <span class="muted">(${s.total} 个文件,${s.seconds}s)</span>
+   <span style="float:right"><button class="mini" onclick="exportBatch('csv')">导出 CSV 摘要</button>
+   <button class="mini" onclick="exportBatch('json')">导出 JSON 报告</button></span></h2>
+  <div class="kpis">
+   <div class="kpi"><b>${sm.files}</b><span>文件</span></div>
+   <div class="kpi"><b style="color:${sm.files_abnormal?"var(--red)":"inherit"}">${sm.files_abnormal}</b><span>异常文件</span></div>
+   <div class="kpi"><b>${sm.files_clean}</b><span>未见异常</span></div>
+   <div class="kpi"><b>${sm.files_undiagnosable}</b><span>不可判</span></div>
+   <div class="kpi"><b>${sm.files_error}</b><span>错误</span></div>
+  </div><h3>设备级汇总(按机台)</h3>`;
+ for(const [u,e] of Object.entries(sm.units)){
+  h+=`<div style="border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0">
+   <b>机台 ${esc(u)}</b> <span class="muted">文件 ${e.files} · 异常 ${e.abnormal} · 不可判 ${e.undiagnosable} · 错误 ${e.errors} · 传感器旗文件 ${e.sensor_flagged_files}</span>`;
+  if(e.worst)h+=`<div class="alert a-error" style="margin:6px 0"><b>最严重发现:</b>${vBadge(e.worst.verdict)}
+   置信 ${e.worst.conf??"—"} · ${esc(e.worst.file)}(${esc(e.worst.t||"时间未知")})</div>`;
+  if(Object.keys(e.counts).length)h+=`<div style="margin:4px 0">段级假设计数:`+
+   Object.entries(e.counts).map(([k,v])=>{const hh=HYP[k]||[k,"b-gray"];
+    return `<span class="badge ${hh[1]}">${esc(hh[0])} × ${v}</span>`;}).join(" ")+`</div>`;
+  h+=`<div style="margin-top:4px"><span class="muted">时间线(按文件时间锚,悬停看文件):</span><br>`+
+   e.timeline.map(x=>`<span title="${esc(x.file)} ${esc(x.t||"")}${x.conf!=null?" 置信"+x.conf:""}">${vBadge(x.verdict)}</span>`).join(" ")+`</div></div>`;}
+ h+=`<h3>文件明细(点击行展开该文件完整诊断)</h3>
+  <table><tr><th>#</th><th>时间锚</th><th>文件</th><th>机台</th><th>结论</th><th>最高置信</th><th>段(诊/总/无基线)</th><th>传感器旗</th><th>问题项</th></tr>`;
+ h+=s.results.map((r,i)=>`<tr class="batrow" data-i="${i}" style="cursor:pointer">
+  <td>${i+1}</td><td>${esc(r.t_anchor||"—")}</td><td>${esc(r.file)}</td><td>${esc(r.unit||"?")}</td>
+  <td>${r.error?`<span class="badge b-red">错误</span> <span class="muted">${esc((r.error||"").slice(0,48))}</span>`:vBadge(r.verdict)}</td>
+  <td>${r.worst_conf??"—"}</td><td>${r.seg_diag}/${r.seg_total}/${r.seg_nobase}</td>
+  <td>${r.sensors_flagged&&r.sensors_flagged.length?esc(r.sensors_flagged.join(",")):"—"}</td><td>${r.issues||0}</td></tr>
+  <tr class="batdet" data-i="${i}" style="display:none"><td colspan="9"><div id="batdet${i}"><span class="muted">…</span></div></td></tr>`).join("");
+ h+=`</table></div>`;
+ $("#batchOut").innerHTML=h;
+ document.querySelectorAll("#batchOut .batrow").forEach(tr=>tr.addEventListener("click",async()=>{
+  const i=+tr.dataset.i,det=document.querySelector(`#batchOut .batdet[data-i="${i}"]`);
+  if(det.style.display!=="none"){det.style.display="none";return;}
+  det.style.display="";const cell=$("#batdet"+i);
+  if(!cell._loaded){cell.innerHTML="<span class='spin'></span>加载该文件完整诊断…";
+   try{const r=await api("/api/detect",{path:BATCH.results[i].path,unit:$("#fcUnit").value});
+    cell.innerHTML=detectHtml(r);cell._loaded=true;bindSegRows(cell);}
+   catch(e){cell.innerHTML="<span class='muted'>详情加载失败(见提示)。</span>";}}}));}
+function exportBatch(fmt){if(!BATCH)return;
+ let blob,fname;
+ if(fmt==="json"){blob=new Blob([JSON.stringify({summary:BATCH.summary,results:BATCH.results,
+   seconds:BATCH.seconds,generated:new Date().toISOString()},null,2)],
+   {type:"application/json"});fname="fdd_batch_report.json";}
+ else{const head=["file","t_anchor","unit","verdict","worst_conf","seg_diagnosed","seg_total",
+   "seg_no_baseline","sensors_flagged","issues","error"];
+  const rows=BATCH.results.map(r=>[r.file,r.t_anchor||"",r.unit||"",r.verdict||"",r.worst_conf??"",
+   r.seg_diag,r.seg_total,r.seg_nobase,(r.sensors_flagged||[]).join("|"),r.issues||0,r.error||""]);
+  const csv="﻿"+[head,...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  blob=new Blob([csv],{type:"text/csv;charset=utf-8"});fname="fdd_batch_summary.csv";}
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),5000);}
 
 /* ---------- ⑥ 手册渲染(极简 Markdown) ---------- */
 function mdRender(md){const lines=md.split(/\r?\n/);let html="",inUl=false,tbl=[];
