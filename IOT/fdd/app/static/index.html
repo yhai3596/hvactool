@@ -181,17 +181,43 @@ ul.doc{line-height:1.9;padding-left:20px}
   </div>
 </section>
 
-<!-- ============================ ④ 文件体检 ============================ -->
+<!-- ==================== ④ 运行数据检测与诊断 ==================== -->
 <section class="tab" id="tab-file">
-  <div class="explain">对单个 <b>RamChecker 监控 CSV</b> 做入库前体检:时间轴重建 → 枚举隔离 → 10s 重采样
-  → 稳态/锚分段 → 逐行工况归属。给出可用行数、模式/工况分布、锚统计与全部问题项。
-  文件为只读,不入库、不改名。</div>
+  <div class="explain">对单个 <b>RamChecker 监控 CSV</b> 做两级分析:<b>快速体检</b>(数据质量画像,无须装载数据)
+  与 <b>检测与诊断</b>(稳态分段 → 逐机×同箱健康基线残差 → 逐段 M-DIAG 诊断 → 传感器信任检验,
+  须先在①装载数据)。基线参照面是<b>逐机</b>的(DK-017/铁律 10):该机没有健康基线的段会明确标注
+  "不可判",绝不跨机凑基线。文件只读,不入库。</div>
   <div class="card">
-    <label class="f"><span>CSV 完整路径</span>
-      <input type="text" id="fcPath" placeholder="例:E:\AICoding\IOT\fdd\data\raw\lab\监控数据\31 …\RamChecker_20231127123005.csv">
-      <small>资源管理器中右键文件 →「复制文件地址」直接粘贴即可(带引号会自动去除)。文件名必须保留原始 _YYYYMMDDHHMMSS 时间戳。</small></label>
-    <button class="act" id="btnFc">体检</button>
+    <h2>1. 选取文件</h2>
+    <div style="margin-bottom:8px">
+      <button class="mini" id="btnBrowse">浏览实验室数据(data/raw/lab)</button>
+      <button class="mini" onclick="document.getElementById('fcUpload').click()">从本机选取上传…</button>
+      <input type="file" id="fcUpload" accept=".csv" style="display:none">
+      <label class="f" style="display:inline-block;margin:0 0 0 10px;vertical-align:middle">
+        <select id="fcUnit" style="width:auto;padding:5px 8px">
+          <option value="">机台:自动识别</option>
+          <option value="31">机台 31(2436AA 试制)</option>
+          <option value="37">机台 37(2436AA)</option>
+          <option value="55">机台 55(2436AA)</option>
+          <option value="84">机台 84(2436AA)</option>
+          <option value="44">机台 44(4860AA)</option>
+          <option value="85">机台 85(4860AA)</option>
+        </select></label>
+    </div>
+    <div id="fcBrowser" style="display:none;border:1px solid var(--line);border-radius:6px;
+      padding:10px;max-height:300px;overflow:auto;margin-bottom:8px"></div>
+    <details style="margin:6px 0"><summary class="muted" style="cursor:pointer">高级:手动粘贴完整路径</summary>
+      <label class="f" style="margin-top:8px"><span>CSV 完整路径</span>
+        <input type="text" id="fcPath" placeholder="例:E:\AICoding\IOT\fdd\data\raw\lab\监控数据\31 …\RamChecker_20231127123005.csv">
+        <small>资源管理器右键文件 →「复制文件地址」粘贴;文件名必须保留原始 _YYYYMMDDHHMMSS 时间戳。</small></label>
+    </details>
+    <div id="fcSel" class="alert a-info" style="display:none"></div>
+    <h2 style="margin-top:14px">2. 运行分析</h2>
+    <button class="act" id="btnFc">快速体检</button>
+    <button class="act" id="btnDetect" style="margin-left:8px;background:#7b1fa2">检测与诊断</button>
+    <span class="muted" style="margin-left:8px" id="detHint">「检测与诊断」需先在①装载数据(作为逐机基线)</span>
     <div id="fcOut"></div>
+    <div id="detOut"></div>
   </div>
 </section>
 
@@ -211,42 +237,9 @@ ul.doc{line-height:1.9;padding-left:20px}
 
 <!-- ============================ ⑥ 说明 ============================ -->
 <section class="tab" id="tab-help">
-  <div class="card"><h2>这是什么</h2>
-  <p>FDD(北美住宅变频热泵外机故障诊断)系统的<b>本地交互控制台</b>:把管线的装载、物理转换、工况判定、
-  诊断矩阵、回归自检包装成可点击界面。零新增依赖(纯 Python 标准库 + 项目既有模块),仅绑定本机
-  127.0.0.1,不向任何外部服务发送数据 —— 与项目「全流程本地」安全承诺一致。</p></div>
-  <div class="card"><h2>各页怎么用</h2><ul class="doc">
-    <li><b>① 数据总览</b>:点「装载实验室数据」(约 40–60s)。看四类信息:KPI 卡(行数/锚数/隔离数)、
-      覆盖门(每 SKU 须 ≥4 健康额定工况)、包络概览(各工况预测容量,注意 2436AA H2 为单行支撑)、
-      健康告警(已知事项 + 装载后动态项)。「不确定清单」列出需人工复核的段。</li>
-    <li><b>② 单点诊断</b>:输入<b>残差</b>(实测 − 该机基线)。典型用例——制冷早期少冷媒:
-      sh_resid=0.5、sc_resid=−2.0、capacity_resid=−0.10 → refrigerant_low_or_leak,置信 0.65;
-      把 capacity_resid 改成 0 → 置信降为 0.5(sc 单证)。结果卡给出证据链、反证、判定过程逐步
-      解释与现场核查清单。</li>
-    <li><b>③ 物理计算器</b>:输入表压/温度读数,得 sh_phys/sc_phys/dsh_phys/饱和温度/tcs_gap 与
-      工况归属。用于现场快照核对与传感器合理性检查(负过热度/负过冷度会给出提示)。</li>
-    <li><b>④ 文件体检</b>:新拿到一个 RamChecker CSV,先体检再入库:是否 63 列方言、有无表外枚举值、
-      稳态率、能铸哪些工况。fault_injected 登记文件会被明确标注。</li>
-    <li><b>⑤ 系统自检</b>:一键跑 M0/M1/M2/规格套件,对照页面上的预期基线读结果。</li>
-  </ul></div>
-  <div class="card"><h2>读数与口径速查(容易踩的坑)</h2><ul class="doc">
-    <li>压力是<b>密封表压(bar)</b>,绝压 = 表压 + 1.013,全设备固定,禁海拔修正(铁律 1)。</li>
-    <li>过冷度物理口径 sc_phys = tc_sat − Tl,<b>没有 −1</b>(控制器显示偏置已剥除,铁律 2)。</li>
-    <li>固件上报 Sh/Sc 含系统性饱和表偏差(约 −2% 压力尺度),残差分析一律用本工具的物理口径。</li>
-    <li>制热 Sh≈0 是正常伺服态,不是故障(铁律 3);制冷 EEV 满开是正常控制,exv_resid≡0(铁律 17)。</li>
-    <li>诊断页输入的是<b>残差</b>不是读数:sh_resid 的参照面在制冷侧 = 逐机×同箱(DK-017),
-      跨机比较无效(实测同箱跨机散差 ~9K)。</li>
-    <li>severity 输出 fitted=False:是方向性代理值,欠充梯度数据到货后才有工程量纲。</li>
-    <li>dsh 安全参考带 5.0K 为暂定值,只产生核查清单注释,不参与判定。</li>
-  </ul></div>
-  <div class="card"><h2>故障排除</h2><ul class="doc">
-    <li><b>页面打不开</b>:确认控制台窗口在运行;端口被占用时用
-      <code>--port 8899</code> 重启。</li>
-    <li><b>装载报错「目录不存在」</b>:实验室数据须在 <code>data/raw/lab/</code>(含 監控数据 目录)。</li>
-    <li><b>自检报 3 skipped</b>:预期现象(holdout 等 M3、prodline×2 等盐协议),不是故障。</li>
-    <li><b>计算器饱和温度为空</b>:检查表压是否在查表范围(绝压 1–46 bar),超范围会明确警告。</li>
-    <li><b>任何红色报错</b>:均附「怎么办」提示;截图 + 控制台窗口堆栈即可反馈。</li>
-  </ul></div>
+  <div class="explain">完整使用手册(来源:<code>app/manual.md</code>,与本页同步;可直接把该文件发给其他使用者)。
+  涵盖:各页字段逐项说明、检测与诊断原理、判定阈值速查、已知系统状态解读、FAQ、术语表。</div>
+  <div class="card" id="manualBox"><span class="spin"></span>手册加载中…</div>
 </section>
 </main>
 <div id="toast"></div>
@@ -357,23 +350,135 @@ $("#btnCalc").addEventListener("click",async()=>{
  html+=(r.hints||[]).map(h=>`<div class="alert a-warn">${esc(h)}</div>`).join("");
  $("#ccOut").innerHTML=`<div class="result-card" style="background:#fff">${html}</div>`;});
 
-/* ---------- 文件体检 ---------- */
-$("#btnFc").addEventListener("click",async()=>{$("#fcOut").innerHTML="<span class='spin'></span>体检中…";
- try{const r=await api("/api/filecheck",{path:$("#fcPath").value});const i=r.info;
-  const kv=[["1s 行数",i.rows_1s],["10s 行数",i.rows_10s],["时间跨度",(i.span||[]).join(" → ")],
-   ["机台 / 数据类型",(i.unit??"—")+" / "+(i.data_type??"—")],
-   ["Ta 分布(min/p50/max ℃)",i.ta?`${i.ta.min} / ${i.ta.p50} / ${i.ta.max}`:"—"],
-   ["模式行(制冷/制热/化霜)",i.mode_rows?`${i.mode_rows.cooling} / ${i.mode_rows.heating} / ${i.mode_rows.defrost}`:"—"],
-   ["稳态行",i.steady_rows],["锚行(净盘管/结霜)",i.anchor_clean!==undefined?`${i.anchor_clean} / ${i.anchor_frost}`:"—"],
-   ["含采样间隙的 10s 窗",i.gap_rows]];
-  let html="<table>"+kv.map(x=>`<tr><th>${esc(x[0])}</th><td>${esc(x[1]??"—")}</td></tr>`).join("")+"</table>";
-  if(r.conditions&&r.conditions.length)html+="<h3>逐行工况归属(10s 面)</h3>"+table(r.conditions);
-  if(r.enum_quarantine&&Object.keys(r.enum_quarantine).length)
-   html+=`<h3>枚举隔离(1s 行,不加载)</h3><div class="muted">${esc(JSON.stringify(r.enum_quarantine))}</div>`;
-  html+=(r.issues||[]).map(x=>`<div class="alert a-warn">${esc(x)}</div>`).join("")||"";
-  if(!(r.issues||[]).length)html+=`<div class="alert a-info">未发现问题项。</div>`;
-  $("#fcOut").innerHTML=`<div class="result-card" style="background:#fff">${html}</div>`;}
+/* ---------- ④ 运行数据:文件选取 ---------- */
+let SEL={path:null,name:null};
+function setSel(path,name,source,extra){SEL={path,name};$("#fcPath").value="";
+ $("#fcSel").style.display="block";
+ $("#fcSel").innerHTML=`已选取:<b>${esc(name)}</b> <span class="muted">(${esc(source)})</span>`+
+  (extra?`<br><span class="muted">${esc(extra)}</span>`:"");}
+function currentPath(){const m=$("#fcPath").value.trim();return m||SEL.path||"";}
+$("#btnBrowse").addEventListener("click",()=>{const b=$("#fcBrowser");
+ if(b.style.display==="none"){b.style.display="block";loadDir("");}else b.style.display="none";});
+async function loadDir(rel){const b=$("#fcBrowser");b.innerHTML="<span class='spin'></span>读取目录…";
+ try{const d=await api("/api/browse",{rel});
+  const parent=(d.rel||"").split("/").slice(0,-1).join("/");
+  let h=`<div class="muted" style="margin-bottom:6px">位置:lab/${esc(d.rel||"")}`+
+   (d.rel?` &nbsp;<a href="#" class="bDir" data-rel="${esc(parent)}">⬆ 上一级</a>`:"")+`</div>`;
+  h+=d.dirs.map(x=>`<div><a href="#" class="bDir" data-rel="${esc(x.rel)}">📁 ${esc(x.name)}</a></div>`).join("");
+  h+=d.files.map((x,i)=>`<div><a href="#" class="bFile" data-i="${i}">📄 ${esc(x.name)}</a> <span class="muted">${x.size_kb} KB</span></div>`).join("");
+  b.innerHTML=h||"<span class='muted'>(空目录)</span>";b._files=d.files;}
+ catch(e){b.innerHTML="<span class='muted'>目录读取失败(见提示)。</span>";}}
+$("#fcBrowser").addEventListener("click",e=>{const a=e.target.closest("a");if(!a)return;e.preventDefault();
+ if(a.classList.contains("bDir"))loadDir(a.dataset.rel);
+ else if(a.classList.contains("bFile")){const f=$("#fcBrowser")._files[+a.dataset.i];
+  setSel(f.path,f.name,"实验室数据目录");}});
+$("#fcUpload").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;
+ if(f.size>80*1024*1024){toast("文件超过 80MB 上限");e.target.value="";return;}
+ $("#fcSel").style.display="block";$("#fcSel").innerHTML="<span class='spin'></span>上传中…";
+ try{const buf=await f.arrayBuffer();const u=new Uint8Array(buf);let s="";const CH=0x8000;
+  for(let i=0;i<u.length;i+=CH)s+=String.fromCharCode.apply(null,u.subarray(i,i+CH));
+  const r=await api("/api/upload",{name:f.name,content_b64:btoa(s)});
+  setSel(r.path,r.name,"本机上传(临时目录)",r.note);toast("上传完成:"+esc(r.name),true);}
+ catch(err){$("#fcSel").style.display="none";}
+ e.target.value="";});
+
+/* ---------- ④ 快速体检 ---------- */
+function renderProfile(r){const i=r.info;
+ const kv=[["1s 行数",i.rows_1s],["10s 行数",i.rows_10s],["时间跨度",(i.span||[]).join(" → ")],
+  ["机台 / 数据类型",(i.unit??"未知")+" / "+(i.data_type??"—")],
+  ["Ta 分布(min/p50/max ℃)",i.ta?`${i.ta.min} / ${i.ta.p50} / ${i.ta.max}`:"—"],
+  ["模式行(制冷/制热/化霜)",i.mode_rows?`${i.mode_rows.cooling} / ${i.mode_rows.heating} / ${i.mode_rows.defrost}`:"—"],
+  ["稳态行",i.steady_rows],["锚行(净盘管/结霜)",i.anchor_clean!==undefined?`${i.anchor_clean} / ${i.anchor_frost}`:"—"],
+  ["含采样间隙的 10s 窗",i.gap_rows]];
+ let html="<table>"+kv.map(x=>`<tr><th>${esc(x[0])}</th><td>${esc(x[1]??"—")}</td></tr>`).join("")+"</table>";
+ if(r.conditions&&r.conditions.length)html+="<h3>逐行工况归属(10s 面)</h3>"+table(r.conditions);
+ if(r.enum_quarantine&&Object.keys(r.enum_quarantine).length)
+  html+=`<h3>枚举隔离(1s 行,不加载)</h3><div class="muted">${esc(JSON.stringify(r.enum_quarantine))}</div>`;
+ html+=(r.issues||[]).map(x=>`<div class="alert a-warn">${esc(x)}</div>`).join("")||"";
+ if(!(r.issues||[]).length)html+=`<div class="alert a-info">体检未发现问题项。</div>`;
+ return html;}
+$("#btnFc").addEventListener("click",async()=>{$("#detOut").innerHTML="";
+ $("#fcOut").innerHTML="<span class='spin'></span>体检中…";
+ try{const r=await api("/api/filecheck",{path:currentPath(),unit:$("#fcUnit").value});
+  $("#fcOut").innerHTML=`<div class="result-card" style="background:#fff">${renderProfile(r)}</div>`;}
  catch(e){$("#fcOut").innerHTML="";}});
+
+/* ---------- ④ 检测与诊断 ---------- */
+function segBadge(s){if(s.diagnosis){const h=HYP[s.diagnosis.fault_hypothesis]||[s.diagnosis.fault_hypothesis,"b-gray"];
+  return `<span class="badge ${h[1]}">${esc(h[0])}</span> <span class="muted">${(+s.diagnosis.confidence).toFixed(2)}</span>`;}
+ return `<span class="badge b-gray">不可判</span>`;}
+function segDetail(s){let h="";
+ if(s.baseline_bin)h+=`<div class="muted">基线箱:${esc(s.baseline_bin.plane)},n=${s.baseline_bin.n};中位 sh=${s.baseline_bin.sh} / sc=${s.baseline_bin.sc} / Exv=${s.baseline_bin.exv} / Q=${s.baseline_bin.q_kw} kW</div>`;
+ if(s.residuals)h+=`<div>残差:`+Object.entries(s.residuals).map(([k,v])=>`<span class="chip">${esc(k)} = ${v>0?"+":""}${v}</span>`).join("")+`</div>`;
+ if(s.no_baseline_reason)h+=`<div class="alert a-warn">${esc(s.no_baseline_reason)}</div>`;
+ if(s.observations&&s.observations.length)h+=`<div>可算通道观察:`+s.observations.map(o=>`<span class="chip">${esc(o)}</span>`).join("")+`</div>`;
+ if(s.diagnosis){const o=s.diagnosis;
+  const ev=o.evidence.map(e=>`<span class="chip">${esc(e.feature)} ${e.direction>0?"↑":"↓"} |${(+e.magnitude).toFixed(2)}|</span>`).join("")||"<span class='muted'>(无)</span>";
+  const ce=o.counter_evidence.map(e=>`<span class="chip">${esc(e.feature)} ${e.direction>0?"↑":"↓"}${e.against?" ⇒ 反证 "+esc(e.against):""}</span>`).join("")||"<span class='muted'>(无)</span>";
+  h+=`<h3>证据</h3>${ev}<h3>反证</h3>${ce}`;
+  if(s.explain)h+=`<h3>判定过程</h3>`+s.explain.map(x=>"<div>· "+esc(x)+"</div>").join("");
+  h+=`<h3>现场核查清单</h3><ul>`+o.field_checklist.map(c=>`<li>${esc(c)}</li>`).join("")+`</ul>`;
+  if(o.severity)h+=`<div class="muted">severity=${(+o.severity.estimate).toFixed(3)}(fitted=${o.severity.fitted},方向性代理)</div>`;}
+ return h||"<span class='muted'>(无详情)</span>";}
+function renderDetect(r){const sm=r.summary||{};
+ const vClass=/少冷媒|泄漏/.test(sm.verdict)?"hy-refrigerant_low_or_leak":
+  /节流/.test(sm.verdict)?"hy-metering_restriction":
+  /未见异常/.test(sm.verdict)?"hy-none":"";
+ let h=`<div class="result-card ${vClass}"><h2 style="margin:0">文件级结论:${esc(sm.verdict||"—")}</h2>
+  <div style="margin-top:6px">${esc(sm.detail||"")}</div>
+  <div class="muted" style="margin-top:6px">稳态段 ${sm.segments_total??0} · 已诊断 ${sm.segments_diagnosed??0} · 无基线不可判 ${sm.segments_no_baseline??0}</div>`;
+ if(sm.counts&&Object.keys(sm.counts).length)
+  h+=`<div style="margin-top:4px">`+Object.entries(sm.counts).map(([k,v])=>{const hh=HYP[k]||[k,"b-gray"];
+   return `<span class="badge ${hh[1]}">${esc(hh[0])} × ${v}</span>`;}).join(" ")+`</div>`;
+ h+=`</div>`;
+ if(r.baseline)h+=`<div class="alert ${r.baseline.in_pool?"a-info":"a-warn"}"><b>基线:</b>${esc(r.baseline.note)}(机台 ${esc(r.baseline.unit)},基线箱 ${r.baseline.bins_for_unit} 个)</div>`;
+ if(r.sensors){h+=`<h3>传感器信任检验(sense,逐机参照)</h3>`+
+  "<div>"+r.sensors.map(x=>`<span class="badge ${x.status==="flagged"?"b-red":x.status==="ok"?"b-green":"b-gray"}">${esc(x.sensor)}:${esc(x.status)}</span>`).join(" ")+"</div>";}
+ if(r.sensor_note)h+=`<div class="alert a-warn">${esc(r.sensor_note)}</div>`;
+ const segs=r.segments||[];
+ if(segs.length){h+=`<h3>稳态段明细(点击行展开完整诊断)</h3>
+  <table><tr><th>#</th><th>起始</th><th>分钟</th><th>模式</th><th>工况</th><th>Ta</th><th>Hz</th>
+  <th>sh/sc/dsh(K)</th><th>Q(kW)</th><th>sh_resid</th><th>sc_resid</th><th>cap_resid</th><th>结论</th></tr>`+
+  segs.map((s,i)=>{const rr=s.residuals||{};
+   return `<tr class="segrow" data-i="${i}" style="cursor:pointer">
+   <td>${i+1}</td><td>${esc((s.t0||"").slice(5,16))}</td><td>${s.dur_min}</td>
+   <td>${s.mode==="cooling"?"制冷":"制热"}</td><td>${esc(s.condition)}</td>
+   <td>${s.ta}</td><td>${s.rps}</td><td>${s.sh_phys} / ${s.sc_phys} / ${s.dsh_phys??"—"}</td><td>${s.q_kw??"—"}</td>
+   <td>${rr.sh_resid??"—"}</td><td>${rr.sc_resid??"—"}</td><td>${rr.capacity_resid??"—"}</td>
+   <td>${segBadge(s)}</td></tr>
+   <tr class="segdet" data-i="${i}" style="display:none"><td colspan="13">${segDetail(s)}</td></tr>`;}).join("")+"</table>";}
+ else h+=`<div class="alert a-warn">没有 ≥2 分钟的稳态段,无法段级诊断。</div>`;
+ h+=`<h3 style="margin-top:14px">体检画像</h3>`+renderProfile(r.profile);
+ $("#detOut").innerHTML=`<div class="result-card" style="background:#fff">${h}</div>`;
+ document.querySelectorAll(".segrow").forEach(tr=>tr.addEventListener("click",()=>{
+  const det=document.querySelector(`.segdet[data-i="${tr.dataset.i}"]`);
+  det.style.display=det.style.display==="none"?"":"none";}));}
+$("#btnDetect").addEventListener("click",async()=>{$("#fcOut").innerHTML="";
+ $("#detOut").innerHTML="<span class='spin'></span>检测与诊断中(分段 → 逐机基线 → 逐段诊断 → 传感器检验)…";
+ try{const r=await api("/api/detect",{path:currentPath(),unit:$("#fcUnit").value});renderDetect(r);}
+ catch(e){$("#detOut").innerHTML="";}});
+
+/* ---------- ⑥ 手册渲染(极简 Markdown) ---------- */
+function mdRender(md){const lines=md.split(/\r?\n/);let html="",inUl=false,tbl=[];
+ const inline=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/`([^`]+)`/g,"<code>$1</code>");
+ const flushT=()=>{if(!tbl.length)return;
+  html+="<table>"+tbl.map((r,i)=>"<tr>"+r.map(c=>(i===0?"<th>":"<td>")+inline(c)+(i===0?"</th>":"</td>")).join("")+"</tr>").join("")+"</table>";tbl=[];};
+ for(const raw of lines){const l=raw.trimEnd();const t=l.trim();
+  if(/^\|/.test(t)){const cells=t.replace(/^\||\|$/g,"").split("|").map(x=>x.trim());
+   if(!cells.every(c=>/^:?-{2,}:?$/.test(c)))tbl.push(cells);continue;}
+  flushT();
+  if(/^#{1,4} /.test(l)){if(inUl){html+="</ul>";inUl=false;}
+   const n=l.match(/^#+/)[0].length,tag="h"+Math.min(n+1,5);
+   html+=`<${tag}>${inline(l.replace(/^#+ /,""))}</${tag}>`;continue;}
+  if(/^[-*] /.test(l)){if(!inUl){html+="<ul class='doc'>";inUl=true;}
+   html+="<li>"+inline(l.slice(2))+"</li>";continue;}
+  if(inUl&&t===""){html+="</ul>";inUl=false;continue;}
+  if(/^---+$/.test(t)){html+="<hr>";continue;}
+  if(t==="")continue;
+  html+="<p>"+inline(l)+"</p>";}
+ if(inUl)html+="</ul>";flushT();return html;}
+api("/api/manual").then(m=>{$("#manualBox").innerHTML=mdRender(m.markdown);})
+ .catch(()=>{$("#manualBox").innerHTML="<div class='alert a-error'>手册加载失败(app/manual.md 缺失)。</div>";});
 
 /* ---------- 自检 ---------- */
 let pollTest=null;

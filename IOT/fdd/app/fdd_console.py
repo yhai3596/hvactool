@@ -15,6 +15,7 @@
 或双击 fdd 根目录下 start_console.bat。
 """
 import argparse
+import base64
 import datetime as dt
 import functools
 import json
@@ -23,6 +24,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -37,16 +39,19 @@ if str(ROOT / "src") not in sys.path:
 import numpy as np
 import pandas as pd
 
-from fdd import baseline, c4, conv, diag
+from fdd import baseline, c4, conv, diag, sense
 from fdd.contracts.c1_telemetry import RAW_COLUMNS
 
 LAB_DIR = ROOT / "data" / "raw" / "lab"
 VENV_PY = ROOT / ".venv" / "Scripts" / "python.exe"
 STATIC_DIR = APP_DIR / "static"
+MANUAL_MD = APP_DIR / "manual.md"
+UPLOAD_DIR = pathlib.Path(tempfile.gettempdir()) / "fdd_console_uploads"
 
 _LOCK = threading.Lock()
 STATE = {
     "lab": None,
+    "bins": None,        # 逐机×同箱健康基线缓存(装载后按需构建)
     "load": {"state": "idle", "error": None, "hint": None, "seconds": None},
     "selftest": {"state": "idle", "suite": None, "output": "", "summary": None,
                  "rc": None, "seconds": None},
@@ -184,6 +189,7 @@ def _do_load():
         lab = c4.load_lab(LAB_DIR)
         with _LOCK:
             STATE["lab"] = lab
+            STATE["bins"] = None      # 基线缓存随数据重建
             STATE["load"] = {"state": "done", "error": None, "hint": None,
                              "seconds": round(time.time() - t0, 1)}
     except Exception as e:  # noqa: BLE001 — 前端需要完整失败原因
@@ -423,16 +429,73 @@ def _cond_cached(ta_r, mode, freq_r):
     return c4.condition_of(ta_r, mode, freq_r)
 
 
-def api_filecheck(body):
+def _resolve_path(body) -> pathlib.Path:
     raw_path = (body.get("path") or "").strip().strip('"').strip("'")
     if not raw_path:
-        raise ApiError("路径为空", "粘贴 RamChecker CSV 的完整路径(可在资源管理器中"
-                                "右键文件 → 复制文件地址)。")
+        raise ApiError("未选择文件", "用「浏览实验室数据」点选,或「从本机选取上传」;"
+                                "高级用法才需要手动路径。")
     p = pathlib.Path(raw_path)
     if not p.exists():
         raise ApiError(f"文件不存在:{p}", "检查路径是否完整,含中文目录时确认无多余引号。")
     if p.suffix.lower() != ".csv":
         raise ApiError("仅支持 RamChecker 监控 CSV 文件")
+    return p
+
+
+def api_browse(body):
+    """服务端目录树(限定 data/raw/lab 内,防目录穿越)。"""
+    labroot = LAB_DIR.resolve()
+    if not labroot.exists():
+        raise ApiError("实验室数据目录不存在:" + str(labroot),
+                       "任意位置的文件请改用「从本机选取上传」。")
+    rel = (body.get("rel") or "").strip().replace("\\", "/")
+    base = (labroot / rel).resolve() if rel else labroot
+    if labroot != base and labroot not in base.parents:
+        raise ApiError("目录越界", "浏览范围限定在 data/raw/lab 内;"
+                                "其它位置请用「从本机选取上传」。")
+    if not base.is_dir():
+        raise ApiError("目录不存在:" + str(base))
+    dirs, files = [], []
+    for p in sorted(base.iterdir()):
+        r = str(p.relative_to(labroot)).replace("\\", "/")
+        if p.is_dir():
+            dirs.append({"name": p.name, "rel": r})
+        elif p.suffix.lower() == ".csv":
+            files.append({"name": p.name, "rel": r, "path": str(p),
+                          "size_kb": int(round(p.stat().st_size / 1024))})
+    return {"root": str(labroot), "rel": rel, "dirs": dirs, "files": files}
+
+
+def api_upload(body):
+    """浏览器选取的文件 → base64 JSON → 本机临时目录(不进 data/ 仓库)。"""
+    name = pathlib.Path(body.get("name") or "").name
+    if not name.lower().endswith(".csv"):
+        raise ApiError("仅支持 .csv 文件", "选择 RamChecker 监控 CSV。")
+    try:
+        raw = base64.b64decode(body.get("content_b64") or "", validate=True)
+    except Exception:
+        raise ApiError("上传内容解码失败", "重新选取文件;过大文件请改用手动路径方式。")
+    if not raw:
+        raise ApiError("上传内容为空")
+    if len(raw) > 80 * 1024 * 1024:
+        raise ApiError("文件超过 80MB 上限", "监控 CSV 通常仅数 MB,请确认选对了文件。")
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    dest = UPLOAD_DIR / name
+    dest.write_bytes(raw)
+    return {"path": str(dest), "name": name,
+            "size_kb": int(round(len(raw) / 1024)),
+            "note": "已存入本机临时目录,仅本会话分析用,不进 data/ 仓库;"
+                    "机台无法从路径推断,请在下拉框选择。"}
+
+
+def api_manual(_body=None):
+    if not MANUAL_MD.exists():
+        raise ApiError("手册文件缺失:app/manual.md")
+    return {"markdown": MANUAL_MD.read_text(encoding="utf-8")}
+
+
+def _profile_file(p: pathlib.Path, unit_override=None):
+    """体检共享管线:返回 (payload, 10s帧或None, unit)。payload 可直接作为体检结果。"""
     issues, info = [], {}
     head = open(p, encoding="utf-8", errors="replace").readline()
     dialect_ok = ("st1" in head and "QrC_W" in head)
@@ -447,8 +510,23 @@ def api_filecheck(body):
     raw = c4._read_monitor(p, anchor)
     info["rows_1s"] = int(len(raw))
     info["span"] = [str(raw["Timestamp"].min()), str(raw["Timestamp"].max())]
+    unit = str(unit_override) if unit_override else c4._unit_of(p.parent.name)
+    if unit:
+        info["unit"] = unit
+        try:
+            from fdd import config as _fc
+            info["data_type"] = _fc.data_type_of(unit, p.name)
+        except Exception:  # noqa: BLE001
+            info["data_type"] = None
+        if info.get("data_type") == "fault_injected":
+            issues.append("该文件登记为 fault_injected(受控故障注入资产):其行不入任何"
+                          "健康基线/锚池,仅供诊断链与梯度标定。")
+    else:
+        info["unit"] = None
+        info["data_type"] = None
     if not dialect_ok:
-        return {"info": info, "issues": issues, "conditions": [], "enum_quarantine": {}}
+        return ({"info": info, "issues": issues, "conditions": [],
+                 "enum_quarantine": {}}, None, unit)
     known = raw["ODU_CtrlMode"].isin(c4.ACSTATE_TRANSLATE)
     quarantine = {int(k): int(v) for k, v in
                   raw.loc[~known, "ODU_CtrlMode"].value_counts().items()}
@@ -459,8 +537,8 @@ def api_filecheck(body):
     raw = raw[known]
     if len(raw) < 30:
         issues.append("剔除停机/过渡后可用行不足 30(<30 秒),该文件在载入面不可用。")
-        return {"info": info, "issues": issues, "conditions": [],
-                "enum_quarantine": quarantine}
+        return ({"info": info, "issues": issues, "conditions": [],
+                 "enum_quarantine": quarantine}, None, unit)
     d = c4._map_chunk(raw, p.name)
     r = c4._resample_10s(d)
     r = c4._with_anchor(r)
@@ -489,22 +567,241 @@ def api_filecheck(body):
              .sort_values("rows", ascending=False))
     if info["steady_rows"] == 0:
         issues.append("无稳态行:全程瞬态/频繁调节,该文件不产锚,只能用于瞬态分析。")
-    unit = c4._unit_of(p.parent.name)
-    if unit:
-        dtye = None
-        try:
-            from fdd import config as _fc
-            dtye = _fc.data_type_of(unit, p.name)
-        except Exception:  # noqa: BLE001
-            pass
-        info["unit"] = unit
-        info["data_type"] = dtye
-        if dtye == "fault_injected":
-            issues.append("该文件登记为 fault_injected(受控故障注入资产):其行不入任何"
-                          "健康基线/锚池,仅供诊断链与梯度标定。")
-    return {"info": info, "issues": issues,
-            "conditions": conds.to_dict(orient="records"),
-            "enum_quarantine": quarantine}
+    payload = {"info": info, "issues": issues,
+               "conditions": conds.to_dict(orient="records"),
+               "enum_quarantine": quarantine}
+    return payload, r, unit
+
+
+def api_filecheck(body):
+    p = _resolve_path(body)
+    payload, _frame, _unit = _profile_file(p, body.get("unit") or None)
+    return payload
+
+
+# ------------------------------------------------------- 运行数据检测与诊断(detect)
+
+def _baseline_bins() -> pd.DataFrame:
+    """逐机×同箱健康基线:unit × AcState × Ta 2K 箱 × 频率 10Hz 档 的中位统计。
+    数据面 = 已装载健康稳态行,排除 fault_injected 与 DK-016 隔离行;箱内 ≥12 行(2 分钟)。
+    参照面依据:制冷 sh_resid = 逐机×同箱(DK-017);制热 Sc 禁跨机绝对比较(铁律 10)。"""
+    lab = _require_lab()
+    with _LOCK:
+        if STATE.get("bins") is not None:
+            return STATE["bins"]
+    h = lab[(lab["data_type"] == "healthy_baseline")
+            & lab["steady"].fillna(False).astype(bool)]
+    if "cooling_ref_quarantine" in lab.columns:
+        h = h[~h["cooling_ref_quarantine"].fillna(False).astype(bool)]
+    m = conv.materialize(h)
+    m = m[m["AcState"].isin([4, 5])]
+    m["ta_bin"] = (m["Ta"] // 2.0).astype(int)
+    m["rps_bin"] = (m["CompRps"] // 10.0).astype(int)
+    m["q_kw"] = np.where(m["AcState"] == 5, m["Qh"], m["Qc"])
+    g = (m.groupby(["unit", "AcState", "ta_bin", "rps_bin"])
+         .agg(n=("sh_phys", "size"), sh=("sh_phys", "median"),
+              sc=("sc_phys", "median"), exv=("Exv", "median"),
+              q_kw=("q_kw", "median")).reset_index())
+    g = g[g["n"] >= 12].reset_index(drop=True)
+    # 第三级参照:逐机×同工况字母(窗面 test_condition;仍逐机,永不跨机)
+    gl = (m.groupby(["unit", "AcState", "test_condition"])
+          .agg(n=("sh_phys", "size"), sh=("sh_phys", "median"),
+               sc=("sc_phys", "median"), exv=("Exv", "median"),
+               q_kw=("q_kw", "median")).reset_index())
+    gl = gl[gl["n"] >= 12].reset_index(drop=True)
+    bins = {"bin": g, "letter": gl}
+    with _LOCK:
+        STATE["bins"] = bins
+    return bins
+
+
+# 行面字母 -> 窗面 test_condition 候选(FDD-I-016 后同名;同温歧义对枚举成员)
+_LETTER_TO_WINDOW = {"A_or_A2": ["A", "A2"], "C_or_D": ["C", "D"]}
+
+
+def _match_bin(bins, unit, ac, ta_bin, rps_bin, letter):
+    """三级逐机参照:精确箱 → 同 Ta 箱跨频档 → 同工况字母。永不跨机(DK-017/铁律 10)。"""
+    g = bins["bin"]
+    ub = g[(g["unit"] == str(unit)) & (g["AcState"] == ac)]
+    if len(ub):
+        exact = ub[(ub["ta_bin"] == ta_bin) & (ub["rps_bin"] == rps_bin)]
+        if len(exact):
+            r = exact.iloc[0]
+            return {"sh": r["sh"], "sc": r["sc"], "exv": r["exv"], "q_kw": r["q_kw"],
+                    "n": int(r["n"]), "plane": "逐机×同箱(精确)"}, None
+        ta_only = ub[ub["ta_bin"] == ta_bin]
+        if len(ta_only):
+            return {"sh": float(ta_only["sh"].median()),
+                    "sc": float(ta_only["sc"].median()),
+                    "exv": float(ta_only["exv"].median()),
+                    "q_kw": float(ta_only["q_kw"].median()),
+                    "n": int(ta_only["n"].sum()),
+                    "plane": "逐机×同 Ta 箱(跨频率档参照,参考性下降)"}, None
+    gl = bins["letter"]
+    cands = _LETTER_TO_WINDOW.get(letter, [letter])
+    ul = gl[(gl["unit"] == str(unit)) & (gl["AcState"] == ac)
+            & gl["test_condition"].isin(cands)]
+    if len(ul):
+        return {"sh": float(ul["sh"].median()), "sc": float(ul["sc"].median()),
+                "exv": float(ul["exv"].median()), "q_kw": float(ul["q_kw"].median()),
+                "n": int(ul["n"].sum()),
+                "plane": f"逐机×同工况 {letter}(跨 Ta/频率档参照,参考性下降)"}, None
+    return None, (f"该机台在工况 {letter} 无任何健康基线"
+                  "(逐机参照面,DK-017/铁律 10,不跨机凑基线)")
+
+
+_HYP_RANK = {"refrigerant_low_or_leak": 3, "metering_restriction": 2,
+             "indoor_side_nonspecific": 1, "none": 0}
+
+
+def api_detect(body):
+    """文件级检测与诊断:体检 → 稳态分段 → 逐机基线残差 → 逐段 M-DIAG → sense 信任检验。"""
+    p = _resolve_path(body)
+    payload, frame, unit = _profile_file(p, body.get("unit") or None)
+    out = {"profile": payload, "unit": unit, "baseline": None,
+           "segments": [], "sensors": None, "sensor_note": None, "summary": None}
+    if frame is None:
+        out["summary"] = {"verdict": "无法检测", "detail": "文件未通过体检(见问题项),"
+                          "无法进入稳态分段与诊断。", "counts": {}}
+        return out
+    if STATE["lab"] is None:
+        raise ApiError("健康基线数据尚未装载",
+                       "先到「① 数据总览」点击「装载实验室数据」——检测的残差以逐机健康"
+                       "基线为参照,没有基线无法诊断(快速体检不受影响)。")
+    if not unit:
+        raise ApiError("无法确定机台",
+                       "上传文件没有目录上下文:请在「机台」下拉框选择后重试;"
+                       "诊断基线是逐机的,机台错了结论就错了。")
+    bins = _baseline_bins()
+    in_pool = bool((bins["bin"]["unit"] == str(unit)).any())
+    for c in RAW_COLUMNS:            # 单文件帧补齐 C1 缺列(load_lab 在 concat 后才补)
+        if c not in frame.columns:
+            frame[c] = np.nan
+    out["baseline"] = {
+        "unit": unit, "in_pool": in_pool,
+        "bins_for_unit": int((bins["bin"]["unit"] == str(unit)).sum()),
+        "note": ("参照面 = 逐机三级:同箱(精确)→ 同 Ta 箱 → 同工况字母;"
+                 "跨机/SKU 级参照禁止(DK-017/铁律 10)。"
+                 if in_pool else
+                 f"机台 {unit} 不在健康基线池中:无法出诊断结论,仅提供体检画像。"
+                 "补充该机健康数据并重新装载后可诊断。")}
+    mm = conv.materialize(frame)
+    st = mm["steady"].fillna(False).astype(bool)
+    run_id = (st != st.shift()).cumsum()
+    segments = []
+    for _rid, g in mm[st].groupby(run_id[st]):
+        if len(g) < 12:          # <2 分钟不成段
+            continue
+        ac_mode = g["AcState"].mode()
+        ac = int(ac_mode.iat[0]) if len(ac_mode) else -1
+        if ac not in (4, 5):
+            continue
+        mode = "heating" if ac == 5 else "cooling"
+        med = {k: float(g[k].median()) for k in
+               ("Ta", "CompRps", "Exv", "sh_phys", "sc_phys", "dsh_phys")}
+        q_seg = float((g["Qh"] if ac == 5 else g["Qc"]).median())
+        letter, cap, confc = c4.condition_of(
+            med["Ta"], "heat" if ac == 5 else "cool", med["CompRps"])
+        seg = {"t0": str(g["Timestamp"].iloc[0]), "t1": str(g["Timestamp"].iloc[-1]),
+               "rows": int(len(g)), "dur_min": _round((len(g) * 10) / 60.0, 1),
+               "mode": mode, "condition": letter or "UNKNOWN_CONDITION",
+               "capacity_tag": cap, "ta": _round(med["Ta"], 2),
+               "rps": _round(med["CompRps"], 1), "exv": _round(med["Exv"], 0),
+               "sh_phys": _round(med["sh_phys"], 2), "sc_phys": _round(med["sc_phys"], 2),
+               "dsh_phys": _round(med["dsh_phys"], 2), "q_kw": _round(q_seg, 2),
+               "residuals": None, "baseline_bin": None, "diagnosis": None,
+               "explain": None, "no_baseline_reason": None, "observations": []}
+        base, why = _match_bin(bins, unit, ac, int(med["Ta"] // 2.0),
+                               int(med["CompRps"] // 10.0),
+                               letter or "UNKNOWN_CONDITION")
+        if base is None:
+            seg["no_baseline_reason"] = why
+            segments.append(seg)
+            continue
+        res = {"sh_resid": med["sh_phys"] - base["sh"],
+               "sc_resid": med["sc_phys"] - base["sc"],
+               "exv_resid": med["Exv"] - base["exv"]}
+        cap_res = ((q_seg - base["q_kw"]) / base["q_kw"]
+                   if base["q_kw"] and base["q_kw"] == base["q_kw"]
+                   and abs(base["q_kw"]) > 1e-6 else None)
+        if cap_res is not None:
+            res["capacity_resid"] = cap_res
+        required = (("sh_resid", "sc_resid", "exv_resid", "capacity_resid")
+                    if mode == "heating" else ("sh_resid", "sc_resid"))
+        missing = [k for k in required
+                   if res.get(k) is None or res.get(k) != res.get(k)]
+        seg["baseline_bin"] = {k: _round(v, 3) if k != "plane" and k != "n" else v
+                               for k, v in base.items()}
+        seg["residuals"] = {k: _round(v, 3) for k, v in res.items()}
+        if missing:
+            seg["no_baseline_reason"] = ("主通道基线不完整(缺 " + "、".join(missing)
+                                         + "),不出假设——宁缺勿错;可算通道见残差列。")
+            for k, v in res.items():
+                if v == v and v is not None:
+                    seg["observations"].append(f"{k} = {v:+.3f}")
+            segments.append(seg)
+            continue
+        row = {k: v for k, v in res.items() if v is not None and v == v}
+        if med["dsh_phys"] == med["dsh_phys"]:
+            row["dsh_phys"] = med["dsh_phys"]
+        c5 = diag.diagnose(dict(row), mode=mode)
+        seg["diagnosis"] = c5
+        seg["explain"] = (_explain_cooling(row) if mode == "cooling"
+                          else _explain_heating(row, False))
+        segments.append(seg)
+    out["segments"] = segments
+    # ---- sense 传感器信任检验(逐机参照;失败不阻塞诊断主链)
+    try:
+        lab = STATE["lab"]
+        hu = lab[(lab["unit"] == str(unit))
+                 & (lab["data_type"] == "healthy_baseline")]
+        if "cooling_ref_quarantine" in lab.columns:
+            hu = hu[~hu["cooling_ref_quarantine"].fillna(False).astype(bool)]
+        if len(hu) < 100:
+            out["sensor_note"] = (f"机台 {unit} 健康行不足({len(hu)}<100),"
+                                  "跳过传感器信任检验。")
+        else:
+            ref = sense.fit_reference(conv.materialize(hu))
+            chk = sense.check(mm, ref)
+            out["sensors"] = chk.to_dict(orient="records")
+            if (chk["status"] == "flagged").any():
+                out["sensor_note"] = ("存在传感器信任旗:信任旗是仲裁输入而非独立判决;"
+                                      "故障模式并发时故障解释优先(锁定发现)——按故障"
+                                      "线索排查为主,传感器复核并行。另注:sense 阈值为"
+                                      "临时标定(M4 用标签重标),存在偏敏可能。")
+    except Exception as e:  # noqa: BLE001
+        out["sensor_note"] = f"传感器检验未完成({type(e).__name__}: {e}),不影响诊断结果。"
+    # ---- 文件级汇总
+    diagnosed = [s for s in segments if s["diagnosis"]]
+    counts = {}
+    for s in diagnosed:
+        h = s["diagnosis"]["fault_hypothesis"]
+        counts[h] = counts.get(h, 0) + 1
+    undiagnosed = sum(1 for s in segments if s["no_baseline_reason"])
+    worst = max(diagnosed, key=lambda s: (_HYP_RANK.get(
+        s["diagnosis"]["fault_hypothesis"], 0), s["diagnosis"]["confidence"]),
+        default=None)
+    if not segments:
+        verdict, detail = "无稳态段", "文件内没有 ≥2 分钟的稳态段,无法做段级诊断;可改用体检画像与瞬态观察。"
+    elif not diagnosed:
+        verdict, detail = "不可判(无逐机基线)", "所有稳态段都缺少该机台的健康基线;见各段标注。"
+    elif worst and worst["diagnosis"]["fault_hypothesis"] != "none":
+        h = worst["diagnosis"]["fault_hypothesis"]
+        verdict = {"refrigerant_low_or_leak": "疑似少冷媒/泄漏",
+                   "metering_restriction": "疑似节流受限",
+                   "indoor_side_nonspecific": "内机侧非特异异常"}.get(h, h)
+        detail = (f"最严重段:{worst['t0']} 起 {worst['dur_min']} 分钟,"
+                  f"{worst['condition']} 工况,置信 {worst['diagnosis']['confidence']};"
+                  f"共诊断 {len(diagnosed)} 段,{undiagnosed} 段无基线不可判。")
+    else:
+        verdict = "未见异常"
+        detail = (f"共诊断 {len(diagnosed)} 段全部 none"
+                  + (f";另有 {undiagnosed} 段无基线不可判。" if undiagnosed else "。"))
+    out["summary"] = {"verdict": verdict, "detail": detail, "counts": counts,
+                      "segments_total": len(segments),
+                      "segments_diagnosed": len(diagnosed),
+                      "segments_no_baseline": undiagnosed}
+    return out
 
 
 # ---------------------------------------------------------------- 系统自检
@@ -578,12 +875,16 @@ ROUTES_GET = {
     "/api/load/status": api_load_status,
     "/api/overview": api_overview,
     "/api/selftest/status": api_selftest_status,
+    "/api/manual": api_manual,
 }
 ROUTES_POST = {
     "/api/load": api_load,
     "/api/diagnose": api_diagnose,
     "/api/materialize": api_materialize,
     "/api/filecheck": api_filecheck,
+    "/api/detect": api_detect,
+    "/api/browse": api_browse,
+    "/api/upload": api_upload,
     "/api/selftest": api_selftest,
     "/api/uncertainty": api_uncertainty,
 }
