@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDD 本地控制台 · 正式使用设备故障诊断系统</title>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--line:#dde3ea;--ink:#1c2733;--sub:#5b6b7c;
+ --blue:#1565c0;--blue-bg:#e8f1fb;--red:#c62828;--red-bg:#fdecea;--orange:#e65100;
+ --orange-bg:#fff3e0;--green:#2e7d32;--green-bg:#e8f5e9;--gray:#616161;--gray-bg:#f0f2f4;}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Microsoft YaHei","Segoe UI",system-ui,sans-serif;
+ background:var(--bg);color:var(--ink);font-size:14px}
+header{background:#10233c;color:#fff;padding:14px 22px;display:flex;
+ align-items:baseline;gap:14px;flex-wrap:wrap}
+header h1{font-size:18px;margin:0}
+header .sub{color:#9fb3cc;font-size:12px}
+nav{display:flex;gap:4px;background:#fff;border-bottom:1px solid var(--line);
+ padding:0 14px;position:sticky;top:0;z-index:5;flex-wrap:wrap}
+nav button{border:0;background:none;padding:12px 16px;font-size:14px;cursor:pointer;
+ color:var(--sub);border-bottom:3px solid transparent}
+nav button.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600}
+main{max-width:1180px;margin:0 auto;padding:18px}
+section.tab{display:none}
+section.tab.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;
+ padding:16px 18px;margin-bottom:14px}
+.card h2{font-size:15px;margin:0 0 10px}
+.card h3{font-size:14px;margin:14px 0 8px;color:var(--sub)}
+.explain{background:var(--blue-bg);border-left:4px solid var(--blue);padding:10px 12px;
+ border-radius:0 6px 6px 0;color:#123a63;font-size:13px;line-height:1.7;margin-bottom:14px}
+.grid{display:grid;gap:12px}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+.kpi{background:var(--gray-bg);border-radius:8px;padding:10px 16px;min-width:120px}
+.kpi b{display:block;font-size:20px}
+.kpi span{color:var(--sub);font-size:12px}
+label.f{display:block;margin-bottom:10px}
+label.f span{display:block;font-size:12px;color:var(--sub);margin-bottom:3px}
+label.f small{color:#8a97a5;display:block;font-size:11px;margin-top:2px;line-height:1.5}
+input[type=text],input[type=number],select{width:100%;padding:7px 9px;
+ border:1px solid var(--line);border-radius:6px;font-size:14px;background:#fff}
+button.act{background:var(--blue);color:#fff;border:0;border-radius:6px;
+ padding:9px 20px;font-size:14px;cursor:pointer}
+button.act:disabled{background:#9fb3cc;cursor:wait}
+button.mini{background:#fff;color:var(--blue);border:1px solid var(--blue);
+ border-radius:6px;padding:6px 14px;font-size:13px;cursor:pointer;margin:2px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left}
+th{background:var(--gray-bg);white-space:nowrap}
+tr:nth-child(even) td{background:#fafbfc}
+.badge{display:inline-block;border-radius:12px;padding:2px 10px;font-size:12px;margin:1px}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-orange{background:var(--orange-bg);color:var(--orange)}
+.b-green{background:var(--green-bg);color:var(--green)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-gray{background:var(--gray-bg);color:var(--gray)}
+.alert{border-radius:6px;padding:9px 12px;margin:6px 0;font-size:13px;line-height:1.6}
+.a-info{background:var(--blue-bg);color:#123a63}
+.a-warn{background:var(--orange-bg);color:#7a3c00}
+.a-error{background:var(--red-bg);color:var(--red)}
+.result-card{border-radius:8px;padding:14px 16px;margin-top:12px;border:1px solid var(--line)}
+.hy-refrigerant_low_or_leak{background:var(--red-bg);border-color:#f2b8b5}
+.hy-metering_restriction{background:var(--orange-bg);border-color:#f5cf9e}
+.hy-indoor_side_nonspecific{background:var(--blue-bg);border-color:#bcd6f2}
+.hy-none{background:var(--green-bg);border-color:#bfe3c2}
+.confbar{height:10px;background:#e3e8ee;border-radius:5px;overflow:hidden;margin:6px 0 2px}
+.confbar i{display:block;height:100%;background:var(--blue)}
+.chip{display:inline-block;background:#fff;border:1px solid var(--line);border-radius:6px;
+ padding:3px 9px;margin:2px;font-size:12px}
+pre{background:#10233c;color:#cfe3ff;padding:12px;border-radius:6px;overflow:auto;
+ font-size:12px;line-height:1.55;max-height:340px}
+ul.doc{line-height:1.9;padding-left:20px}
+#toast{position:fixed;right:18px;top:64px;z-index:99;max-width:420px}
+.toastmsg{background:var(--red);color:#fff;border-radius:8px;padding:11px 14px;
+ margin-bottom:8px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.25);line-height:1.6}
+.toastmsg.ok{background:var(--green)}
+.muted{color:var(--sub);font-size:12px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #cfe3ff;
+ border-top-color:var(--blue);border-radius:50%;animation:sp 0.9s linear infinite;
+ vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>FDD 本地控制台</h1>
+  <span class="sub">正式使用设备故障诊断系统 · 全流程本地(127.0.0.1)· 只读消费管线,不改任何数据文件</span>
+</header>
+<nav id="nav">
+  <button data-t="overview" class="on">① 数据总览</button>
+  <button data-t="diag">② 单点诊断</button>
+  <button data-t="calc">③ 物理计算器</button>
+  <button data-t="file">④ 文件体检</button>
+  <button data-t="test">⑤ 系统自检</button>
+  <button data-t="help">⑥ 使用说明</button>
+</nav>
+<main>
+
+<!-- ============================ ① 总览 ============================ -->
+<section class="tab on" id="tab-overview">
+  <div class="explain">本页装载 <b>data/raw/lab/</b> 的实验室数据(经完整 C4 管线:认证窗切片 → 10s 时基
+  → 分段/锚定 → 故障注入分流 → envelope_input 派生 → DK-016 隔离标注),展示构成、覆盖门、包络概览与
+  健康告警。<b>首次装载约 40–60 秒</b>,装载后缓存于内存。</div>
+  <div class="card">
+    <button class="act" id="btnLoad">装载实验室数据</button>
+    <span id="loadState" class="muted" style="margin-left:10px">未装载</span>
+    <div class="kpis" id="kpis"></div>
+  </div>
+  <div class="card"><h2>系统健康与已知事项</h2><div id="healthBox" class="muted">加载中…</div></div>
+  <div class="card"><h2>覆盖门(每 SKU 健康额定工况 ≥4)</h2><div id="covBox" class="muted">待装载数据</div></div>
+  <div class="card"><h2>包络(envelope)概览 <span class="muted">— 各工况预测容量与 Ta 斜率,拟合输入 = envelope_input 面</span></h2>
+    <div id="envBox" class="muted">待装载数据</div></div>
+  <div class="card"><h2>数据构成(机台 × 工况)</h2><div id="compBox" class="muted">待装载数据</div></div>
+  <div class="card"><h2>不确定清单 <span class="muted">— AMBIGUOUS / UNKNOWN_CONDITION / UNSTABLE 段(人工复核用)</span></h2>
+    <button class="mini" id="btnUnc">生成不确定清单</button><div id="uncBox"></div></div>
+</section>
+
+<!-- ============================ ② 诊断 ============================ -->
+<section class="tab" id="tab-diag">
+  <div class="explain">输入<b>残差</b>(= 实测 − 该机基线;不是绝对读数),按 M-DIAG 规则矩阵输出 C5
+  诊断五件套:故障假设 / 证据 / 反证 / 置信度 / 现场核查清单。判据阈值实时读自
+  <b>config/calibration.yaml</b>,与管线永远同源。<br>
+  <b>制冷</b>(铁律 17):EEV 满开非伺服,exv_resid 不作泄漏证据;次序 = 先过热度(SSH)后过冷度(SC)。
+  <b>制热</b>(铁律 3):Sh 被伺服钉零,泄漏 = EXV↑ + SC↓ + 容量↓ 三特征;Sh 证据需 EEV 饱和门。</div>
+  <div class="card">
+    <div class="grid g3">
+      <label class="f"><span>运行模式</span>
+        <select id="dgMode"><option value="cooling">制冷 cooling</option><option value="heating">制热 heating</option></select>
+        <small id="dgModeHint"></small></label>
+      <label class="f"><span>sh_resid — 过热度残差(K)</span>
+        <input type="number" step="0.1" id="dgSh" value="0">
+        <small id="hintSh"></small></label>
+      <label class="f"><span>sc_resid — 过冷度残差(K)</span>
+        <input type="number" step="0.1" id="dgSc" value="0">
+        <small id="hintSc"></small></label>
+      <label class="f"><span>capacity_resid — 容量残差(相对额定,-0.10 = 低 10%)</span>
+        <input type="number" step="0.01" id="dgCap" value="0">
+        <small id="hintCap"></small></label>
+      <label class="f"><span>exv_resid — EEV 开度残差(步)</span>
+        <input type="number" step="1" id="dgExv" value="0">
+        <small id="hintExv"></small></label>
+      <label class="f"><span>dsh_phys — 排气过热度(K,可留空)</span>
+        <input type="number" step="0.1" id="dgDsh" placeholder="留空 = 无此测点">
+        <small id="hintDsh"></small></label>
+      <label class="f" id="dgSatWrap"><span>EEV 饱和(仅制热)</span>
+        <select id="dgSat"><option value="">否</option><option value="1">是(开度触顶)</option></select>
+        <small>制热 Sh 证据的启用门(铁律 3);制冷不消费此项。</small></label>
+    </div>
+    <button class="act" id="btnDiag">运行诊断</button>
+    <div id="dgOut"></div>
+  </div>
+</section>
+
+<!-- ============================ ③ 计算器 ============================ -->
+<section class="tab" id="tab-calc">
+  <div class="explain">输入一组<b>原始读数快照</b>,按 C1 契约物理口径(CoolProp R410A 饱和查表,铁律 1/2)
+  计算派生量,并做工况归属判定(AHRI 210/240-2026 字母 + 容量档)。压力为<b>密封表压 bar</b>,
+  绝压 = 表压 + 1.013,禁海拔修正。全部字段可选,给多少算多少。</div>
+  <div class="card">
+    <div class="grid g3">
+      <label class="f"><span>运行模式</span>
+        <select id="ccMode"><option value="cooling">制冷 cooling</option><option value="heating">制热 heating</option></select></label>
+      <label class="f"><span>Lp — 低压(表压 bar)</span><input type="number" step="0.01" id="ccLp">
+        <small>与 Ts 一起给出 → 过热度 sh_phys</small></label>
+      <label class="f"><span>Hp — 高压(表压 bar)</span><input type="number" step="0.01" id="ccHp">
+        <small>与 Tl/Td 一起给出 → 过冷度 sc_phys / 排气过热度 dsh_phys</small></label>
+      <label class="f"><span>Ts — 回气温度(℃)</span><input type="number" step="0.1" id="ccTs"></label>
+      <label class="f"><span>Tl — 液管温度(℃)</span><input type="number" step="0.1" id="ccTl">
+        <small>制热工况 Tl 在外机液管,Sc 含安装管路偏置(铁律 10)</small></label>
+      <label class="f"><span>Td — 排气温度(℃)</span><input type="number" step="0.1" id="ccTd"></label>
+      <label class="f"><span>Ta — 环境温度(℃)</span><input type="number" step="0.1" id="ccTa">
+        <small>给出后做工况字母归属(±1.5℃ 最近中心)</small></label>
+      <label class="f"><span>CompRps — 压缩机频率(lab InvHz,Hz)</span><input type="number" step="1" id="ccHz">
+        <small>给出后判容量档 Full / UNKNOWN_CAPACITY</small></label>
+      <label class="f"><span>Tcs — 目标冷凝温度(℃,控制器设定)</span><input type="number" step="0.1" id="ccTcs">
+        <small>给出后算 tcs_gap = tc_sat − Tcs(铁律 8:学习漂移 vs 故障漂移判别量)</small></label>
+    </div>
+    <button class="act" id="btnCalc">计算</button>
+    <div id="ccOut"></div>
+  </div>
+</section>
+
+<!-- ============================ ④ 文件体检 ============================ -->
+<section class="tab" id="tab-file">
+  <div class="explain">对单个 <b>RamChecker 监控 CSV</b> 做入库前体检:时间轴重建 → 枚举隔离 → 10s 重采样
+  → 稳态/锚分段 → 逐行工况归属。给出可用行数、模式/工况分布、锚统计与全部问题项。
+  文件为只读,不入库、不改名。</div>
+  <div class="card">
+    <label class="f"><span>CSV 完整路径</span>
+      <input type="text" id="fcPath" placeholder="例:E:\AICoding\IOT\fdd\data\raw\lab\监控数据\31 …\RamChecker_20231127123005.csv">
+      <small>资源管理器中右键文件 →「复制文件地址」直接粘贴即可(带引号会自动去除)。文件名必须保留原始 _YYYYMMDDHHMMSS 时间戳。</small></label>
+    <button class="act" id="btnFc">体检</button>
+    <div id="fcOut"></div>
+  </div>
+</section>
+
+<!-- ============================ ⑤ 自检 ============================ -->
+<section class="tab" id="tab-test">
+  <div class="explain">在项目虚拟环境中运行 pytest 回归套件,验证系统当前健康态。子进程环境已按会话铁规剔除
+  FDD_HMAC_KEY。<b>预期基线:M0 = 13 passed;M1 = 53 passed;M2 = 55 passed + 3 skipped(3 项 skip
+  为已知等待项);规格测试 = 49 passed。</b>任何 failed 都值得回报。</div>
+  <div class="card">
+    <button class="mini" data-suite="m0">运行 M0(约 30s)</button>
+    <button class="mini" data-suite="m1">运行 M1(约 25s)</button>
+    <button class="mini" data-suite="m2">运行 M2(约 60s)</button>
+    <button class="mini" data-suite="spec">运行规格测试(约 5s)</button>
+    <div id="stOut" style="margin-top:10px"></div>
+  </div>
+</section>
+
+<!-- ============================ ⑥ 说明 ============================ -->
+<section class="tab" id="tab-help">
+  <div class="card"><h2>这是什么</h2>
+  <p>FDD(北美住宅变频热泵外机故障诊断)系统的<b>本地交互控制台</b>:把管线的装载、物理转换、工况判定、
+  诊断矩阵、回归自检包装成可点击界面。零新增依赖(纯 Python 标准库 + 项目既有模块),仅绑定本机
+  127.0.0.1,不向任何外部服务发送数据 —— 与项目「全流程本地」安全承诺一致。</p></div>
+  <div class="card"><h2>各页怎么用</h2><ul class="doc">
+    <li><b>① 数据总览</b>:点「装载实验室数据」(约 40–60s)。看四类信息:KPI 卡(行数/锚数/隔离数)、
+      覆盖门(每 SKU 须 ≥4 健康额定工况)、包络概览(各工况预测容量,注意 2436AA H2 为单行支撑)、
+      健康告警(已知事项 + 装载后动态项)。「不确定清单」列出需人工复核的段。</li>
+    <li><b>② 单点诊断</b>:输入<b>残差</b>(实测 − 该机基线)。典型用例——制冷早期少冷媒:
+      sh_resid=0.5、sc_resid=−2.0、capacity_resid=−0.10 → refrigerant_low_or_leak,置信 0.65;
+      把 capacity_resid 改成 0 → 置信降为 0.5(sc 单证)。结果卡给出证据链、反证、判定过程逐步
+      解释与现场核查清单。</li>
+    <li><b>③ 物理计算器</b>:输入表压/温度读数,得 sh_phys/sc_phys/dsh_phys/饱和温度/tcs_gap 与
+      工况归属。用于现场快照核对与传感器合理性检查(负过热度/负过冷度会给出提示)。</li>
+    <li><b>④ 文件体检</b>:新拿到一个 RamChecker CSV,先体检再入库:是否 63 列方言、有无表外枚举值、
+      稳态率、能铸哪些工况。fault_injected 登记文件会被明确标注。</li>
+    <li><b>⑤ 系统自检</b>:一键跑 M0/M1/M2/规格套件,对照页面上的预期基线读结果。</li>
+  </ul></div>
+  <div class="card"><h2>读数与口径速查(容易踩的坑)</h2><ul class="doc">
+    <li>压力是<b>密封表压(bar)</b>,绝压 = 表压 + 1.013,全设备固定,禁海拔修正(铁律 1)。</li>
+    <li>过冷度物理口径 sc_phys = tc_sat − Tl,<b>没有 −1</b>(控制器显示偏置已剥除,铁律 2)。</li>
+    <li>固件上报 Sh/Sc 含系统性饱和表偏差(约 −2% 压力尺度),残差分析一律用本工具的物理口径。</li>
+    <li>制热 Sh≈0 是正常伺服态,不是故障(铁律 3);制冷 EEV 满开是正常控制,exv_resid≡0(铁律 17)。</li>
+    <li>诊断页输入的是<b>残差</b>不是读数:sh_resid 的参照面在制冷侧 = 逐机×同箱(DK-017),
+      跨机比较无效(实测同箱跨机散差 ~9K)。</li>
+    <li>severity 输出 fitted=False:是方向性代理值,欠充梯度数据到货后才有工程量纲。</li>
+    <li>dsh 安全参考带 5.0K 为暂定值,只产生核查清单注释,不参与判定。</li>
+  </ul></div>
+  <div class="card"><h2>故障排除</h2><ul class="doc">
+    <li><b>页面打不开</b>:确认控制台窗口在运行;端口被占用时用
+      <code>--port 8899</code> 重启。</li>
+    <li><b>装载报错「目录不存在」</b>:实验室数据须在 <code>data/raw/lab/</code>(含 監控数据 目录)。</li>
+    <li><b>自检报 3 skipped</b>:预期现象(holdout 等 M3、prodline×2 等盐协议),不是故障。</li>
+    <li><b>计算器饱和温度为空</b>:检查表压是否在查表范围(绝压 1–46 bar),超范围会明确警告。</li>
+    <li><b>任何红色报错</b>:均附「怎么办」提示;截图 + 控制台窗口堆栈即可反馈。</li>
+  </ul></div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(msg,ok){const d=document.createElement("div");d.className="toastmsg"+(ok?" ok":"");
+ d.innerHTML=msg;$("#toast").appendChild(d);setTimeout(()=>d.remove(),ok?3500:9000);}
+async function api(path,body){
+ let r;try{r=await fetch(path,body?{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify(body)}:{});}catch(e){toast("无法连接本地服务:"+esc(e)+"<br>提示:确认控制台窗口仍在运行。");throw e;}
+ const j=await r.json();
+ if(!j.ok){toast("<b>"+esc(j.error)+"</b>"+(j.hint?"<br>提示:"+esc(j.hint):""));throw new Error(j.error);}
+ return j.data;}
+function table(rows,cols){if(!rows||!rows.length)return "<p class='muted'>(无数据)</p>";
+ cols=cols||Object.keys(rows[0]);
+ return "<table><tr>"+cols.map(c=>"<th>"+esc(c)+"</th>").join("")+"</tr>"+
+  rows.map(r=>"<tr>"+cols.map(c=>"<td>"+esc(r[c]===null||r[c]===undefined?"—":r[c])+"</td>").join("")+"</tr>").join("")+"</table>";}
+
+/* ---------- 页签 ---------- */
+$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+ document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+ document.querySelectorAll("section.tab").forEach(x=>x.classList.toggle("on",x.id==="tab-"+b.dataset.t));});
+
+/* ---------- 配置驱动的提示 ---------- */
+let CFG=null;
+function hintRefresh(){if(!CFG)return;const d=CFG.diag,cool=$("#dgMode").value==="cooling";
+ $("#dgModeHint").textContent=cool?"制冷矩阵:先 SSH 后 SC(DK-015 次序)":"制热矩阵:EXV+SC+容量 三特征";
+ $("#hintSh").textContent=cool?`正常带 ±${d.sh_norm_band_cool}K;> +${d.sh_high_cool}K 进入中晚期/节流分支(逐机×同箱参照面)`:`≥ ${d.heat_sh_high}K 且 EEV 饱和时才作证据(铁律 3)`;
+ $("#hintSc").textContent=cool?`< ${d.sc_low}K → 少冷媒方向;> +${d.sc_high}K → 节流受限方向`:`≤ ${d.heat_sc_down}K 触发(泄漏三特征之一)`;
+ $("#hintCap").textContent=cool?`< ${d.cap_low} 时作佐证并提升置信(非硬门)`:`≤ ${d.heat_cap_down} 触发`;
+ $("#hintExv").textContent=cool?"铁律 17:制冷不作泄漏证据;单独大幅偏离=EEV 卡滞/控制异常指示":`≥ ${d.heat_exv_up} 触发(泄漏三特征之一)`;
+ $("#hintDsh").textContent=`< ${d.dsh_safety_min_k}K(暂定)时在核查清单追加压缩机安全行;仅注释,非判定门`;
+ $("#dgSatWrap").style.opacity=cool?0.45:1;}
+$("#dgMode").addEventListener("change",hintRefresh);
+api("/api/config").then(c=>{CFG=c;hintRefresh();
+ if(!c.lab_dir_exists)toast("提示:实验室数据目录不存在("+esc(c.lab_dir)+"),总览页装载将不可用;其余功能不受影响。",false);});
+
+/* ---------- 健康 ---------- */
+function renderHealth(h){const box=$("#healthBox");
+ const li=a=>`<div class="alert a-${a.level==="error"?"error":a.level==="warn"?"warn":"info"}"><b>${esc(a.title)}</b><br>${esc(a.detail)}</div>`;
+ box.innerHTML=(h.dynamic||[]).map(li).join("")+(h.known||[]).map(li).join("");}
+api("/api/health").then(renderHealth).catch(()=>{});
+
+/* ---------- 总览 ---------- */
+let pollLoad=null;
+$("#btnLoad").addEventListener("click",async()=>{await api("/api/load",{});
+ $("#btnLoad").disabled=true;$("#loadState").innerHTML="<span class='spin'></span>装载中(约 40–60 秒)…";
+ pollLoad=setInterval(async()=>{const s=await api("/api/load/status");
+  if(s.state==="done"){clearInterval(pollLoad);$("#btnLoad").disabled=false;
+   $("#loadState").textContent=`已装载(耗时 ${s.seconds}s)`;toast("数据装载完成",true);
+   renderOverview();api("/api/health").then(renderHealth);}
+  else if(s.state==="error"){clearInterval(pollLoad);$("#btnLoad").disabled=false;
+   $("#loadState").textContent="装载失败";toast("<b>"+esc(s.error)+"</b><br>提示:"+esc(s.hint));}},1500);});
+async function renderOverview(){const o=await api("/api/overview");const k=o.cards;
+ $("#kpis").innerHTML=[["载入行(10s)",k.rows],["机台",k.units.join(" / ")],["SKU",k.skus.map(s=>s.replace("EODA19H-","")).join(" / ")],
+  ["额定锚行",k.rating_anchor],["拟合输入行",k.envelope_input],["故障注入行",k.fault_injected],
+  ["隔离标注行(DK-016)",k.quarantined]].map(x=>`<div class="kpi"><b>${esc(x[1])}</b><span>${esc(x[0])}</span></div>`).join("");
+ $("#covBox").innerHTML=o.coverage.map(c=>`<div style="margin:4px 0">
+  <span class="badge ${c.n>=4?"b-green":"b-red"}">${esc(c.sku)}:${c.n}/4 ${c.n>=4?"达标":"不足"}</span>
+  <span class="muted">${c.conditions.map(esc).join("、")}</span></div>`).join("");
+ $("#envBox").innerHTML=table(o.envelope,["sku","mode","condition","rows","predicted_kw"])+
+  "<p class='muted'>predicted_kw:工况行 = 该工况预测容量(kW);「— Ta 斜率 —」行 = kW/K。控制器容量链含 +2%~+12% 系统偏差(锁定发现),绝对值陈述须带修正。</p>";
+ $("#compBox").innerHTML=table(o.composition);}
+$("#btnUnc").addEventListener("click",async()=>{$("#uncBox").innerHTML="<span class='spin'></span>生成中…";
+ try{const u=await api("/api/uncertainty",{});
+  $("#uncBox").innerHTML="<p class='muted'>"+esc(u.note)+"</p>"+table(u.rows);}catch(e){$("#uncBox").innerHTML="";}});
+
+/* ---------- 诊断 ---------- */
+const HYP={"refrigerant_low_or_leak":["少冷媒 / 泄漏嫌疑","b-red"],"metering_restriction":["节流受限","b-orange"],
+ "indoor_side_nonspecific":["内机侧非特异异常","b-blue"],"none":["无故障假设","b-green"]};
+$("#btnDiag").addEventListener("click",async()=>{
+ const body={mode:$("#dgMode").value,sh_resid:$("#dgSh").value,sc_resid:$("#dgSc").value,
+  capacity_resid:$("#dgCap").value,exv_resid:$("#dgExv").value,dsh_phys:$("#dgDsh").value,
+  exv_saturated:$("#dgSat").value==="1"};
+ const r=await api("/api/diagnose",body);const o=r.result;const h=HYP[o.fault_hypothesis]||[o.fault_hypothesis,"b-gray"];
+ const ev=o.evidence.map(e=>`<span class="chip">${esc(e.feature)} ${e.direction>0?"↑":"↓"} |${(+e.magnitude).toFixed(2)}|</span>`).join("")||"<span class='muted'>(无)</span>";
+ const ce=o.counter_evidence.map(e=>`<span class="chip">${esc(e.feature)} ${e.direction>0?"↑":"↓"}${e.against?" ⇒ 反证 "+esc(e.against):""}</span>`).join("")||"<span class='muted'>(无)</span>";
+ const cl=o.field_checklist.map(c=>`<li>${esc(c)}</li>`).join("")||"<li class='muted'>(无)</li>";
+ const sev=o.severity?`<h3>严重度(未拟合代理)</h3><div>estimate=${(+o.severity.estimate).toFixed(3)}(0=正常,1=严重)· fitted=${o.severity.fitted} · ${esc(o.severity.method)}</div>`:"";
+ $("#dgOut").innerHTML=`<div class="result-card hy-${esc(o.fault_hypothesis)}">
+  <span class="badge ${h[1]}" style="font-size:14px">${esc(h[0])}</span>
+  <span class="muted" style="margin-left:8px">${esc(o.fault_hypothesis)}</span>
+  <div class="confbar"><i style="width:${Math.round(o.confidence*100)}%"></i></div>
+  <div class="muted">置信度 ${(+o.confidence).toFixed(2)}(v0 占位标度,M4 换模型分)</div>
+  <h3>证据</h3>${ev}<h3>反证</h3>${ce}
+  <h3>判定过程</h3><div>${r.explain.map(x=>"<div>· "+esc(x)+"</div>").join("")}</div>
+  ${r.notes.length?"<h3>提示</h3>"+r.notes.map(n=>`<div class="alert a-warn">${esc(n)}</div>`).join(""):""}
+  <h3>现场核查清单</h3><ul>${cl}</ul>${sev}</div>`;});
+
+/* ---------- 计算器 ---------- */
+$("#btnCalc").addEventListener("click",async()=>{
+ const r=await api("/api/materialize",{mode:$("#ccMode").value,Lp:$("#ccLp").value,Hp:$("#ccHp").value,
+  Ts:$("#ccTs").value,Tl:$("#ccTl").value,Td:$("#ccTd").value,Ta:$("#ccTa").value,
+  CompRps:$("#ccHz").value,Tcs:$("#ccTcs").value});
+ const d=r.derived;const rows=[["lp_abs / hp_abs(绝压 bar)",`${d.lp_abs??"—"} / ${d.hp_abs??"—"}`],
+  ["te_sat — 蒸发饱和温度(露点,℃)",d.te_sat],["tc_sat — 冷凝饱和温度(泡点,℃)",d.tc_sat],
+  ["sh_phys — 过热度(K)",d.sh_phys],["sc_phys — 过冷度(K,无 −1)",d.sc_phys],
+  ["dsh_phys — 排气过热度(K)",d.dsh_phys],["tcs_gap — 目标追踪差(K)",d.tcs_gap]];
+ let html="<table>"+rows.map(x=>`<tr><th>${esc(x[0])}</th><td>${esc(x[1]??"—")}</td></tr>`).join("")+"</table>";
+ if(r.condition){const c=r.condition;
+  html+=`<h3>工况归属</h3><span class="badge b-blue" style="font-size:14px">${esc(c.letter)}</span>
+   <span class="badge ${c.capacity==="Full"?"b-green":"b-gray"}">${esc(c.capacity)}</span>
+   <span class="badge b-gray">${esc(c.confidence)}</span><p class="muted">${esc(c.note)}</p>`;}
+ html+=(r.warnings||[]).map(w=>`<div class="alert a-error">${esc(w)}</div>`).join("");
+ html+=(r.hints||[]).map(h=>`<div class="alert a-warn">${esc(h)}</div>`).join("");
+ $("#ccOut").innerHTML=`<div class="result-card" style="background:#fff">${html}</div>`;});
+
+/* ---------- 文件体检 ---------- */
+$("#btnFc").addEventListener("click",async()=>{$("#fcOut").innerHTML="<span class='spin'></span>体检中…";
+ try{const r=await api("/api/filecheck",{path:$("#fcPath").value});const i=r.info;
+  const kv=[["1s 行数",i.rows_1s],["10s 行数",i.rows_10s],["时间跨度",(i.span||[]).join(" → ")],
+   ["机台 / 数据类型",(i.unit??"—")+" / "+(i.data_type??"—")],
+   ["Ta 分布(min/p50/max ℃)",i.ta?`${i.ta.min} / ${i.ta.p50} / ${i.ta.max}`:"—"],
+   ["模式行(制冷/制热/化霜)",i.mode_rows?`${i.mode_rows.cooling} / ${i.mode_rows.heating} / ${i.mode_rows.defrost}`:"—"],
+   ["稳态行",i.steady_rows],["锚行(净盘管/结霜)",i.anchor_clean!==undefined?`${i.anchor_clean} / ${i.anchor_frost}`:"—"],
+   ["含采样间隙的 10s 窗",i.gap_rows]];
+  let html="<table>"+kv.map(x=>`<tr><th>${esc(x[0])}</th><td>${esc(x[1]??"—")}</td></tr>`).join("")+"</table>";
+  if(r.conditions&&r.conditions.length)html+="<h3>逐行工况归属(10s 面)</h3>"+table(r.conditions);
+  if(r.enum_quarantine&&Object.keys(r.enum_quarantine).length)
+   html+=`<h3>枚举隔离(1s 行,不加载)</h3><div class="muted">${esc(JSON.stringify(r.enum_quarantine))}</div>`;
+  html+=(r.issues||[]).map(x=>`<div class="alert a-warn">${esc(x)}</div>`).join("")||"";
+  if(!(r.issues||[]).length)html+=`<div class="alert a-info">未发现问题项。</div>`;
+  $("#fcOut").innerHTML=`<div class="result-card" style="background:#fff">${html}</div>`;}
+ catch(e){$("#fcOut").innerHTML="";}});
+
+/* ---------- 自检 ---------- */
+let pollTest=null;
+$("#tab-test").addEventListener("click",async e=>{const b=e.target.closest("button.mini");if(!b)return;
+ const st=await api("/api/selftest",{suite:b.dataset.suite});
+ $("#stOut").innerHTML=`<div><span class='spin'></span>运行 ${esc(st.label)} … 预期:${esc(st.expect)}</div>`;
+ if(pollTest)clearInterval(pollTest);
+ pollTest=setInterval(async()=>{const s=await api("/api/selftest/status");
+  if(s.state==="running")return;clearInterval(pollTest);
+  const ok=s.rc===0;
+  $("#stOut").innerHTML=`<div class="alert ${ok?"a-info":"a-error"}"><b>${esc(s.label||s.suite)}:
+   ${esc(s.summary||"(无汇总行)")}</b>(${s.seconds}s)<br>预期:${esc(s.expect||"")} ${ok?"— 一致性请对照上行":"— 存在 failed/error,请回报"}</div>
+   <pre>${esc(s.output)}</pre>`;},2000);});
+</script>
+</body>
+</html>

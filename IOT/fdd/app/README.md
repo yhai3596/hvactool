@@ -1,0 +1,50 @@
+# FDD 本地控制台(app/)
+
+FDD 正式使用设备故障诊断系统的**本地交互界面**:数据装载总览、单点诊断(M-DIAG)、
+物理量计算(M-CONV + condition_of)、监控 CSV 文件体检、pytest 回归自检、内置使用说明。
+
+## 启动
+
+双击 fdd 根目录下 `start_console.bat`,或:
+
+```bash
+.venv/Scripts/python app/fdd_console.py                  # 启动并自动打开浏览器
+.venv/Scripts/python app/fdd_console.py --no-browser --port 8899
+```
+
+浏览器访问 `http://127.0.0.1:8765/`。停止:关闭控制台窗口或 Ctrl+C。
+
+## 设计约束(与项目硬约束一致)
+
+- **零新增依赖**:后端 = Python 标准库 `http.server`;前端 = 单文件原生 HTML/JS,
+  无任何 CDN/外部资源。不安装第三方包(Streamlit/Flask 均需联网安装且引入遥测面)。
+- **全流程本地**:服务仅绑定 127.0.0.1;不向任何外部服务发送任何数据。
+- **只读消费管线**:仅 import 调用 `src/fdd` 既有模块(c4/conv/diag/baseline/config),
+  不修改任何管线行为、不触碰 tests/、不写任何数据文件。
+- **数据安全**:界面只涉及实验室机台编号(31/44/55/84/85),不触碰 SN/PII 数据源;
+  自检子进程环境剔除 `FDD_HMAC_KEY`(会话铁规)。
+- **阈值同源**:诊断页所有阈值提示实时读自 `config/calibration.yaml`(经 `config.cal()`),
+  标定重估后界面自动跟随,无第二份真相。
+
+## 功能页
+
+| 页 | 输入 | 输出 |
+|---|---|---|
+| ① 数据总览 | 一键装载 data/raw/lab(约 40–60s,内存缓存) | KPI 卡、覆盖门(≥4)、envelope 概览、构成表、不确定清单、健康告警(已知事项 + 动态) |
+| ② 单点诊断 | 残差组(sh/sc/capacity/exv/dsh)+ 模式 + EEV 饱和 | C5 五件套(假设/证据/反证/置信/清单)+ 判定过程逐步解释 + 规则提示(铁律 3/17) |
+| ③ 物理计算器 | 表压/温度/频率快照(全可选) | sh_phys/sc_phys/dsh_phys/饱和温度/tcs_gap + 工况字母/容量档 + 合理性提示 |
+| ④ 文件体检 | RamChecker CSV 路径 | 行数/时距/Ta/模式/稳态率/锚统计/工况分布/枚举隔离/问题清单 |
+| ⑤ 系统自检 | 套件按钮(m0/m1/m2/spec) | pytest 结果 + 预期基线对照(M0 13、M1 53、M2 55+3skip、spec 49) |
+| ⑥ 使用说明 | — | 口径速查(易踩坑)、各页教程、故障排除 |
+
+## 异常提示约定
+
+所有后端错误都返回 `{error, hint}`:红色浮层显示**出了什么问题 + 该怎么办**;
+已知系统事项(H2 单行支撑、H4 越带、u31×A 隔离、3 skipped 等)在总览页常驻列出,
+避免把已知态误读为新故障。
+
+## 文件
+
+- `app/fdd_console.py` — 后端(stdlib HTTP + JSON API,~12 个端点)
+- `app/static/index.html` — 前端(单文件)
+- `../start_console.bat` — Windows 启动器
