@@ -101,7 +101,17 @@ python server.py              # 启动 http://127.0.0.1:8137
 
 ## 部署 / 更新流程
 
-在本机打包并推送到服务器（示意）：
+**一键部署（推荐）**：改完代码后运行 `deploy.sh`（Windows 可双击 `deploy-hvac.bat`）——自动打包 → 上传 → 按需重启后端 → 服务器侧线上验证。仅当 `server.py` 变化时才重启后端；前端为静态实时托管，改动即时生效、**零中断**。
+
+```bash
+bash deploy.sh
+```
+
+> 由于服务器出境网络受限、无法自行 `git pull`，部署由本机中转（本机能连 GitHub 也能 SSH 服务器）。
+
+<details><summary>手动分步（等价原理）</summary>
+
+在本机打包并推送到服务器：
 
 ```bash
 # 1. 打包（排除本地环境/缓存）
@@ -115,6 +125,8 @@ ssh root@<server> 'tar xzf /tmp/hvac.tgz -C /var/www/hvac && chown -R www-data:w
 # 3. 重启后端服务
 ssh root@<server> 'systemctl restart hvac'
 ```
+
+</details>
 
 > 前端为纯静态，改动 HTML/CSS/JS 后浏览器需刷新缓存——站点资源均带 `?v=NNN` 版本号，升级时递增即可（当前 v213）。
 
