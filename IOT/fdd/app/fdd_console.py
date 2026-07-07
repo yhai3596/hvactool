@@ -47,10 +47,14 @@ VENV_PY = ROOT / ".venv" / "Scripts" / "python.exe"
 STATIC_DIR = APP_DIR / "static"
 MANUAL_MD = APP_DIR / "manual.md"
 UPLOAD_DIR = pathlib.Path(tempfile.gettempdir()) / "fdd_console_uploads"
+# 基线库工件:训练(读原始数据)与使用(检测/诊断)分离的落盘层。
+# data/lake 在 gitignore 内 —— 工件是本机数据资产,不进代码仓库。
+ARTIFACT_DIR = ROOT / "data" / "lake" / "console_baseline"
 
 _LOCK = threading.Lock()
 STATE = {
     "lab": None,
+    "artifact": None,    # 当前基线库工件元数据(版本/溯源/指纹)
     "bins": None,        # 逐机×同箱健康基线缓存(装载后按需构建)
     "sense_ref": {},     # 逐机 sense 参照缓存(批量检测复用)
     "load": {"state": "idle", "error": None, "hint": None, "seconds": None},
@@ -184,18 +188,108 @@ def api_health(_body=None):
     return {"known": alerts, "dynamic": dyn, "loaded": lab is not None}
 
 
+# ------------------------------------------------- 基线库工件(训练/使用分离)
+
+def _config_fingerprint() -> dict:
+    import hashlib
+    out = {}
+    for name in ("calibration.yaml", "unit_sku_map.yaml"):
+        p = ROOT / "config" / name
+        out[name] = hashlib.sha256(p.read_bytes()).hexdigest()[:16] if p.exists() else None
+    return out
+
+
+def _artifact_versions():
+    if not ARTIFACT_DIR.exists():
+        return []
+    out = []
+    for mp in sorted(ARTIFACT_DIR.glob("v*.meta.json")):
+        try:
+            meta = json.loads(mp.read_text(encoding="utf-8"))
+            if (ARTIFACT_DIR / f"v{meta['version']}.pkl").exists():
+                out.append(meta)
+        except Exception:  # noqa: BLE001 — 损坏的元数据跳过
+            continue
+    return sorted(out, key=lambda m: m["version"])
+
+
+def _save_artifact(lab: pd.DataFrame, load_seconds) -> dict:
+    """把预处理后的 10s 载入面固化为版本化工件 + 溯源元数据。
+    训练成本(解析上百个 1s CSV)只在这里发生一次;检测/诊断用工件秒级加载。"""
+    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    versions = [m["version"] for m in _artifact_versions()]
+    v = (max(versions) + 1) if versions else 1
+    lab.to_pickle(ARTIFACT_DIR / f"v{v}.pkl")
+    src = (lab.groupby(["unit", "source_file"]).size() if len(lab) else pd.Series(dtype=int))
+    meta = {
+        "version": v,
+        "created": dt.datetime.now().isoformat(timespec="seconds"),
+        "schema": 1,
+        "rows": int(len(lab)),
+        "units": sorted(lab["unit"].dropna().unique().tolist()) if len(lab) else [],
+        "source_files": int(src.shape[0]),
+        "train_seconds": load_seconds,
+        "lab_dir": str(LAB_DIR),
+        "config_fingerprint": _config_fingerprint(),
+        "attrs": {"duplicates_dropped": int(lab.attrs.get("duplicates_dropped", 0)),
+                  "unmapped_units": lab.attrs.get("unmapped_units", {}),
+                  "enum_quarantined_rows": int(sum(
+                      sum(e["rows"].values())
+                      for e in lab.attrs.get("enum_quarantined", [])))},
+    }
+    (ARTIFACT_DIR / f"v{v}.meta.json").write_text(
+        json.dumps(_safe(meta), ensure_ascii=False, indent=1), encoding="utf-8")
+    return meta
+
+
+def _load_artifact(version=None):
+    """加载工件(默认最新)→ 进入使用态;不触碰任何原始数据。"""
+    versions = _artifact_versions()
+    if not versions:
+        return None
+    meta = versions[-1] if version is None else next(
+        (m for m in versions if m["version"] == version), None)
+    if meta is None:
+        raise ApiError(f"基线库版本 v{version} 不存在")
+    lab = pd.read_pickle(ARTIFACT_DIR / f"v{meta['version']}.pkl")
+    with _LOCK:
+        STATE["lab"] = lab
+        STATE["artifact"] = meta
+        STATE["bins"] = None
+        STATE["sense_ref"] = {}
+        STATE["load"] = {"state": "done", "error": None, "hint": None,
+                         "seconds": meta.get("train_seconds")}
+    return meta
+
+
+def api_artifact(_body=None):
+    """基线库状态:当前工件、历史版本、配置指纹是否仍匹配。"""
+    cur = STATE["artifact"]
+    now_fp = _config_fingerprint()
+    stale = bool(cur and cur.get("config_fingerprint") != now_fp)
+    return {"current": cur, "history": _artifact_versions(),
+            "config_fingerprint_now": now_fp, "config_stale": stale,
+            "loaded": STATE["lab"] is not None,
+            "note": ("配置文件(calibration/unit_sku_map)自本工件训练后已变更,"
+                     "阈值类不受影响(实时读取),但基线构成可能过时——建议重新训练。"
+                     if stale else None)}
+
+
 # ---------------------------------------------------------------- 数据装载与总览
 
 def _do_load():
     t0 = time.time()
     try:
         lab = c4.load_lab(LAB_DIR)
+        secs = round(time.time() - t0, 1)
+        meta = _save_artifact(lab, secs)      # 训练完成即固化为新版工件
         with _LOCK:
             STATE["lab"] = lab
+            STATE["artifact"] = meta
             STATE["bins"] = None      # 基线缓存随数据重建
             STATE["sense_ref"] = {}
             STATE["load"] = {"state": "done", "error": None, "hint": None,
-                             "seconds": round(time.time() - t0, 1)}
+                             "seconds": secs}
     except Exception as e:  # noqa: BLE001 — 前端需要完整失败原因
         with _LOCK:
             STATE["load"] = {"state": "error", "error": f"{type(e).__name__}: {e}",
@@ -224,7 +318,9 @@ def api_load_status(_body=None):
 def _require_lab():
     lab = STATE["lab"]
     if lab is None:
-        raise ApiError("数据尚未装载", "先在「数据总览」页点击「装载实验室数据」(约 40–60 秒)。")
+        raise ApiError("基线库尚未就绪",
+                       "到「① 基线与模型库」:已有工件会自动加载(秒级);首次使用请点击"
+                       "「训练基线库」(读取原始实验数据,约 1 分钟,仅需一次)。")
     return lab
 
 
@@ -675,9 +771,9 @@ def _detect_file(p: pathlib.Path, unit_override=None):
                           "无法进入稳态分段与诊断。", "counts": {}}
         return out
     if STATE["lab"] is None:
-        raise ApiError("健康基线数据尚未装载",
-                       "先到「① 数据总览」点击「装载实验室数据」——检测的残差以逐机健康"
-                       "基线为参照,没有基线无法诊断(快速体检不受影响)。")
+        raise ApiError("基线库尚未就绪",
+                       "到「① 基线与模型库」:已有工件自动加载;首次使用点「训练基线库」"
+                       "——诊断残差以逐机健康基线为参照(快速体检不受影响)。")
     if not unit:
         raise ApiError("无法确定机台",
                        "上传文件没有目录上下文:请在「机台」下拉框选择后重试;"
@@ -689,6 +785,7 @@ def _detect_file(p: pathlib.Path, unit_override=None):
             frame[c] = np.nan
     out["baseline"] = {
         "unit": unit, "in_pool": in_pool,
+        "artifact_version": (STATE["artifact"] or {}).get("version"),
         "bins_for_unit": int((bins["bin"]["unit"] == str(unit)).sum()),
         "note": ("参照面 = 逐机三级:同箱(精确)→ 同 Ta 箱 → 同工况字母;"
                  "跨机/SKU 级参照禁止(DK-017/铁律 10)。"
@@ -950,8 +1047,8 @@ def api_batch(body):
         if STATE["batch"]["state"] == "running":
             raise ApiError("已有批量检验在运行", "等当前批次完成后再启动下一批。")
     if STATE["lab"] is None:
-        raise ApiError("健康基线数据尚未装载",
-                       "先到「① 数据总览」装载——批量诊断的残差以逐机健康基线为参照。")
+        raise ApiError("基线库尚未就绪",
+                       "到「① 基线与模型库」加载或训练——批量诊断的残差以逐机健康基线为参照。")
     paths = _collect_batch_paths(body)
     unit_override = (body.get("unit") or "").strip() or None
     _baseline_bins()          # 预构建基线(在请求线程内,失败即时报错)
@@ -1040,6 +1137,7 @@ ROUTES_GET = {
     "/api/overview": api_overview,
     "/api/selftest/status": api_selftest_status,
     "/api/batch/status": api_batch_status,
+    "/api/artifact": api_artifact,
     "/api/manual": api_manual,
 }
 ROUTES_POST = {
@@ -1114,6 +1212,15 @@ def main():
         "FDD_CONSOLE_PORT", "8765")))
     ap.add_argument("--no-browser", action="store_true")
     args = ap.parse_args()
+    try:                                  # 启动即用:自动加载最新基线库工件(秒级)
+        meta = _load_artifact()
+        if meta:
+            print(f"[基线库] 已自动加载 v{meta['version']}"
+                  f"(训练于 {meta['created']},{meta['rows']} 行)")
+        else:
+            print("[基线库] 尚无工件 —— 到「① 基线与模型库」页训练一次即可(约 1 分钟)")
+    except Exception as e:  # noqa: BLE001 — 工件损坏不阻塞启动
+        print(f"[基线库] 工件加载失败({type(e).__name__}: {e}),可在①页重新训练")
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     url = f"http://127.0.0.1:{args.port}/"
     print("=" * 60)

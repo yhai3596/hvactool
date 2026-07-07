@@ -88,7 +88,7 @@ ul.doc{line-height:1.9;padding-left:20px}
   <span class="sub">正式使用设备故障诊断系统 · 全流程本地(127.0.0.1)· 只读消费管线,不改任何数据文件</span>
 </header>
 <nav id="nav">
-  <button data-t="overview" class="on">① 数据总览</button>
+  <button data-t="overview" class="on">① 基线与模型库</button>
   <button data-t="diag">② 单点诊断</button>
   <button data-t="calc">③ 物理计算器</button>
   <button data-t="file">④ 文件体检</button>
@@ -99,13 +99,20 @@ ul.doc{line-height:1.9;padding-left:20px}
 
 <!-- ============================ ① 总览 ============================ -->
 <section class="tab on" id="tab-overview">
-  <div class="explain">本页装载 <b>data/raw/lab/</b> 的实验室数据(经完整 C4 管线:认证窗切片 → 10s 时基
-  → 分段/锚定 → 故障注入分流 → envelope_input 派生 → DK-016 隔离标注),展示构成、覆盖门、包络概览与
-  健康告警。<b>首次装载约 40–60 秒</b>,装载后缓存于内存。</div>
+  <div class="explain"><b>训练与使用分离</b>:「训练基线库」读取 <b>data/raw/lab/</b> 原始实验数据
+  (完整 C4 管线:认证窗切片 → 10s 时基 → 分段/锚定 → 故障注入分流 → envelope_input 派生 → DK-016
+  隔离标注,约 1 分钟),并<b>固化为版本化工件</b>(data/lake/console_baseline/,带溯源指纹);此后每次
+  启动<b>自动加载最新工件(秒级)</b>,检测/诊断直接可用——只有数据扩充或配置变更时才需要重新训练。
+  实验数据训练的是通用层(阈值/包络/逐机基线箱);现场设备的基线将来自其自身健康历史(M3)。</div>
   <div class="card">
-    <button class="act" id="btnLoad">装载实验室数据</button>
-    <span id="loadState" class="muted" style="margin-left:10px">未装载</span>
+    <h2>基线库工件</h2>
+    <div id="artBox" class="muted">状态读取中…</div>
+    <div style="margin-top:8px">
+      <button class="act" id="btnLoad">训练基线库(读取原始数据,约 1 分钟)</button>
+      <span id="loadState" class="muted" style="margin-left:10px"></span>
+    </div>
     <div class="kpis" id="kpis"></div>
+    <div id="artHist" style="margin-top:6px"></div>
   </div>
   <div class="card"><h2>系统健康与已知事项</h2><div id="healthBox" class="muted">加载中…</div></div>
   <div class="card"><h2>覆盖门(每 SKU 健康额定工况 ≥4)</h2><div id="covBox" class="muted">待装载数据</div></div>
@@ -215,7 +222,7 @@ ul.doc{line-height:1.9;padding-left:20px}
     <h2 style="margin-top:14px">2. 运行分析</h2>
     <button class="act" id="btnFc">快速体检</button>
     <button class="act" id="btnDetect" style="margin-left:8px;background:#7b1fa2">检测与诊断</button>
-    <span class="muted" style="margin-left:8px" id="detHint">诊断需先在①装载数据(作为逐机基线);选中目录或多文件时自动进入批量模式</span>
+    <span class="muted" style="margin-left:8px" id="detHint">诊断使用①的基线库工件(启动自动加载);选中目录或多文件时自动进入批量模式</span>
     <div id="batchProg" style="display:none;margin-top:10px"></div>
     <div id="fcOut"></div>
     <div id="detOut"></div>
@@ -288,16 +295,33 @@ function renderHealth(h){const box=$("#healthBox");
  box.innerHTML=(h.dynamic||[]).map(li).join("")+(h.known||[]).map(li).join("");}
 api("/api/health").then(renderHealth).catch(()=>{});
 
-/* ---------- 总览 ---------- */
+/* ---------- ① 基线与模型库 ---------- */
 let pollLoad=null;
+function renderArtifact(a){
+ if(a.current){const c=a.current,fp=c.config_fingerprint||{};
+  $("#artBox").innerHTML=`<span class="badge b-green" style="font-size:14px">当前:基线库 v${c.version}</span>
+   <span class="badge ${a.config_stale?"b-orange":"b-blue"}">${a.config_stale?"配置已变更,建议重训":"配置指纹匹配"}</span>
+   <div class="muted" style="margin-top:6px">训练于 ${esc(c.created)} · ${c.rows} 行(10s 面)· 源文件 ${c.source_files} 个 · 机台 ${(c.units||[]).join("/")}
+   · 训练耗时 ${c.train_seconds}s<br>指纹:calibration ${esc(fp["calibration.yaml"]||"—")} · unit_sku_map ${esc(fp["unit_sku_map.yaml"]||"—")}
+   · 隔离 ${c.attrs?c.attrs.enum_quarantined_rows:"—"} 行(1s)</div>`+
+   (a.note?`<div class="alert a-warn" style="margin-top:6px">${esc(a.note)}</div>`:"");}
+ else $("#artBox").innerHTML=`<div class="alert a-warn">尚无基线库工件 —— 首次使用请点下方「训练基线库」
+  (读取原始实验数据并固化,约 1 分钟,仅需一次;此后每次启动秒级自动加载)。</div>`;
+ const hist=(a.history||[]).slice().reverse();
+ $("#artHist").innerHTML=hist.length>1?("<span class='muted'>历史版本:</span> "+
+  hist.map(m=>`<span class="chip" title="训练于 ${esc(m.created)},${m.rows} 行">v${m.version}</span>`).join(" ")+
+  " <span class='muted'>(工件在 data/lake/console_baseline/,可回溯)</span>"):"";}
+async function initArtifact(){try{const a=await api("/api/artifact");renderArtifact(a);
+  if(a.loaded){$("#loadState").textContent="";renderOverview();}}catch(e){}}
+initArtifact();
 $("#btnLoad").addEventListener("click",async()=>{await api("/api/load",{});
- $("#btnLoad").disabled=true;$("#loadState").innerHTML="<span class='spin'></span>装载中(约 40–60 秒)…";
+ $("#btnLoad").disabled=true;$("#loadState").innerHTML="<span class='spin'></span>训练中(读取原始数据 → 预处理 → 固化工件)…";
  pollLoad=setInterval(async()=>{const s=await api("/api/load/status");
   if(s.state==="done"){clearInterval(pollLoad);$("#btnLoad").disabled=false;
-   $("#loadState").textContent=`已装载(耗时 ${s.seconds}s)`;toast("数据装载完成",true);
-   renderOverview();api("/api/health").then(renderHealth);}
+   $("#loadState").textContent=`训练完成(${s.seconds}s),已固化为新版工件`;toast("基线库训练完成,已固化新版工件",true);
+   api("/api/artifact").then(renderArtifact);renderOverview();api("/api/health").then(renderHealth);}
   else if(s.state==="error"){clearInterval(pollLoad);$("#btnLoad").disabled=false;
-   $("#loadState").textContent="装载失败";toast("<b>"+esc(s.error)+"</b><br>提示:"+esc(s.hint));}},1500);});
+   $("#loadState").textContent="训练失败";toast("<b>"+esc(s.error)+"</b><br>提示:"+esc(s.hint));}},1500);});
 async function renderOverview(){const o=await api("/api/overview");const k=o.cards;
  $("#kpis").innerHTML=[["载入行(10s)",k.rows],["机台",k.units.join(" / ")],["SKU",k.skus.map(s=>s.replace("EODA19H-","")).join(" / ")],
   ["额定锚行",k.rating_anchor],["拟合输入行",k.envelope_input],["故障注入行",k.fault_injected],
