@@ -13,9 +13,21 @@ ROOT=/var/www/hvac
 
 echo "===== HVAC 新加坡部署开始 ====="
 
-echo "[1/8] 安装依赖 (nginx/python/pip/git)..."
-dnf install -y -q nginx python3-pip python3-devel gcc git curl tar >/dev/null 2>&1
-command -v nginx >/dev/null && echo "  nginx: $(nginx -v 2>&1)" || { echo "  !! nginx 安装失败"; }
+echo "[1/8] 安装依赖 (python/pip/git/nginx)..."
+dnf install -y -q python3-pip python3-devel gcc git curl tar >/dev/null 2>&1
+dnf install -y nginx >/tmp/nginx-install.log 2>&1
+if ! command -v nginx >/dev/null; then
+  echo "  默认源无 nginx, 改用 nginx 官方 el9 源..."
+  cat > /etc/yum.repos.d/nginx.repo <<'EOF'
+[nginx-stable]
+name=nginx stable
+baseurl=http://nginx.org/packages/centos/9/$basearch/
+gpgcheck=0
+enabled=1
+EOF
+  dnf install -y nginx >>/tmp/nginx-install.log 2>&1
+fi
+command -v nginx >/dev/null && echo "  nginx: $(nginx -v 2>&1)" || { echo "  !! nginx 仍失败:"; tail -3 /tmp/nginx-install.log; }
 
 echo "[2/8] 拉取站点代码..."
 rm -rf "$ROOT"; mkdir -p /var/www
@@ -29,15 +41,13 @@ python3 -m venv "$ROOT/venv"
 "$ROOT/venv/bin/python" -c "import CoolProp,CoolProp.CoolProp as C; print('  CoolProp', CoolProp.__version__, 'R410A Tcrit', round(C.PropsSI('TCRIT','R410A'),1))" || echo "  !! CoolProp 安装异常"
 
 echo "[4/8] 配置后端 systemd 服务..."
-chown -R nginx:nginx "$ROOT" 2>/dev/null || chown -R www-data:www-data "$ROOT" 2>/dev/null
-RUNUSER=nginx; id www-data >/dev/null 2>&1 && RUNUSER=www-data
+chmod -R a+rX "$ROOT"
 cat > /etc/systemd/system/hvac.service <<UNIT
 [Unit]
 Description=HVAC Tool Station (CoolProp API + static)
 After=network.target
 [Service]
 Type=simple
-User=$RUNUSER
 WorkingDirectory=$ROOT
 ExecStart=$ROOT/venv/bin/python $ROOT/server.py
 Restart=on-failure
