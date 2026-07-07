@@ -1,19 +1,12 @@
 #!/usr/bin/env bash
 # 补装 nginx 并完成 HVAC 站点配置（后端与证书已就绪时使用）
 # 宝塔在 dnf 配置里 exclude 了 nginx，用 --disableexcludes=all 绕过
-echo "[1] 安装 nginx (绕过宝塔的 exclude 过滤)"
+echo "[1] 安装 nginx (OpenCloudOS 默认源, 绕过宝塔 exclude)"
+rm -f /etc/yum.repos.d/nginx.repo   # 官方源 nginx 依赖新版 openssl, 与本系统不兼容, 移除
+dnf clean all >/dev/null 2>&1
 dnf install -y --disableexcludes=all nginx >/tmp/nx.log 2>&1
-if ! command -v nginx >/dev/null; then
-  cat > /etc/yum.repos.d/nginx.repo <<'EOF'
-[nginx-stable]
-name=nginx stable
-baseurl=http://nginx.org/packages/centos/9/$basearch/
-gpgcheck=0
-enabled=1
-EOF
-  dnf install -y --disableexcludes=all nginx >>/tmp/nx.log 2>&1
-fi
-command -v nginx >/dev/null && echo "  nginx: $(nginx -v 2>&1)" || { echo "  !! 仍失败:"; tail -6 /tmp/nx.log; exit 1; }
+command -v nginx >/dev/null || dnf install -y --disableexcludes=all --nobest nginx >>/tmp/nx.log 2>&1
+command -v nginx >/dev/null && echo "  nginx: $(nginx -v 2>&1)" || { echo "  !! 仍失败:"; tail -8 /tmp/nx.log; exit 1; }
 
 echo "[2] 写 nginx 配置"
 mkdir -p /etc/nginx/conf.d
