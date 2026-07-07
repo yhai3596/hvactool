@@ -190,10 +190,13 @@ ul.doc{line-height:1.9;padding-left:20px}
 
 <!-- ==================== ④ 运行数据检测与诊断 ==================== -->
 <section class="tab" id="tab-file">
-  <div class="explain">对单个 <b>RamChecker 监控 CSV</b> 做两级分析:<b>快速体检</b>(数据质量画像,无须装载数据)
-  与 <b>检测与诊断</b>(稳态分段 → 逐机×同箱健康基线残差 → 逐段 M-DIAG 诊断 → 传感器信任检验,
-  须先在①装载数据)。基线参照面是<b>逐机</b>的(DK-017/铁律 10):该机没有健康基线的段会明确标注
-  "不可判",绝不跨机凑基线。文件只读,不入库。</div>
+  <div class="explain">支持两种数据格式(自动识别):<b>实验室 RamChecker CSV</b> 与
+  <b>IoT 现场导出(AC_Data_RunState CSV)</b>。两级分析:<b>快速体检</b>(数据质量画像)与
+  <b>检测与诊断</b>——基线参照面是<b>逐机</b>的(DK-017/铁律 10),绝不跨机凑基线:<br>
+  · <b>实验室文件</b>:残差 vs ①基线库中该机台的健康基线 → 验收级诊断;<br>
+  · <b>现场文件</b>:现场设备不在实验室基线池 → 自动进入<b>逐机自基线漂移筛查</b>(参照 = 该设备
+  本批数据自身的稳态箱中位;能发现段间漂移与方向性异常,整程恒定故障不可见,非 M3 验收诊断;
+  多选同一设备的多个文件可显著扩大自基线样本)。现场 SN 在界面与导出中一律掩码。文件只读,不入库。</div>
   <div class="card">
     <h2>1. 选取文件</h2>
     <div style="margin-bottom:8px">
@@ -213,10 +216,14 @@ ul.doc{line-height:1.9;padding-left:20px}
     </div>
     <div id="fcBrowser" style="display:none;border:1px solid var(--line);border-radius:6px;
       padding:10px;max-height:300px;overflow:auto;margin-bottom:8px"></div>
-    <details style="margin:6px 0"><summary class="muted" style="cursor:pointer">高级:手动粘贴完整路径</summary>
-      <label class="f" style="margin-top:8px"><span>CSV 完整路径</span>
-        <input type="text" id="fcPath" placeholder="例:E:\AICoding\IOT\fdd\data\raw\lab\监控数据\31 …\RamChecker_20231127123005.csv">
-        <small>资源管理器右键文件 →「复制文件地址」粘贴;文件名必须保留原始 _YYYYMMDDHHMMSS 时间戳。</small></label>
+    <details style="margin:6px 0"><summary class="muted" style="cursor:pointer">高级:手动粘贴路径(单文件 / 现场数据目录批量)</summary>
+      <label class="f" style="margin-top:8px"><span>CSV 完整路径(单文件分析)</span>
+        <input type="text" id="fcPath" placeholder="例:E:\AICoding\IOT\s3_csv_download\EG…\2026_6\EG…_AC_Data_RunState_….csv">
+        <small>实验室 RamChecker 或现场 AC_Data_RunState 均可,自动识别格式。</small></label>
+      <label class="f"><span>目录完整路径(批量检验,递归含子目录)</span>
+        <input type="text" id="fcDir" placeholder="例:E:\AICoding\IOT\s3_csv_download\EG0312530290025_…(整个设备目录)">
+        <small>现场设备目录批量 = 用该设备全部文件构建逐机自基线后逐文件漂移筛查(推荐用法)。</small></label>
+      <button class="mini" id="btnDirBatch">批量检验此目录</button>
     </details>
     <div id="fcSel" class="alert a-info" style="display:none"></div>
     <h2 style="margin-top:14px">2. 运行分析</h2>
@@ -473,7 +480,10 @@ function detectHtml(r){const sm=r.summary||{};
   h+=`<div style="margin-top:4px">`+Object.entries(sm.counts).map(([k,v])=>{const hh=HYP[k]||[k,"b-gray"];
    return `<span class="badge ${hh[1]}">${esc(hh[0])} × ${v}</span>`;}).join(" ")+`</div>`;
  h+=`</div>`;
- if(r.baseline)h+=`<div class="alert ${r.baseline.in_pool?"a-info":"a-warn"}"><b>基线:</b>${esc(r.baseline.note)}(机台 ${esc(r.baseline.unit)},基线箱 ${r.baseline.bins_for_unit} 个)</div>`;
+ if(r.baseline){const selfMode=r.baseline.mode==="self";
+  h+=`<div class="alert ${r.baseline.in_pool?"a-info":"a-warn"}">`+
+   (selfMode?`<span class="badge b-orange" style="margin-right:6px">自基线漂移筛查</span>`:"")+
+   `<b>基线:</b>${esc(r.baseline.note)}(${selfMode?"设备":"机台"} ${esc(r.baseline.unit)},基线箱 ${r.baseline.bins_for_unit} 个${r.baseline.artifact_version?",工件 v"+r.baseline.artifact_version:""})</div>`;}
  if(r.sensors){h+=`<h3>传感器信任检验(sense,逐机参照)</h3>`+
   "<div>"+r.sensors.map(x=>`<span class="badge ${x.status==="flagged"?"b-red":x.status==="ok"?"b-green":"b-gray"}">${esc(x.sensor)}:${esc(x.status)}</span>`).join(" ")+"</div>";}
  if(r.sensor_note)h+=`<div class="alert a-warn">${esc(r.sensor_note)}</div>`;
@@ -509,8 +519,12 @@ let BATCH=null,pollBatch=null;
 function vBadge(v){const map={"未见异常":"b-green","疑似少冷媒/泄漏":"b-red","疑似节流受限":"b-orange",
  "内机侧非特异异常":"b-blue","错误":"b-red"};
  return `<span class="badge ${map[v]||"b-gray"}">${esc(v||"—")}</span>`;}
-async function startBatch(){
- const body=SEL.kind==="dir"?{dir:SEL.dir}:{paths:SEL.paths};
+$("#btnDirBatch").addEventListener("click",()=>{const d=$("#fcDir").value.trim();
+ if(!d){toast("请先填写目录完整路径");return;}
+ $("#fcOut").innerHTML="";$("#detOut").innerHTML="";$("#batchOut").innerHTML="";
+ startBatch({dir:d});});
+async function startBatch(explicit){
+ const body=explicit||(SEL.kind==="dir"?{dir:SEL.dir}:{paths:SEL.paths});
  body.unit=$("#fcUnit").value;
  let st;try{st=await api("/api/batch",body);}catch(e){return;}
  const pg=$("#batchProg");pg.style.display="block";
