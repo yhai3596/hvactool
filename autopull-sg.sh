@@ -14,7 +14,7 @@ OLD_HEAD=$(git rev-parse HEAD 2>/dev/null)
 OLD_SRV_MD5=$(md5sum server.py 2>/dev/null | cut -d' ' -f1)
 
 # 只拉主分支;超时 60s 避免网络卡死;不改 config 保持读写 https
-git -c core.hooksPath=/dev/null fetch --depth 1 origin main --quiet 2>>$LOG || {
+git -c core.hooksPath=/dev/null fetch origin main --quiet 2>>$LOG || {
   echo "$(date -Is) [WARN] fetch 失败" >>$LOG; exit 0; }
 git reset --hard origin/main --quiet 2>>$LOG || {
   echo "$(date -Is) [WARN] reset 失败" >>$LOG; exit 0; }
