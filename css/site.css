@@ -1,11 +1,15 @@
 /* ===== 工具站共享壳样式（配合 style.css 使用） ===== */
 
-/* 顶部导航 */
+/* 顶部导航（全局固定 + 毛玻璃背景） */
 #siteNav {
   display: flex; align-items: center; gap: 4px;
   padding: 8px 16px; margin-bottom: 10px;
   background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px;
   flex-wrap: wrap;
+  position: sticky; top: 6px; z-index: 50;
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: 0 6px 20px rgba(0,0,0,.28);
 }
 #siteNav .brand {
   font-size: 15px; font-weight: 700; letter-spacing: 1px; margin-right: 14px;
@@ -40,6 +44,18 @@
 .tool-layout { display: grid; grid-template-columns: 400px minmax(0,1fr); gap: 10px; align-items: start; }
 .tool-layout.wide-input { grid-template-columns: minmax(0,1fr) 420px; }
 .tool-layout.single { grid-template-columns: 1fr; }
+
+/* 左参数、右图 各自独立滚动（配合固定导航，互不牵连） */
+.tool-layout > * {
+  align-self: start;
+  position: sticky; top: 58px;
+  max-height: calc(100vh - 70px);
+  overflow-y: auto; overflow-x: hidden;
+}
+.tool-layout.single > * { position: static; max-height: none; overflow: visible; }
+.tool-layout > *::-webkit-scrollbar { width: 8px; height: 8px; }
+.tool-layout > *::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 4px; }
+.tool-layout > *::-webkit-scrollbar-track { background: transparent; }
 
 .panel .panel-body { padding: 12px 14px 14px; }
 
