@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>系统仿真 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=214">
-<link rel="stylesheet" href="css/site.css?v=214">
+<link rel="stylesheet" href="css/style.css?v=215">
+<link rel="stylesheet" href="css/site.css?v=215">
 </head>
 <body data-page="sim" data-fixed-theme="dark">
 <div id="app">
@@ -249,6 +249,7 @@
 
           <!-- 冷媒粒子 -->
           <g id="particles"></g>
+          <g id="pins"></g>
           <g id="oilDots"></g>
 
           <!-- ============ 测点标签 ============ -->
@@ -323,6 +324,7 @@
           <span class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#7dd3fc"/></svg>液态</span>
           <span class="li"><svg width="20" height="12"><circle cx="5" cy="6" r="3.5" fill="#7dd3fc"/><circle cx="14" cy="6" r="3.5" fill="none" stroke="#7dd3fc" stroke-width="1.5"/></svg>两相</span>
           <span class="li"><svg width="34" height="12"><defs><linearGradient id="lgT" x1="0" x2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#f87171"/></linearGradient></defs><rect x="1" y="3" width="32" height="6" rx="3" fill="url(#lgT)"/></svg>颜色=温度</span>
+          <span class="li" style="color:var(--accent)">📌 点管路放图钉 · 点针移除 · 参数框可拖动</span>
         </div>
       </div>
 
@@ -330,7 +332,16 @@
       <div class="panel" id="controls">
         <div class="ctl-head">
           <span class="title">手动调节 · MANUAL CONTROL</span>
-          <span class="note">可单独或同时调节多个参数，系统将动态过渡到新工况</span>
+          <span class="note" id="ctlNote">可单独或同时调节多个参数，系统将动态过渡到新工况</span>
+          <div class="run-mode">
+            <span class="rm-lbl">运行模式</span>
+            <span class="ut-seg"><button id="modeAuto" class="on">自动</button><button id="modeManual">手动</button></span>
+            <span id="manualBtns" style="display:none">
+              <button class="btn small" id="setBaseBtn">设为基准</button>
+              <button class="btn small ghost" id="pauseBtn">⏸ 暂停</button>
+              <button class="btn small ghost" id="clearBaseBtn">↺ 清除</button>
+            </span>
+          </div>
           <button id="resetBtn">恢复默认</button>
         </div>
         <div class="sliders" id="sliders"></div>
@@ -367,15 +378,15 @@
   <footer>基于简化稳态热力模型的教学演示 · 数值为定性参考，非选型依据 · R410A / R32 / R454B 物性为拟合近似</footer>
 </div>
 
-<script src="js/lib/config.js?v=214"></script>
+<script src="js/lib/config.js?v=215"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=214"></script>
-<script src="js/refprops.js?v=214"></script>
-<script src="js/model.js?v=214"></script>
-<script src="js/phdiagram.js?v=214"></script>
-<script src="js/scene.js?v=214"></script>
-<script src="js/sequence.js?v=214"></script>
-<script src="js/ui.js?v=214"></script>
-<script src="js/main.js?v=214"></script>
+<script src="js/lib/shell.js?v=215"></script>
+<script src="js/refprops.js?v=215"></script>
+<script src="js/model.js?v=215"></script>
+<script src="js/phdiagram.js?v=215"></script>
+<script src="js/scene.js?v=215"></script>
+<script src="js/sequence.js?v=215"></script>
+<script src="js/ui.js?v=215"></script>
+<script src="js/main.js?v=215"></script>
 </body>
 </html>

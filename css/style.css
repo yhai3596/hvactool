@@ -23,6 +23,7 @@
   --card-border: #12283f;
   --num: #7dd3fc;
   --tbl-line: #1e3a5c;
+  --nav-solid: #0b1728;
   --mono: "Consolas", "JetBrains Mono", monospace;
 }
 
@@ -48,6 +49,7 @@ html[data-theme="light"] {
   --card-border: #dde7f0;
   --num: #075985;
   --tbl-line: #c9d6e5;
+  --nav-solid: #ffffff;
 }
 
 /* ---- 高对比主题 ---- */
@@ -72,6 +74,7 @@ html[data-theme="contrast"] {
   --card-border: #9aa7b8;
   --num: #00e5ff;
   --tbl-line: #9aa7b8;
+  --nav-solid: #000000;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -203,6 +206,11 @@ header .sub { color: var(--text-dim); font-size: 11px; letter-spacing: 2px; whit
 #controls .ctl-head { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
 #controls .ctl-head .title { font-size: 11px; letter-spacing: 3px; color: var(--accent); }
 #controls .ctl-head .note { font-size: 10px; color: var(--text-dim); }
+#controls .ctl-head { flex-wrap: wrap; }
+#ctlNote { flex: 1; min-width: 140px; }
+.run-mode { display: flex; align-items: center; gap: 8px; }
+.run-mode .rm-lbl { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+#manualBtns { display: inline-flex; gap: 6px; }
 #resetBtn {
   margin-left: auto; padding: 4px 14px; border-radius: 6px; cursor: pointer;
   background: transparent; border: 1px solid var(--panel-border); color: var(--text-dim); font-size: 11px;
@@ -248,6 +256,10 @@ input[type="range"]::-webkit-slider-thumb {
 .sensor .v .num { transition: transform .18s ease; transform-origin: left center; }
 .sensor .v .u { font-size: 9px; color: var(--text-dim); }
 .sensor .trend { position: absolute; right: 7px; top: 7px; font-size: 10px; opacity: .9; }
+.sensor .delta { font-size: 10px; font-family: var(--mono); margin-top: 3px; white-space: nowrap; min-height: 12px; line-height: 1.1; }
+.sensor .delta .base { color: var(--text-faint); }
+.sensor .delta .up { color: #ff6b6b; font-weight: 600; }
+.sensor .delta .dn { color: #34d399; font-weight: 600; }
 .sensor.p .v { color: #c4b5fd; }
 .sensor.t .v { color: #7dd3fc; }
 .sensor.sh .v { color: #6ee7b7; }
@@ -264,6 +276,15 @@ text { user-select: none; }
 .chip-bg { fill: rgba(6, 14, 26, 0.88); stroke: #1e3a5f; stroke-width: 1; rx: 5; }
 .chip-t { font-size: 10px; fill: #6b8aa8; }
 .chip-v { font-size: 12px; font-family: var(--mono); fill: #7dd3fc; font-weight: 600; }
+/* 运行图图钉 */
+.pin-mark { font-size: 21px; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.pin-mark:hover { font-size: 23px; }
+.pin-lead { stroke: var(--accent); stroke-width: 1; opacity: .5; pointer-events: none; }
+.pin-box { fill: rgba(6,14,26,.92); stroke: var(--accent); stroke-width: 1; cursor: move; }
+.pin-ph { font-size: 11px; fill: #e0f2fe; font-weight: 700; cursor: move; }
+.pin-t { font-size: 12px; font-family: var(--mono); fill: #7dd3fc; cursor: move; }
+.pin-p { font-size: 12px; font-family: var(--mono); fill: #c4b5fd; cursor: move; }
+.pin:hover .pin-box { stroke: #fff; fill: rgba(20,42,64,.96); }
 .svg-label { font-size: 10px; fill: #6b8aa8; letter-spacing: 1px; }
 .svg-label-s { font-size: 9px; fill: #55708c; }
 .pipe-base { fill: none; stroke: #24405c; stroke-linejoin: round; stroke-linecap: round; }

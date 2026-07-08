@@ -12,6 +12,8 @@ const App = {
   seq: null,
   target: null,                // 求解目标值
   disp: null,                  // 平滑显示值
+  paused: false,               // 手动模式：暂停物理过渡（定格数值便于对比）
+  baseline: null,              // 手动模式：基准快照 {sensorId: 值}
 };
 
 /* 各量的一阶惯性时间常数（秒）—— 模拟真实系统响应 */
@@ -80,14 +82,13 @@ function loop(now) {
 
   // ---- 求解（8Hz）----
   solveAcc += dt;
-  if (solveAcc > 0.12 || !App.target) {
+  if (!App.paused && (solveAcc > 0.12 || !App.target)) {
     solveAcc = 0;
     App.target = solveCycle(App.inputsEff, App.internalMode, App.flags);
     if (!App.disp) App.disp = Object.assign({}, App.target);
   }
 
-  smooth(dt);
-  frostDynamics(dt);
+  if (!App.paused) { smooth(dt); frostDynamics(dt); }
 
   // ---- 渲染 ----
   Scene.update(dt, App.disp, App.inputsEff, {

@@ -116,6 +116,7 @@ const Scene = (() => {
   // ---- 效果粒子池 ----
   let snowFlakes = [], drips = [], steams = [], inStreaks = [], outStreaks = [], oilDots = [];
   let fanAngle = 0, swirlAngle = 0, hatchOff = 0, v4pos = 0, time = 0;
+  let pins = [], unitIP = false;
 
   function mk(tag, parent, attrs) {
     const el = document.createElementNS(SVGNS, tag);
@@ -140,6 +141,14 @@ const Scene = (() => {
     for (let x = 680; x < 950; x += 16) {
       mk('line', ch, { x1: x, y1: 276, x2: x + 10, y2: 256 });
     }
+
+    // 图钉：点击管路放置（点图钉本身移除）
+    $('scene').addEventListener('click', e => {
+      if (e.target.closest('.pin')) return;
+      const p = svgPoint(e);
+      const n = nearestS(p.x, p.y);
+      if (n.dist < 20) addPin(n.s);
+    });
   }
 
   // ---- 四通阀视觉 ----
@@ -251,6 +260,8 @@ const Scene = (() => {
     // ---- 场景水印 ----
     const wm = { cooling: 'COOLING · 制冷运行', heating: 'HEATING · 制热运行', defrost: 'DEFROST · 化霜中', oilreturn: 'OIL RETURN · 回油运转' };
     $('sceneMode').textContent = wm[fl.process] || '';
+
+    updatePins(st);
   }
 
   // ---- 水滴 ----
@@ -346,5 +357,91 @@ const Scene = (() => {
     }
   }
 
-  return { init, update, tempColor };
+  // ================= 运行图图钉 =================
+  const PH_NAME = { gas: '气态', liq: '液态', '2ph': '两相' };
+  // 压力口径：排气段=排气压力 Pd，冷凝/液管=冷凝压力 Pc，节流后/蒸发=蒸发压力 Pe，回气=回气压力 Ps
+  function pressBy(kind, st) {
+    return ({ dis: st.Pd, cond: st.Pc, liq: st.Pc, flash: st.Pe, evap: st.Pe, suc: st.Ps })[kind] || st.Pe;
+  }
+  function fmtPinT(t) { return unitIP ? (t * 1.8 + 32).toFixed(1) + '°F' : t.toFixed(1) + '°C'; }
+  function fmtPinP(p) { return unitIP ? Math.round(p * 145.0377) + ' psi' : p.toFixed(2) + ' MPa'; }
+
+  function svgPoint(evt) {
+    const svg = $('scene');
+    const pt = svg.createSVGPoint();
+    pt.x = evt.clientX; pt.y = evt.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  }
+  // 鼠标点 → 最近流路位置 s(0..1) 及距离
+  function nearestS(x, y) {
+    let bd = 1e9, bs = 0;
+    for (const seg of route) {
+      const n = seg.pts.length;
+      for (let i = 0; i < n; i++) {
+        const dx = seg.pts[i].x - x, dy = seg.pts[i].y - y, d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; bs = (seg.start + (n > 1 ? i / (n - 1) : 0) * seg.len) / routeLen; }
+      }
+    }
+    return { s: bs, dist: Math.sqrt(bd) };
+  }
+  function addPin(s) {
+    const rs0 = routeState(s);
+    let ox = 16, oy = -60;
+    if (rs0) { if (rs0.x > 1010) ox = -100; if (rs0.y < 78) oy = 16; }
+    const g = mk('g', $('pins'), { class: 'pin' });
+    const pin = {
+      s, ox, oy, g,
+      lead: mk('line', g, { class: 'pin-lead' }),                             // 底层：引线
+      mark: mk('text', g, { class: 'pin-mark' }),                            // 图钉 📌，针尖指锚点
+      box: mk('rect', g, { class: 'pin-box', width: 82, height: 50, rx: 5 }),// 参数框（可拖）
+      t1: mk('text', g, { class: 'pin-ph' }),
+      t2: mk('text', g, { class: 'pin-t' }),
+      t3: mk('text', g, { class: 'pin-p' }),
+    };
+    pin.mark.textContent = '📌';
+    // 点图钉 → 删除
+    pin.mark.addEventListener('click', ev => { ev.stopPropagation(); removePin(pin); });
+    // 拖参数框（框体与文字）→ 移动
+    for (const el of [pin.box, pin.t1, pin.t2, pin.t3]) el.addEventListener('mousedown', ev => startDrag(ev, pin));
+    pins.push(pin);
+  }
+  function startDrag(ev, pin) {
+    ev.stopPropagation(); ev.preventDefault();
+    const start = svgPoint(ev), sox = pin.ox, soy = pin.oy;
+    function move(e) { const p = svgPoint(e); pin.ox = sox + (p.x - start.x); pin.oy = soy + (p.y - start.y); }
+    function up() { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  }
+  function removePin(pin) {
+    pin.g.remove();
+    const i = pins.indexOf(pin); if (i >= 0) pins.splice(i, 1);
+  }
+  function clearPins() { while (pins.length) removePin(pins[0]); }
+  function updatePins(st) {
+    for (const pin of pins) {
+      const rs = routeState(pin.s);
+      if (!rs) continue;
+      const pt = phaseTemp(rs.kind, rs.f, st);
+      const P = pressBy(rs.kind, st);
+      const ax = rs.x, ay = rs.y;
+      const bx = ax + pin.ox, by = ay + pin.oy;
+      // 图钉 📌：针尖(字形左下)对准锚点；emoji 自带斜插外观，无需再旋转
+      pin.mark.setAttribute('x', (ax - 2).toFixed(1));
+      pin.mark.setAttribute('y', (ay + 1).toFixed(1));
+      // 参数框（可拖）+ 引线
+      pin.box.setAttribute('x', bx.toFixed(1)); pin.box.setAttribute('y', by.toFixed(1));
+      pin.lead.setAttribute('x1', ax.toFixed(1)); pin.lead.setAttribute('y1', (ay - 4).toFixed(1));
+      pin.lead.setAttribute('x2', (bx + 41).toFixed(1)); pin.lead.setAttribute('y2', (by + 25).toFixed(1));
+      pin.t1.textContent = PH_NAME[pt.ph] || '';
+      pin.t2.textContent = fmtPinT(pt.t);
+      pin.t3.textContent = fmtPinP(P);
+      pin.t1.setAttribute('x', (bx + 7).toFixed(1)); pin.t1.setAttribute('y', (by + 16).toFixed(1));
+      pin.t2.setAttribute('x', (bx + 7).toFixed(1)); pin.t2.setAttribute('y', (by + 31).toFixed(1));
+      pin.t3.setAttribute('x', (bx + 7).toFixed(1)); pin.t3.setAttribute('y', (by + 45).toFixed(1));
+    }
+  }
+  function setUnits(ip) { unitIP = ip; }
+
+  return { init, update, tempColor, setUnits, clearPins };
 })();

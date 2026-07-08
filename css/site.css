@@ -7,8 +7,7 @@
   background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px;
   flex-wrap: wrap;
   position: sticky; top: 6px; z-index: 50;
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  background: var(--nav-solid);
   box-shadow: 0 6px 20px rgba(0,0,0,.28);
 }
 #siteNav .brand {

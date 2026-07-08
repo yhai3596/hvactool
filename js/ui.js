@@ -116,6 +116,41 @@ const UI = (() => {
     // 应用持久化的单位制
     document.querySelectorAll('.ref-btn[data-us]').forEach(b => b.classList.toggle('active', b.dataset.us === unitSys));
     if (typeof PH !== 'undefined' && PH.setUnits) PH.setUnits(unitSys === 'ip');
+    if (typeof Scene !== 'undefined' && Scene.setUnits) Scene.setUnits(unitSys === 'ip');
+
+    // 运行模式（自动 / 手动对比）
+    $('modeAuto').addEventListener('click', () => setRunMode('auto'));
+    $('modeManual').addEventListener('click', () => setRunMode('manual'));
+    $('setBaseBtn').addEventListener('click', setBaseline);
+    $('clearBaseBtn').addEventListener('click', clearBaseline);
+    $('pauseBtn').addEventListener('click', togglePause);
+  }
+
+  function setRunMode(m) {
+    const manual = m === 'manual';
+    $('modeAuto').classList.toggle('on', !manual);
+    $('modeManual').classList.toggle('on', manual);
+    $('manualBtns').style.display = manual ? 'inline-flex' : 'none';
+    if (manual) {
+      $('ctlNote').textContent = '手动对比：点「设为基准」记录当前工况 → 调参数看各测点变化量 Δ；可「暂停」定格数值';
+    } else {
+      clearBaseline();
+      if (app.paused) togglePause();          // 退出手动即恢复运行
+      $('ctlNote').textContent = '可单独或同时调节多个参数，系统将动态过渡到新工况';
+    }
+  }
+  function setBaseline() {
+    if (!app.disp) return;
+    app.baseline = {};
+    for (const cfg of SENSORS) if (!cfg.section) app.baseline[cfg.id] = cfg.get(app.disp);
+    render();
+  }
+  function clearBaseline() { app.baseline = null; render(); }
+  function togglePause() {
+    app.paused = !app.paused;
+    const b = $('pauseBtn');
+    b.textContent = app.paused ? '▶ 继续' : '⏸ 暂停';
+    b.classList.toggle('ghost', !app.paused);   // 暂停时变实心高亮
   }
 
   function buildSliders() {
@@ -173,9 +208,10 @@ const UI = (() => {
       div.className = 'sensor ' + s.cls;
       div.innerHTML = `<div class="k">${s.label}</div>
         <div class="v"><span class="num">—</span><span class="u">${ulabel(s.kind)}</span></div>
-        <span class="trend"></span>`;
+        <span class="trend"></span>
+        <div class="delta"></div>`;
       grid.appendChild(div);
-      sensorEls[s.id] = { num: div.querySelector('.num'), unit: div.querySelector('.u'), trend: div.querySelector('.trend'), box: div, calm: 0 };
+      sensorEls[s.id] = { num: div.querySelector('.num'), unit: div.querySelector('.u'), trend: div.querySelector('.trend'), delta: div.querySelector('.delta'), box: div, calm: 0 };
       sensorHist[s.id] = [];
     }
   }
@@ -236,6 +272,19 @@ const UI = (() => {
   // ---------- 周期渲染 ----------
   function fmt(v, dec) { return (v === undefined || isNaN(v)) ? '—' : v.toFixed(dec); }
 
+  // 手动模式：测点卡显示「基准 X.X  Δ±Y.Y」
+  function updateDelta(el, cfg, v) {
+    if (!el.delta) return;
+    if (!app.baseline || app.baseline[cfg.id] === undefined) { el.delta.textContent = ''; return; }
+    const dec = fmtDec(cfg);
+    const bv = uconv(cfg.kind, app.baseline[cfg.id]);
+    const dv = v - bv;
+    const eps = Math.pow(10, -dec) / 2;
+    const cls = Math.abs(dv) < eps ? 'base' : (dv > 0 ? 'up' : 'dn');
+    const sign = dv > 0 ? '+' : '';
+    el.delta.innerHTML = `<span class="base">基准 ${fmt(bv, dec)}</span> <span class="${cls}">Δ${sign}${fmt(dv, dec)}</span>`;
+  }
+
   function setStatUnits() {
     const cap = ' ' + ulabel('cap'), flow = ' ' + ulabel('flow');
     const c = $('stCap').querySelector('small'); if (c) c.textContent = cap;
@@ -255,6 +304,7 @@ const UI = (() => {
     }
     syncSliders();
     if (typeof PH !== 'undefined' && PH.setUnits) PH.setUnits(sys === 'ip');
+    if (typeof Scene !== 'undefined' && Scene.setUnits) Scene.setUnits(sys === 'ip');
     render();
   }
 
@@ -269,6 +319,7 @@ const UI = (() => {
       const v = uconv(cfg.kind, raw);               // 显示值（按单位制换算）
       const el = sensorEls[cfg.id];
       el.num.textContent = fmt(v, fmtDec(cfg));
+      updateDelta(el, cfg, v);
       const h = sensorHist[cfg.id];
       h.push(raw);
       if (h.length > 16) h.shift();
