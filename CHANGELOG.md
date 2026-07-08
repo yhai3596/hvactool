@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 迁移至新加坡服务器 + 部署复盘手册 — 2026-07-08
+
+因国内服务器未 ICP 备案被拦，迁移至境外，并沉淀完整运维文档。
+
+- **迁移**：站点从国内 `119.29.105.107` 迁至腾讯云**新加坡** `43.156.58.154`（OpenCloudOS 9.6），DNS 切至新 IP，境外服务器免 ICP 备案
+- **证书**：改为**服务器本地 acme.sh + GoDaddy DNS-01 自签自续**（境外能出境，不再需本机中转）
+- **自动更新**：新增 `autopull-sg.sh` + `install-autopull.sh`，服务器 systemd timer `hvac-autopull.timer` **每分钟 `git pull`**，`git push` 即上线（因 SSH 被网络层封锁，弃用 SSH 中转）；仓库须保持 public
+- **环境清理**：彻底卸载宝塔面板、禁用腾讯云云镜、禁用 sshd 密码登录
+- **部署手册**：新增 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) —— 迁移全过程复盘 + 问题库(ICP/DNS/云镜/宝塔/防火墙/OpenCloudOS/证书/`pkill -f` 自杀坑等) + QA + 命令速查 + 排查决策树
+- 部署脚本累积修复：nginx 被宝塔 dnf exclude（`--disableexcludes=all`）、官方源 openssl 依赖冲突（用系统源）、systemd 无 www-data 用户（root 跑）、git shallow clone 错误（去 `--depth`）
+
 ## 生产部署上线 — 2026-07-07
 
 首次部署至生产服务器，双域名 HTTPS 对外访问。

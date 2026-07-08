@@ -75,6 +75,10 @@ python server.py              # 启动 http://127.0.0.1:8137
 
 ## 生产部署架构
 
+> 📖 **完整部署复盘与运维手册见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** —— 含迁移全过程、所有踩过的坑(ICP/云镜/宝塔/防火墙/pkill 等)、QA、命令速查、排查决策树。运维前请先读它。
+>
+> ⚠️ 现网生产已迁至**新加坡服务器**（OpenCloudOS 9，免 ICP），代码更新走**服务器每分钟自动 `git pull`**（`git push` 即上线）。下方部分内容为早期国内部署的通用说明，**权威信息以 DEPLOYMENT.md 为准**。
+
 ```
                  用户浏览器 (HTTPS)
                         │
