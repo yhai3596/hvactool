@@ -190,8 +190,9 @@ ul.doc{line-height:1.9;padding-left:20px}
 
 <!-- ==================== ④ 运行数据检测与诊断 ==================== -->
 <section class="tab" id="tab-file">
-  <div class="explain">支持两种数据格式(自动识别):<b>实验室 RamChecker CSV</b> 与
-  <b>IoT 现场导出(AC_Data_RunState CSV)</b>。两级分析:<b>快速体检</b>(数据质量画像)与
+  <div class="explain">支持三种数据格式(自动识别):<b>实验室 RamChecker</b>、
+  <b>IoT 现场导出(AC_Data_RunState)</b>、<b>产线测试日志(ProductionLine_Log,仅画像:
+  L2 出厂指纹轨道,完整摄取等 HMAC 盐协议,SN 一律掩码)</b>。两级分析:<b>快速体检</b>(数据质量画像)与
   <b>检测与诊断</b>——基线参照面是<b>逐机</b>的(DK-017/铁律 10),绝不跨机凑基线:<br>
   · <b>实验室文件</b>:残差 vs ①基线库中该机台的健康基线 → 验收级诊断;<br>
   · <b>现场文件</b>:现场设备不在实验室基线池 → 自动进入<b>逐机自基线漂移筛查</b>(参照 = 该设备
@@ -433,6 +434,19 @@ $("#fcUpload").addEventListener("change",async e=>{const fs=[...e.target.files];
 
 /* ---------- ④ 快速体检 ---------- */
 function renderProfile(r){const i=r.info;
+ if(i.dialect==="prodline"){
+  const kv=[["数据源类型","产线测试日志(ProductionLine_Log,L2 出厂指纹轨道)"],
+   ["行数",i.rows_1s],["时间跨度",(i.span||[]).join(" → ")],
+   ["外机序列号(掩码)",(i.devices_masked||[]).join("、")||"(未见有效 SN)"],
+   ["PCB 序列号数",i.pcb_count??"—"],["有效测试行(Hp 有值)",i.active_rows],
+   ["ResultOK / ResultNG",`${i.result_ok??"—"} / ${i.result_ng??"—"}`],
+   ["ErrCode 非零行",i.err_nonzero_rows??"—"]];
+  let html="<table>"+kv.map(x=>`<tr><th>${esc(x[0])}</th><td>${esc(x[1]??"—")}</td></tr>`).join("")+"</table>";
+  if(i.channel_ranges&&Object.keys(i.channel_ranges).length)
+   html+="<h3>通道数值范围(原始值,单位口径待正式契约)</h3><table>"+
+    Object.entries(i.channel_ranges).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")+"</table>";
+  html+=(r.issues||[]).map(x=>`<div class="alert a-warn">${esc(x)}</div>`).join("");
+  return html;}
  const kv=[["1s 行数",i.rows_1s],["10s 行数",i.rows_10s],["时间跨度",(i.span||[]).join(" → ")],
   ["机台 / 数据类型",(i.unit??"未知")+" / "+(i.data_type??"—")],
   ["Ta 分布(min/p50/max ℃)",i.ta?`${i.ta.min} / ${i.ta.p50} / ${i.ta.max}`:"—"],

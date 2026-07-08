@@ -623,13 +623,66 @@ def _mask_sn(sn: str) -> str:
 
 def _sniff_dialect(p: pathlib.Path) -> str:
     """lab = 实验室 RamChecker(ODU_CtrlMode/st1 方言);field = IoT 现场导出
-    (AC_Data_RunState,C1 48 列或 48+扩展);unknown = 都不是。"""
+    (AC_Data_RunState,C1 48 列或 48+扩展);prodline = 产线测试日志
+    (ECOER_ProductionLine_Log,含 PCB/ODU 序列号与 Result 列);unknown = 都不是。"""
     head = open(p, encoding="utf-8", errors="replace").readline()
+    if "PCB_SerialNo" in head or "ODU_SerialNo" in head or "LineMode" in head:
+        return "prodline"
     if "ODU_CtrlMode" in head or "st1" in head:
         return "lab"
     if "AcState" in head and "Timestamp" in head and "CompRps" in head:
         return "field"
     return "unknown"
+
+
+def _profile_prodline(p: pathlib.Path):
+    """产线测试日志画像(C4 产线侧 / L2 出厂指纹轨道)。
+    数据安全区:文件含明文 SN 两列(ODU/PCB)——统计后立即掩码并丢弃明文列,
+    展示与导出永不出现明文;正式摄取(c4.load_prodline:C1 映射 + HMAC 假名化 +
+    station/test_step)等 HMAC 盐协议(O-track)到位,控制台不代行、不自造盐。"""
+    issues, info = [], {}
+    df = pd.read_csv(p, encoding="utf-8", on_bad_lines="skip", dtype=str)
+    df.columns = [c.strip() for c in df.columns]
+    devices, pcb_n = [], 0
+    for col in ("ODU_SerialNo", "PCB_SerialNo"):
+        if col in df.columns:
+            vals = {v.strip() for v in df[col].dropna().astype(str)
+                    if v.strip() and set(v.strip()) != {"-"}}
+            if col == "ODU_SerialNo":
+                devices = sorted(_mask_sn(v) for v in vals)
+            else:
+                pcb_n = len(vals)
+            df = df.drop(columns=[col])          # 明文 SN 列立即丢弃
+    num = df.apply(lambda s: pd.to_numeric(s, errors="coerce"))
+    active = num["Hp"].notna() if "Hp" in num.columns else pd.Series(False, index=df.index)
+    m = re.search(r"_(\d{14})", p.stem)
+    day = (f"{m.group(1)[:4]}-{m.group(1)[4:6]}-{m.group(1)[6:8]}" if m else "?")
+    t = df["Time"].dropna().astype(str) if "Time" in df.columns else pd.Series(dtype=str)
+    info.update({
+        "dialect": "prodline", "unit": None, "data_type": "prodline",
+        "rows_1s": int(len(df)), "rows_10s": None,
+        "span": [f"{day} {t.iloc[0]}" if len(t) else "?",
+                 f"{day} {t.iloc[-1]}" if len(t) else "?"],
+        "active_rows": int(active.sum()),
+        "devices_masked": devices, "pcb_count": pcb_n,
+    })
+    stats = {}
+    for c in ("Hp", "Lp", "Ta", "Ts", "Td", "EEV", "INV"):
+        if c in num.columns and num[c].notna().any():
+            stats[c] = f"{_round(num[c].min(), 2)} ~ {_round(num[c].max(), 2)}"
+    info["channel_ranges"] = stats
+    for c, label in (("ResultOK", "result_ok"), ("ResultNG", "result_ng")):
+        info[label] = int(num[c].fillna(0).sum()) if c in num.columns else None
+    if "ErrCode" in num.columns:
+        info["err_nonzero_rows"] = int((num["ErrCode"].fillna(0) != 0).sum())
+    issues.append("产线测试日志(第三类数据源,L2 出厂指纹轨道):完整摄取需 c4.load_prodline"
+                  "(C1 列映射 + 双 SN HMAC 假名化 + station/test_step),等 HMAC 盐协议"
+                  "(O-track)到位——控制台只给画像,不做诊断、不代行假名化。"
+                  "明文序列号已掩码,原始列已在内存中丢弃。")
+    issues.append("产线数据为短程功能测试(非稳态运行),不适用运行诊断链;其价值 = 新设备"
+                  "出厂基线(L2),待正式接入后供现场首检参照。")
+    payload = {"info": info, "issues": issues, "conditions": [], "enum_quarantine": {}}
+    return payload, None, None
 
 
 def _read_field_csv(p: pathlib.Path) -> pd.DataFrame:
@@ -754,8 +807,11 @@ def _self_bins(frames) -> dict:
 def _profile_file(p: pathlib.Path, unit_override=None):
     """体检共享管线:返回 (payload, 10s帧或None, unit)。payload 可直接作为体检结果。
     自动方言分派:实验室 RamChecker / IoT 现场导出。"""
-    if _sniff_dialect(p) == "field":
+    dialect = _sniff_dialect(p)
+    if dialect == "field":
         return _profile_field(p)
+    if dialect == "prodline":
+        return _profile_prodline(p)
     issues, info = [], {}
     head = open(p, encoding="utf-8", errors="replace").readline()
     dialect_ok = ("st1" in head and "QrC_W" in head)
@@ -927,6 +983,12 @@ def _detect_file(p: pathlib.Path, unit_override=None, self_bins=None):
     is_field = payload["info"].get("dialect") == "field"
     out = {"profile": payload, "unit": unit, "baseline": None,
            "segments": [], "sensors": None, "sensor_note": None, "summary": None}
+    if payload["info"].get("dialect") == "prodline":
+        out["summary"] = {"verdict": "产线数据(仅画像)",
+                          "detail": "产线测试日志属 L2 出厂指纹轨道:短程功能测试,不适用"
+                                    "运行诊断链;完整摄取等 HMAC 盐协议后经 c4.load_prodline"
+                                    "正式接入。画像见下。", "counts": {}}
+        return out
     if frame is None:
         out["summary"] = {"verdict": "无法检测", "detail": "文件未通过体检(见问题项),"
                           "无法进入稳态分段与诊断。", "counts": {}}
@@ -1260,17 +1322,19 @@ def api_batch(body):
     if "unknown" in dialects:
         bad = next(p for p in paths if _sniff_dialect(p) == "unknown")
         raise ApiError(f"存在无法识别格式的文件:{bad.name}",
-                       "支持实验室 RamChecker 与 IoT 现场 AC_Data_RunState 两种格式。")
-    if dialects == {"lab", "field"}:
-        raise ApiError("实验室文件与现场文件混批",
-                       "两类数据的基线模式不同(实验室=健康基线诊断;现场=自基线漂移"
-                       "筛查),请分开两批运行。")
-    is_field = dialects == {"field"}
-    if not is_field:
+                       "支持:实验室 RamChecker / IoT 现场 AC_Data_RunState / "
+                       "产线 ProductionLine_Log 三种格式。")
+    if len(dialects) > 1:
+        raise ApiError("多种数据格式混批:" + " + ".join(sorted(dialects)),
+                       "实验室(健康基线诊断)/ 现场(自基线漂移筛查)/ 产线(仅画像)"
+                       "的分析模式不同,请分开批次运行。")
+    kind = dialects.pop()
+    is_field = kind == "field"
+    if kind == "lab":
         if STATE["lab"] is None:
             raise ApiError("基线库尚未就绪",
                            "到「① 基线与模型库」加载或训练——实验室批量诊断的残差以"
-                           "逐机健康基线为参照(现场文件批量不需要)。")
+                           "逐机健康基线为参照(现场/产线批量不需要)。")
         _baseline_bins()      # 预构建基线(在请求线程内,失败即时报错)
     unit_override = (body.get("unit") or "").strip() or None
     with _LOCK:
