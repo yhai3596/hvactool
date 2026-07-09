@@ -7,7 +7,7 @@
       // 导航
       brand: 'HVAC TOOLS', nav_home: 'Home', nav_sim: 'Simulation', nav_refprops: 'Refrigerant', nav_phcalc: 'P-h Cycle',
       nav_psychro: 'Psychrometrics', nav_hydronic: 'Hydronics', nav_duct: 'Duct', nav_energy: 'Energy', nav_units: 'Units',
-      lang_label: 'Lang', login_register: 'Log in / Sign up', logout: 'Log out', invites_btn: 'Invites', offline: 'Offline · login unavailable', auth_unreachable: 'Auth service unreachable',
+      lang_label: 'Lang', login_register: 'Log in / Sign up', logout: 'Log out', invites_btn: 'Invites', nav_admin: 'Admin', offline: 'Offline · login unavailable', auth_unreachable: 'Auth service unreachable',
       // 主页
       home_title: 'HVAC Tools', home_sub: 'Inverter heat-pump simulation · CoolProp high-accuracy properties · Psychrometrics / hydronics / duct / energy',
       svc_label: 'Compute service', svc_checking: 'checking…', svc_online: 'online', svc_offline: 'offline (run start.bat)', cp_label: 'Property engine',
@@ -27,7 +27,7 @@
       login_note: 'Invite-only. Accounts hosted on Supabase with encrypted passwords; you can log in right after signing up. After registration you get 5 invite codes — see “Invites” in the top bar.',
       msg_need_login: 'Enter email and a password of at least 6 characters.', msg_pwd_mismatch: 'Passwords do not match.', msg_need_invite: 'Please enter an invite code.',
       msg_reg_ok: 'Registered, entering…', msg_reg_login_hint: 'Registered — please log in with your new account.', msg_login_ok: 'Signed in, entering…',
-      msg_reg_fail: 'Registration failed, please try again later.', msg_bad_cred: 'Wrong email or password.', msg_not_confirmed: 'Email not verified — click the link in the confirmation email first.',
+      msg_reg_fail: 'Registration failed, please try again later.', msg_reg_retry: 'Network hiccup — retrying…', msg_bad_cred: 'Wrong email or password.', msg_not_confirmed: 'Email not verified — click the link in the confirmation email first.',
       msg_rate: 'Too many attempts, try again later.', msg_no_auth: 'Auth component failed to load; check your network.',
       // 邀请码弹窗
       inv_title: 'My Invite Codes', inv_foot: '5 codes per account, used-up is used-up. Share with peers; they enter it when signing up.',
@@ -140,7 +140,7 @@
     zh: {
       brand: 'HVAC 工具站', nav_home: '首页', nav_sim: '系统仿真', nav_refprops: '冷媒物性', nav_phcalc: '压焓计算',
       nav_psychro: '湿空气', nav_hydronic: '水力计算', nav_duct: '风管设计', nav_energy: '能耗电费', nav_units: '单位换算',
-      lang_label: '语言', login_register: '登录 / 注册', logout: '退出', invites_btn: '邀请码', offline: '离线模式 · 登录不可用', auth_unreachable: '认证服务不可达',
+      lang_label: '语言', login_register: '登录 / 注册', logout: '退出', invites_btn: '邀请码', nav_admin: '后台', offline: '离线模式 · 登录不可用', auth_unreachable: '认证服务不可达',
       home_title: 'HVAC 工具站', home_sub: '变频热泵仿真 · CoolProp 高精度物性 · 湿空气 / 水力 / 风管 / 能耗 工程计算',
       svc_label: '计算服务', svc_checking: '检测中…', svc_online: '在线', svc_offline: '离线（请运行 start.bat）', cp_label: '物性引擎',
       card_sim_h: '变频系统动态仿真', card_sim_p: '一拖一热泵制冷/制热/化霜/回油全过程动画，冷媒相变可视化 + 压焓图 + 测点，9 参数实时调节',
@@ -158,7 +158,7 @@
       login_note: '本站为邀请制，注册需要邀请码。账号由 Supabase 云端托管、密码加密存储，注册成功即可直接登录。注册后你将获得 5 个邀请码，可在导航栏「邀请码」中查看并分享。',
       msg_need_login: '请输入邮箱和至少 6 位的密码。', msg_pwd_mismatch: '两次密码不一致。', msg_need_invite: '请输入邀请码。',
       msg_reg_ok: '注册成功，正在进入…', msg_reg_login_hint: '注册成功，请用刚才的账号登录。', msg_login_ok: '登录成功，正在进入…',
-      msg_reg_fail: '注册失败，请稍后再试。', msg_bad_cred: '邮箱或密码错误。', msg_not_confirmed: '邮箱尚未验证，请先点击确认邮件中的链接。',
+      msg_reg_fail: '注册失败，请稍后再试。', msg_reg_retry: '网络波动，正在重试…', msg_bad_cred: '邮箱或密码错误。', msg_not_confirmed: '邮箱尚未验证，请先点击确认邮件中的链接。',
       msg_rate: '操作过于频繁，请稍后再试。', msg_no_auth: '无法加载认证组件，请检查网络连接。',
       inv_title: '我的邀请码', inv_foot: '每个账号共 5 个邀请码，用完即止。分享给同行，对方注册时填入即可。',
       inv_used: '已使用', inv_unused: '未使用', inv_copy: '复制', inv_copied: '已复制', inv_empty: '你的账号暂无邀请码（老账号可联系管理员补发）。',

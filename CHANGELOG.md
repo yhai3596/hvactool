@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 管理后台 + 埋点统计 + 注册可靠性修复 — 2026-07-09
+
+新增仅管理员可见的后台(用户/积分/邀请码/建号/设置)、全站行为埋点、可配置邀请说明,并修复注册间歇性失败。资源版本 `v=216 → v=217`。
+
+- **数据库地基**(Supabase migration,纯新增不动存量):`admins` 表 + 播种 `yhai3596@outlook.com`;`is_admin()` 助手;`events` 埋点表(RLS 仅允许 INSERT、禁 SELECT,用户读不到他人行为);`app_settings` 站点配置(公开只读、写仅 service_role)
+- **`admin-api` Edge Function**(服务端权威,双层门:`getUser` 验签 + `admins` 成员校验):动作 `list_users / adjust_credits / issue_invites / create_user / get_analytics / get_settings / update_settings`;配套 SECURITY DEFINER 助手 `admin_list_users / admin_issue_invites / admin_analytics`(已从 anon/authenticated 收回执行权,仅 service_role 可调,修复了默认授权残留漏洞)
+- **后台前端** [admin.html](admin.html):管理员登录后导航显示 🛠 入口;四块——用户管理(改积分/补发码)、新增账号(免确认+1000积分+5码)、埋点看板(各页 PV/均停留/点击、热门点击、每日趋势)、站点设置(编辑邀请说明中英文);非管理员访问显示"仅管理员"
+- **埋点** [js/lib/analytics.js](js/lib/analytics.js)(经 shell 全站注入):页面浏览 + 停留时长(visibilitychange 累计 + keepalive 上报)+ 点击(仅按钮/链接/`[data-track]`,**不采输入框值**);直插 events 表、`user_id` 恒 null 不含 PII
+- **邀请说明可配置**:邀请码弹窗底部读 `app_settings.invite_note`,按当前语言显示,管理员后台可编辑中英文
+- **注册可靠性修复**:定位到 `register-with-invite` 的 `createUser` 对 Supabase Edge/GoTrue 存在约 17% 瞬时失败(连接被丢弃/空响应,**干净回滚无孤儿残留**)。修复两层——后端 `createUser` 瞬时错误**重试 3 次**(重复邮箱不重试);前端 [login.html](login.html) 对**网络级失败自动重试 3 次**(带"正在重试…"提示),业务错误(邀请码无效等)立即返回不重试
+- **安全底线**:所有后台写只经 service_role 函数;`config.js` 保持 `AUTH_REQUIRED=true`;前端隐藏入口仅观感,真正的门在服务端
+
 ## 全站中英双语 i18n + 语言切换器数据化 — 2026-07-09
 
 全站彻底双语（中/EN），**默认英语 + 美制单位**，可在导航栏一键切换，切换后静态与动态文案（含 Canvas/SVG 绘图、结果表、横幅、tooltip、下拉选项）一次性重渲染。

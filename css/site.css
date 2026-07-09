@@ -191,6 +191,8 @@ body.tool-page { min-width: 1100px; }
 .inv-copy:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
 .inv-copy:disabled { opacity: .4; cursor: not-allowed; }
 .invite-foot { font-size: 11px; color: var(--text-faint); margin-top: 12px; line-height: 1.6; }
+.invite-note { font-size: 12px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; line-height: 1.6; }
+.admin-link { color: var(--accent) !important; }
 
 /* 积分 chip + 明细 */
 .credit-chip { font-size: 12px; font-family: var(--mono); color: var(--warn); cursor: pointer; padding: 3px 9px; border: 1px solid var(--panel-border); border-radius: 6px; white-space: nowrap; }

@@ -78,12 +78,18 @@ async function shellInitAuth() {
     return;
   }
 
+  window.sbClient = sbClient;
   if (sbUser) {
     // 结算积分（惰性：按日历天数补扣每日 30）
     let credits = null;
     try { const r = await sbClient.rpc('settle_credits'); if (r.data && r.data[0]) credits = r.data[0].credits; } catch (_) {}
+    // 是否管理员（用于显示后台入口；服务端 admin-api 才是真正的门）
+    let isAdmin = false;
+    try { const a = await sbClient.rpc('is_admin'); isAdmin = a.data === true; } catch (_) {}
+    window.HVAC_IS_ADMIN = isAdmin;
     const low = credits !== null && credits <= 0;
     shellSetChip(
+      (isAdmin ? `<a class="chip-btn admin-link" href="admin.html" style="text-decoration:none">🛠 ${T('nav_admin')}</a>` : '') +
       `<span class="credit-chip${low ? ' low' : ''}" id="creditChip">⚡ ${credits === null ? '—' : credits}</span>` +
       `<button class="chip-btn" id="inviteBtn">🎟 ${T('invites_btn')}</button>` +
       `<b>${sbUser.email || ''}</b>` +
@@ -94,8 +100,11 @@ async function shellInitAuth() {
     });
     document.getElementById('inviteBtn').addEventListener('click', shellShowInvites);
     document.getElementById('creditChip').addEventListener('click', shellShowCredits);
+    window.dispatchEvent(new CustomEvent('hvac-auth-ready', { detail: { user: sbUser, isAdmin } }));
   } else {
+    window.HVAC_IS_ADMIN = false;
     shellSetChip(`<a class="chip-btn" style="text-decoration:none" href="login.html">${T('login_register')}</a>`);
+    window.dispatchEvent(new CustomEvent('hvac-auth-ready', { detail: { user: null, isAdmin: false } }));
     if (SITE_CONFIG.AUTH_REQUIRED && !isPublic) {
       location.href = 'login.html?next=' + encodeURIComponent(location.pathname.split('/').pop());
     }
@@ -111,11 +120,20 @@ async function shellShowInvites() {
   box.innerHTML =
     `<div class="invite-panel">
        <div class="invite-head">${T('inv_title')}<span class="invite-close" id="invClose">✕</span></div>
+       <div class="invite-note" id="invNote" style="display:none"></div>
        <div class="invite-body" id="invBody">${T('inv_loading')}</div>
        <div class="invite-foot">${T('inv_foot')}</div>
      </div>`;
   document.body.appendChild(box);
   box.addEventListener('click', e => { if (e.target === box || e.target.id === 'invClose') box.remove(); });
+
+  // 可配置的邀请积分说明（管理员在后台设置，按当前语言显示）
+  sbClient.from('app_settings').select('val_zh,val_en').eq('key', 'invite_note').maybeSingle()
+    .then(({ data: s }) => {
+      const txt = s && (I18N.lang() === 'zh' ? s.val_zh : s.val_en);
+      const el = document.getElementById('invNote');
+      if (el && txt) { el.textContent = txt; el.style.display = ''; }
+    }).catch(() => {});
 
   const { data, error } = await sbClient.rpc('get_my_invites');
   const body = document.getElementById('invBody');
