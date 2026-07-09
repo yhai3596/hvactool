@@ -176,17 +176,55 @@ body.tool-page { min-width: 1100px; }
   padding: 2px 8px; border: 1px solid var(--panel-border); border-radius: 6px; margin-left: 4px;
 }
 
+/* ===== 邀请码弹窗 ===== */
+.invite-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.invite-panel { background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px; width: min(92vw, 380px); padding: 16px 18px 14px; box-shadow: 0 12px 44px rgba(0,0,0,.55); }
+.invite-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--accent); letter-spacing: 2px; margin-bottom: 12px; }
+.invite-close { cursor: pointer; color: var(--text-dim); font-size: 16px; line-height: 1; }
+.invite-close:hover { color: var(--text); }
+.inv-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--card-border); }
+.inv-row code { font-family: var(--mono); font-size: 15px; letter-spacing: 2px; color: var(--num); flex: 1; }
+.inv-row.used code { color: var(--text-faint); text-decoration: line-through; }
+.inv-st { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.inv-row.used .inv-st { color: var(--ok); }
+.inv-copy { padding: 3px 11px; border-radius: 6px; font-size: 11px; cursor: pointer; background: transparent; border: 1px solid var(--panel-border); color: var(--text-dim); }
+.inv-copy:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.inv-copy:disabled { opacity: .4; cursor: not-allowed; }
+.invite-foot { font-size: 11px; color: var(--text-faint); margin-top: 12px; line-height: 1.6; }
+
+/* 积分 chip + 明细 */
+.credit-chip { font-size: 12px; font-family: var(--mono); color: var(--warn); cursor: pointer; padding: 3px 9px; border: 1px solid var(--panel-border); border-radius: 6px; white-space: nowrap; }
+.credit-chip:hover { border-color: var(--accent); color: var(--text); }
+.credit-chip.low { color: var(--hot); border-color: rgba(251,113,133,.5); }
+.cred-now { font-size: 24px; font-family: var(--mono); color: var(--warn); text-align: center; margin-bottom: 14px; }
+.cred-now.low { color: var(--hot); }
+.cred-now small { font-size: 11px; color: var(--text-dim); }
+.cred-log { max-height: 260px; overflow-y: auto; }
+.cl-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--card-border); font-size: 12px; align-items: center; }
+.cl-row span:first-child { flex: 1; color: var(--text-dim); }
+.cl-d { font-family: var(--mono); width: 46px; text-align: right; }
+.cl-d.plus { color: var(--ok); }
+.cl-d.minus { color: var(--hot); }
+.cl-b { font-family: var(--mono); color: var(--text-faint); width: 46px; text-align: right; }
+
 /* ===== 单位制 / 主题 开关 ===== */
 #unitToggle { display: inline-flex; gap: 6px; align-items: center; margin-right: 12px; }
 .ut-lbl { font-size: 10px; color: var(--text-faint); }
-.ut-seg, .theme-seg { display: inline-flex; border: 1px solid var(--panel-border); border-radius: 6px; overflow: hidden; }
-.ut-seg button, .theme-seg button {
+.ut-seg, .theme-seg, .lang-seg { display: inline-flex; border: 1px solid var(--panel-border); border-radius: 6px; overflow: hidden; }
+.ut-seg button, .theme-seg button, .lang-seg button {
   background: transparent; border: none; color: var(--text-dim);
   padding: 4px 9px; cursor: pointer; font-size: 11px; white-space: nowrap;
 }
-.ut-seg button:hover, .theme-seg button:hover { color: var(--text); }
-.ut-seg button.on, .theme-seg button.on { background: var(--accent); color: var(--bg); font-weight: 700; }
-.theme-seg { margin-right: 12px; }
+.ut-seg button:hover, .theme-seg button:hover, .lang-seg button:hover { color: var(--text); }
+.ut-seg button.on, .theme-seg button.on, .lang-seg button.on { background: var(--accent); color: var(--bg); font-weight: 700; }
+.theme-seg, .lang-seg { margin-right: 12px; }
+.lang-select {
+  margin-right: 12px; background: transparent; color: var(--text-dim);
+  border: 1px solid var(--panel-border); border-radius: 6px;
+  padding: 4px 8px; font-size: 11px; cursor: pointer;
+}
+.lang-select:hover { color: var(--text); }
+.lang-select option { background: var(--panel); color: var(--text); }
 
 /* 浅色主题下的图表/发光弱化 */
 html[data-theme="light"] .btn { box-shadow: none; color: #fff; }

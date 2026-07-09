@@ -2,36 +2,36 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>冷媒物性查询 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=215">
-<link rel="stylesheet" href="css/site.css?v=215">
+<title data-i18n="rp_pagetitle">冷媒物性查询 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=216">
+<link rel="stylesheet" href="css/site.css?v=216">
 </head>
 <body data-page="refprops" data-units="1" class="tool-page">
 <div id="app">
   <div class="tool-layout">
     <!-- 输入 -->
     <div class="panel">
-      <div class="panel-title">状态点查询 · STATE POINT</div>
+      <div class="panel-title" data-i18n="rp_state">状态点查询 · STATE POINT</div>
       <div class="panel-body">
         <div class="form-grid">
-          <div class="field"><label>冷媒</label><select id="fluid"></select></div>
-          <div class="field"><label>已知参数组合</label>
+          <div class="field"><label data-i18n="pc_f_fluid">冷媒</label><select id="fluid"></select></div>
+          <div class="field"><label data-i18n="ps_combo_lbl">已知参数组合</label>
             <select id="pair">
-              <option value="TP">温度 + 压力（单相区）</option>
-              <option value="PQ">压力 + 干度（两相区）</option>
-              <option value="TQ">温度 + 干度（两相区）</option>
-              <option value="PH">压力 + 焓</option>
-              <option value="PS">压力 + 熵</option>
+              <option value="TP" data-i18n="rp_o_tp">温度 + 压力（单相区）</option>
+              <option value="PQ" data-i18n="rp_o_pq">压力 + 干度（两相区）</option>
+              <option value="TQ" data-i18n="rp_o_tq">温度 + 干度（两相区）</option>
+              <option value="PH" data-i18n="rp_o_ph">压力 + 焓</option>
+              <option value="PS" data-i18n="rp_o_ps">压力 + 熵</option>
             </select>
           </div>
           <div class="field"><label id="lbl1">—</label><input id="v1" type="number" step="any"></div>
           <div class="field"><label id="lbl2">—</label><input id="v2" type="number" step="any"></div>
         </div>
         <div class="btn-row">
-          <button class="btn" id="calcBtn">查 询</button>
+          <button class="btn" id="calcBtn" data-i18n="rp_query">查 询</button>
           <span id="fluidInfo" style="font-size:11px;color:var(--text-faint);font-family:var(--mono)"></span>
         </div>
-        <div class="note">
+        <div class="note" data-i18n-html="rp_note">
           压力均为<b>绝对压力</b>；焓熵基准 IIR（0°C 饱和液 h=200 kJ/kg，s=1.0 kJ/(kg·K)），与常用物性表一致（美制表册基准不同，绝对值有系统差，差值不受影响）。<br>
           R410A / R407C / R404A / R454B 为混合冷媒，两相区存在温度滑移（泡点≠露点）。
         </div>
@@ -40,12 +40,12 @@
 
     <!-- 结果 -->
     <div class="panel">
-      <div class="panel-title">计算结果 · RESULT <span style="color:#a78bfa;font-family:Consolas;font-size:10px">CoolProp</span></div>
+      <div class="panel-title"><span data-i18n="pc_result">计算结果 · RESULT</span> <span style="color:#a78bfa;font-family:Consolas;font-size:10px">CoolProp</span></div>
       <div class="panel-body">
         <div id="resBanner" class="result-banner" style="display:none"></div>
         <div class="kv-grid" id="resGrid"></div>
         <div id="satBlock" style="margin-top:14px;display:none">
-          <div style="font-size:11px;color:var(--accent);letter-spacing:2px;margin-bottom:8px">同压力饱和参数 · SATURATION @ P</div>
+          <div style="font-size:11px;color:var(--accent);letter-spacing:2px;margin-bottom:8px" data-i18n="rp_sat_at_p">同压力饱和参数 · SATURATION @ P</div>
           <div class="kv-grid" id="satGrid"></div>
         </div>
       </div>
@@ -54,18 +54,18 @@
 
   <!-- 饱和表 -->
   <div class="panel" style="margin-top:10px">
-    <div class="panel-title">饱和性质表 · SATURATION TABLE</div>
+    <div class="panel-title" data-i18n="rp_sattable">饱和性质表 · SATURATION TABLE</div>
     <div class="panel-body">
       <div class="btn-row" style="margin-top:0">
         <div class="field-inline">
-          <span style="font-size:12px;color:var(--text-dim)">温度范围</span>
+          <span style="font-size:12px;color:var(--text-dim)" data-i18n="rp_trange">温度范围</span>
           <input id="t1" data-uk="temp" type="number" value="-40" style="width:74px">
           <span style="color:var(--text-dim)">~</span>
           <input id="t2" data-uk="temp" type="number" value="65" style="width:74px">
-          <span style="font-size:12px;color:var(--text-dim)"><span data-ul="temp"></span>，步长</span>
+          <span style="font-size:12px;color:var(--text-dim)"><span data-ul="temp"></span><span data-i18n="rp_step">，步长</span></span>
           <input id="dt" data-uk="dtemp" type="number" value="5" style="width:56px">
         </div>
-        <button class="btn small" id="tblBtn">生成饱和表</button>
+        <button class="btn small" id="tblBtn" data-i18n="rp_gen_table">生成饱和表</button>
       </div>
       <div style="overflow-x:auto;margin-top:10px">
         <table class="data-table" id="satTable" style="display:none">
@@ -77,11 +77,12 @@
   </div>
 </div>
 
-<script src="js/lib/config.js?v=215"></script>
-<script src="js/lib/units.js?v=215"></script>
+<script src="js/lib/config.js?v=216"></script>
+<script src="js/lib/i18n.js?v=216"></script>
+<script src="js/lib/units.js?v=216"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=215"></script>
-<script src="js/lib/api.js?v=215"></script>
+<script src="js/lib/shell.js?v=216"></script>
+<script src="js/lib/api.js?v=216"></script>
 <script>
 const $ = id => document.getElementById(id);
 const FLUIDS = ['R410A','R32','R454B','R134a','R290','R404A','R407C','R22','R1234yf','R600a','R717','R744'];
@@ -89,20 +90,25 @@ $('fluid').innerHTML = FLUIDS.map(f => `<option>${f}</option>`).join('');
 
 /* pair 字母 → {label, kind}；kind=null 表示无量纲 */
 const LETTER = {
-  T: { label: '温度', kind: 'temp' },
-  P: { label: '压力（绝对）', kind: 'press' },
-  Q: { label: '干度 x (0~1)', kind: null },
-  H: { label: '比焓', kind: 'h' },
-  S: { label: '比熵', kind: 's' },
+  T: { k: 'rp_l_t', kind: 'temp' },
+  P: { k: 'rp_l_p', kind: 'press' },
+  Q: { k: 'rp_l_q', kind: null },
+  H: { k: 'rp_l_h', kind: 'h' },
+  S: { k: 'rp_l_s', kind: 's' },
 };
 const PAIR_DEF = { TP: [10, 1000], PQ: [1000, 0.5], TQ: [10, 0.5], PH: [1000, 420], PS: [1000, 1.8] };
 const IP_CONV = { temp: v => v * 1.8 + 32, press: v => v * 0.1450377377, h: v => v * 0.4299226, s: v => v * 0.2388459 };
+/* 后端返回的中文相态/提示 → i18n（前端映射，避免改后端需重启） */
+const PHASE_MAP = { '超临界': 'rp_ph_supercrit', '两相（湿蒸气）': 'rp_ph_twophase', '过热蒸气': 'rp_ph_superheat', '过冷液体': 'rp_ph_subcool' };
+const HINT_MAP = { '该温压组合位于两相区，温度与压力不独立；请改用 压力+干度 或 温度+干度 查询。': 'rp_hint_ambig' };
+const trPhase = p => PHASE_MAP[p] ? window.T(PHASE_MAP[p]) : (p || '');
+const trHint = h => HINT_MAP[h] ? window.T(HINT_MAP[h]) : (h || '');
 
 function setupPair() {
   const pair = $('pair').value;
   [...pair].forEach((letter, i) => {
     const def = LETTER[letter];
-    $('lbl' + (i + 1)).innerHTML = def.kind ? `${def.label}（<span data-ul="${def.kind}"></span>）` : def.label;
+    $('lbl' + (i + 1)).innerHTML = def.kind ? `<span>${window.T(def.k)}</span>（<span data-ul="${def.kind}"></span>）` : window.T(def.k);
     const el = $('v' + (i + 1));
     let v = PAIR_DEF[pair][i];
     if (def.kind && Units.sysIn === 'ip') v = Units.nice(IP_CONV[def.kind](v));
@@ -118,7 +124,7 @@ async function loadInfo() {
     const j = await api('/api/fluidinfo', { fluid: $('fluid').value });
     $('fluidInfo').textContent =
       `Tc ${fmtN(Units.val('temp', j.t_crit),1)}${Units.u('temp')} · Pc ${fmtN(Units.val('press', j.p_crit),0)}${Units.u('press')} · M ${fmtN(j.molar_mass,1)}g/mol` +
-      (j.glide_blend ? ' · 混合冷媒' : '');
+      (j.glide_blend ? window.T('rp_blend') : '');
   } catch (e) { $('fluidInfo').textContent = ''; }
 }
 $('fluid').onchange = loadInfo;
@@ -149,45 +155,47 @@ function renderState() {
   banner.style.display = '';
   if (j.two_phase_ambiguous) {
     banner.className = 'result-banner warn';
-    banner.textContent = '⚠ ' + j.hint;
+    banner.textContent = '⚠ ' + trHint(j.hint);
     $('resGrid').innerHTML = '';
     renderSat(j.sat);
     return;
   }
   banner.className = 'result-banner';
+  const T = window.T;
   let extra = '';
-  if (j.superheat !== undefined) extra = ` · 过热度 ${V('dtemp', j.superheat)} ${Units.u('dtemp')}`;
-  if (j.subcool !== undefined) extra = ` · 过冷度 ${V('dtemp', j.subcool)} ${Units.u('dtemp')}`;
-  if (j.quality !== null && j.quality !== undefined) extra = ` · 干度 x = ${fmtN(j.quality,4)}`;
-  banner.textContent = `相态：${j.phase}${extra}`;
+  if (j.superheat !== undefined) extra = `${T('rp_superheat')}${V('dtemp', j.superheat)} ${Units.u('dtemp')}`;
+  if (j.subcool !== undefined) extra = `${T('rp_subcool')}${V('dtemp', j.subcool)} ${Units.u('dtemp')}`;
+  if (j.quality !== null && j.quality !== undefined) extra = `${T('rp_quality')}${fmtN(j.quality,4)}`;
+  banner.textContent = `${T('rp_phase')}${trPhase(j.phase)}${extra}`;
 
   $('resGrid').innerHTML =
-    kv('温度', V('temp', j.T), Units.u('temp')) +
-    kv('压力(绝对)', V('press', j.P, 1), Units.u('press')) +
-    kv('比焓 h', V('h', j.h), Units.u('h'), 'hl') +
-    kv('比熵 s', V('s', j.s, 4), Units.u('s'), 'hl') +
-    kv('密度 ρ', V('rho', j.rho), Units.u('rho')) +
-    kv('比容 v', j.v ? Units.val('vspec', j.v).toExponential(3) : '—', Units.u('vspec')) +
-    (j.quality !== null && j.quality !== undefined ? kv('干度 x', fmtN(j.quality,4), '-', 'warn') : '') +
-    kv('定压比热 cp', V('s', j.cp, 3), Units.u('s')) +
-    kv('定容比热 cv', V('s', j.cv, 3), Units.u('s')) +
-    kv('黏度 μ', fmtN(j.mu, 2), 'µPa·s') +
-    kv('导热系数 λ', fmtN(j.k, 2), 'mW/m·K');
+    kv(T('rp_r_t'), V('temp', j.T), Units.u('temp')) +
+    kv(T('rp_r_p'), V('press', j.P, 1), Units.u('press')) +
+    kv(T('ps_r_h'), V('h', j.h), Units.u('h'), 'hl') +
+    kv(T('rp_r_s'), V('s', j.s, 4), Units.u('s'), 'hl') +
+    kv(T('rp_r_rho'), V('rho', j.rho), Units.u('rho')) +
+    kv(T('ps_r_v'), j.v ? Units.val('vspec', j.v).toExponential(3) : '—', Units.u('vspec')) +
+    (j.quality !== null && j.quality !== undefined ? kv(T('rp_r_q'), fmtN(j.quality,4), '-', 'warn') : '') +
+    kv(T('rp_r_cp'), V('s', j.cp, 3), Units.u('s')) +
+    kv(T('rp_r_cv'), V('s', j.cv, 3), Units.u('s')) +
+    kv(T('rp_r_mu'), fmtN(j.mu, 2), 'µPa·s') +
+    kv(T('rp_r_k'), fmtN(j.k, 2), 'mW/m·K');
   renderSat(j.sat_at_p);
 }
 
 function renderSat(s) {
   if (!s) { $('satBlock').style.display = 'none'; return; }
   $('satBlock').style.display = '';
+  const T = window.T;
   $('satGrid').innerHTML =
-    kv('泡点温度', V('temp', s.t_bubble), Units.u('temp')) +
-    kv('露点温度', V('temp', s.t_dew), Units.u('temp')) +
-    (s.glide > 0.05 ? kv('温度滑移', V('dtemp', s.glide), Units.u('dtemp'), 'warn') : '') +
-    kv("饱和液焓 h'", V('h', s.hf), Units.u('h')) +
-    kv('饱和气焓 h"', V('h', s.hg), Units.u('h')) +
-    kv('汽化潜热', V('h', s.latent), Units.u('h'), 'hl') +
-    kv("液密度 ρ'", V('rho', s.rhof, 1), Units.u('rho')) +
-    kv('气密度 ρ"', V('rho', s.rhog), Units.u('rho'));
+    kv(T('rp_s_tbub'), V('temp', s.t_bubble), Units.u('temp')) +
+    kv(T('rp_s_tdew'), V('temp', s.t_dew), Units.u('temp')) +
+    (s.glide > 0.05 ? kv(T('rp_s_glide'), V('dtemp', s.glide), Units.u('dtemp'), 'warn') : '') +
+    kv(T('rp_s_hf'), V('h', s.hf), Units.u('h')) +
+    kv(T('rp_s_hg'), V('h', s.hg), Units.u('h')) +
+    kv(T('rp_s_latent'), V('h', s.latent), Units.u('h'), 'hl') +
+    kv(T('rp_s_rhof'), V('rho', s.rhof, 1), Units.u('rho')) +
+    kv(T('rp_s_rhog'), V('rho', s.rhog), Units.u('rho'));
 }
 
 $('tblBtn').onclick = async () => {
@@ -205,9 +213,10 @@ $('tblBtn').onclick = async () => {
 
 function renderTable() {
   if (!lastTable) return;
+  const T = window.T;
   $('satHead').innerHTML =
-    `<th>温度 ${Units.u('temp')}</th><th>泡点压力 ${Units.u('press')}</th><th>露点压力 ${Units.u('press')}</th>` +
-    `<th>h′ 液 ${Units.u('h')}</th><th>h″ 气 ${Units.u('h')}</th><th>潜热 ${Units.u('h')}</th>` +
+    `<th>${T('rp_th_t')} ${Units.u('temp')}</th><th>${T('rp_th_pbub')} ${Units.u('press')}</th><th>${T('rp_th_pdew')} ${Units.u('press')}</th>` +
+    `<th>${T('rp_th_hf')} ${Units.u('h')}</th><th>${T('rp_th_hg')} ${Units.u('h')}</th><th>${T('rp_th_latent')} ${Units.u('h')}</th>` +
     `<th>s′ ${Units.u('s')}</th><th>s″ ${Units.u('s')}</th>` +
     `<th>ρ′ ${Units.u('rho')}</th><th>ρ″ ${Units.u('rho')}</th>`;
   $('satTable').querySelector('tbody').innerHTML = lastTable.rows.map(r =>

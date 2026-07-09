@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 全站中英双语 i18n + 语言切换器数据化 — 2026-07-09
+
+全站彻底双语（中/EN），**默认英语 + 美制单位**，可在导航栏一键切换，切换后静态与动态文案（含 Canvas/SVG 绘图、结果表、横幅、tooltip、下拉选项）一次性重渲染。
+
+- **i18n 引擎**（新增 [js/lib/i18n.js](js/lib/i18n.js)）：`DICT{en,zh}` 字典 + 全局 `window.T(key, vars)`（支持 `{var}` 占位替换）；`data-i18n` / `-ph`（placeholder）/ `-title`（tooltip）/ `-html`（富文本）四类属性；`I18N.apply(root)` 遍历渲染；`setLang(l)` 整页重载，默认 `en`（localStorage `hvac-lang`）；缺词三级回退（当前语言→英文→key）
+- **单位默认美制**：`units.js` / `ui.js` 默认 `ip`
+- **覆盖页面**：核心框架（导航/页脚/登录/首页）+ 系统仿真（含 p-h 图坐标轴与状态点、图钉参数栏）+ **7 个计算页**：压焓计算 phcalc、湿空气 psychro、冷媒物性 refprops、水力 hydronic、风管 duct、能耗电费 energy、单位换算 units
+- **动态文案全覆盖**：结果卡片/状态点表/管段动态表（18 列）/EC(H)R 与 ESP 横幅/风管 SVG 示意图/焓湿图与压焓图 Canvas 标注/单位换算下拉（`value` 保留内部键、显示走翻译，换算逻辑不受影响）
+- **后端中文映射**：refprops 相态（过热蒸气/过冷液体/两相/超临界）与两相区提示由前端映射翻译；后端 `server.py` 所有报错文案（未知冷媒/缺少参数/冷凝压力必须高于蒸发压力/超出饱和范围/介质仅支持…/计算失败等）由 [api.js](js/lib/api.js) 的 `trBackendMsg()` 统一翻译（精确串 + 带动态参数前缀串，动态尾部原样保留），全站 toast 一处翻译全覆盖（均避免改后端需重启）
+- **语言切换器数据化**：新增语言注册表 `I18N.langs`；[shell.js](js/lib/shell.js) 从注册表生成切换器，**≤2 语言用分段按钮、≥3 自动切下拉**（`.lang-select` 样式）—— 以后加语言 = 注册表加一行 + DICT 加一个语言块，无需改 UI
+- **资源版本**：全站 `v=215 → v=216`（i18n.js/shell.js/site.css/api.js 等共享文件改动，统一 cache-bust）
+
 ## 迁移至新加坡服务器 + 部署复盘手册 — 2026-07-08
 
 因国内服务器未 ICP 备案被拦，迁移至境外，并沉淀完整运维文档。

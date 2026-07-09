@@ -4,40 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>系统仿真 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=215">
-<link rel="stylesheet" href="css/site.css?v=215">
+<link rel="stylesheet" href="css/style.css?v=216">
+<link rel="stylesheet" href="css/site.css?v=216">
 </head>
 <body data-page="sim" data-fixed-theme="dark">
 <div id="app">
 
   <!-- ============ 头部 ============ -->
   <header>
-    <h1>HVAC 变频一拖一系统动态仿真</h1>
-    <span class="sub">INVERTER HEAT-PUMP SIMULATOR</span>
+    <h1 data-i18n="sim_h1">HVAC 变频一拖一系统动态仿真</h1>
+    <span class="sub" data-i18n="sim_sub">INVERTER HEAT-PUMP SIMULATOR</span>
     <div class="ref-group">
-      <span class="lbl">冷媒</span>
+      <span class="lbl" data-i18n="lbl_ref">冷媒</span>
       <button class="ref-btn active" data-ref="R410A">R410A</button>
       <button class="ref-btn" data-ref="R32">R32</button>
       <button class="ref-btn" data-ref="R454B">R454B</button>
     </div>
     <div class="ref-group">
-      <span class="lbl">单位</span>
-      <button class="ref-btn active" data-us="si">公制</button>
-      <button class="ref-btn" data-us="ip">美制</button>
+      <span class="lbl" data-i18n="lbl_unit">单位</span>
+      <button class="ref-btn active" data-us="si" data-i18n="unit_si">公制</button>
+      <button class="ref-btn" data-us="ip" data-i18n="unit_ip">美制</button>
     </div>
     <div class="mode-group">
-      <button class="mode-btn active" data-mode="cooling">制 冷</button>
-      <button class="mode-btn" data-mode="heating">制 热</button>
-      <button class="mode-btn" data-mode="defrost">化 霜</button>
-      <button class="mode-btn" data-mode="oilreturn">回 油</button>
+      <button class="mode-btn active" data-mode="cooling" data-i18n="mode_cooling">制 冷</button>
+      <button class="mode-btn" data-mode="heating" data-i18n="mode_heating">制 热</button>
+      <button class="mode-btn" data-mode="defrost" data-i18n="mode_defrost">化 霜</button>
+      <button class="mode-btn" data-mode="oilreturn" data-i18n="mode_oil">回 油</button>
     </div>
   </header>
 
   <!-- ============ 状态栏 ============ -->
   <div id="statusbar">
-    <div id="procState"><span class="dot"></span><span id="procName">制冷运行</span></div>
+    <div id="procState"><span class="dot"></span><span id="procName" data-i18n="proc_cooling">制冷运行</span></div>
     <div id="seqProgress"><span id="seqStep">—</span><span class="bar"><i id="seqBar"></i></span></div>
-    <div id="procDesc">压缩机排出高温高压气体 → 室外冷凝器放热冷凝 → EXV 节流 → 室内蒸发器吸热蒸发 → 回到压缩机。</div>
+    <div id="procDesc" data-i18n="pd_cooling">压缩机排出高温高压气体 → 室外冷凝器放热冷凝 → EXV 节流 → 室内蒸发器吸热蒸发 → 回到压缩机。</div>
     <div id="hints"></div>
   </div>
 
@@ -78,10 +78,10 @@
           <g id="snow"></g>
           <rect x="0" y="545" width="1200" height="95" fill="#0b1424"/>
           <line x1="0" y1="545" x2="1200" y2="545" stroke="#1b3350" stroke-width="1.5"/>
-          <text id="sceneMode" x="600" y="634" text-anchor="middle" font-size="18" letter-spacing="8" fill="#1a3a5c" font-weight="700">COOLING · 制冷运行</text>
+          <text id="sceneMode" x="600" y="634" text-anchor="middle" font-size="18" letter-spacing="8" fill="#1a3a5c" font-weight="700" data-i18n="wm_cooling">COOLING · 制冷运行</text>
 
           <!-- ============ 室外机 ============ -->
-          <text class="svg-label" x="60" y="215">OUTDOOR UNIT · 室外机</text>
+          <text class="svg-label" x="60" y="215" data-i18n="sc_outdoor">OUTDOOR UNIT · 室外机</text>
           <rect class="casing" x="40" y="225" width="415" height="315" rx="10"/>
           <line x1="285" y1="225" x2="285" y2="540" stroke="#1c3450" stroke-width="1.2"/>
           <!-- 顶部格栅 -->
@@ -102,12 +102,12 @@
           <g stroke="#24405c" stroke-width="1" fill="none" opacity=".85">
             <circle cx="150" cy="385" r="74"/><circle cx="150" cy="385" r="56"/><circle cx="150" cy="385" r="38"/><circle cx="150" cy="385" r="20"/>
           </g>
-          <text class="svg-label-s" x="150" y="480" text-anchor="middle">外风机</text>
+          <text class="svg-label-s" x="150" y="480" text-anchor="middle" data-i18n="sc_outfan">外风机</text>
           <text id="outFanRpm" x="150" y="494" text-anchor="middle" font-size="10" font-family="Consolas" fill="#5c93c9">— rpm</text>
 
           <!-- 气液分离器 -->
           <rect x="294" y="452" width="27" height="80" rx="12" fill="url(#accG)" stroke="#33587e" stroke-width="1.2"/>
-          <text class="svg-label-s" x="307" y="446" text-anchor="middle">气液分离器</text>
+          <text class="svg-label-s" x="307" y="446" text-anchor="middle" data-i18n="sc_accum">气液分离器</text>
 
           <!-- 压缩机 -->
           <ellipse id="compGlow" cx="360" cy="535" rx="42" ry="8" fill="#22d3ee" opacity=".12" filter="url(#bigGlow)"/>
@@ -119,7 +119,7 @@
               <path d="M360,478 m14,0 a14,14 0 0 1 -14,14" stroke="#7dd3fc" stroke-width="2.5" fill="none"/>
             </g>
             <text id="compHzTxt" x="360" y="512" text-anchor="middle" font-size="13" font-family="Consolas" fill="#a5f3fc" font-weight="700">60 Hz</text>
-            <text class="svg-label-s" x="360" y="527" text-anchor="middle">压缩机</text>
+            <text class="svg-label-s" x="360" y="527" text-anchor="middle" data-i18n="sc_comp">压缩机</text>
           </g>
 
           <!-- 四通阀 -->
@@ -128,7 +128,7 @@
             <path id="v4Hot" d="M365,318 L392,300" stroke="#f87171" stroke-width="5" stroke-linecap="round" opacity=".85"/>
             <path id="v4Cold" d="M338,300 L342,318" stroke="#38bdf8" stroke-width="5" stroke-linecap="round" opacity=".85"/>
             <rect id="v4Slider" x="336" y="285" width="22" height="8" rx="3" fill="#5c93c9"/>
-            <text class="svg-label-s" x="365" y="274" text-anchor="middle">四通阀</text>
+            <text class="svg-label-s" x="365" y="274" text-anchor="middle" data-i18n="sc_v4">四通阀</text>
             <text font-size="8" fill="#55708c" x="362" y="332">D</text>
             <text font-size="8" fill="#55708c" x="322" y="303">E</text>
             <text font-size="8" fill="#55708c" x="403" y="303">C</text>
@@ -149,7 +149,7 @@
           <!-- ============ 房屋 ============ -->
           <polygon points="620,192 905,82 1190,192" fill="#0e1c31" stroke="#2a4a6e" stroke-width="2"/>
           <rect x="650" y="192" width="510" height="368" fill="url(#roomG)" stroke="#2a4a6e" stroke-width="2"/>
-          <text class="svg-label" x="1052" y="216">INDOOR · 室内</text>
+          <text class="svg-label" x="1052" y="216" data-i18n="indoor_lbl">INDOOR · 室内</text>
           <!-- 穿墙套管 -->
           <rect x="643" y="313" width="14" height="14" rx="3" fill="#0f2138" stroke="#2a4a6e"/>
           <rect x="643" y="343" width="14" height="14" rx="3" fill="#0f2138" stroke="#2a4a6e"/>
@@ -172,7 +172,7 @@
           <!-- ============ 室内机 ============ -->
           <g id="idu">
             <rect x="670" y="200" width="280" height="80" rx="14" fill="#0f1e33" stroke="#33587e" stroke-width="1.6"/>
-            <text class="svg-label-s" x="700" y="196">室内机</text>
+            <text class="svg-label-s" x="700" y="196" data-i18n="indoor_unit">室内机</text>
             <!-- 内换热器 -->
             <g stroke="#1e3a5c" stroke-width="1" opacity=".9">
               <line x1="694" y1="224" x2="694" y2="256"/><line x1="710" y1="224" x2="710" y2="256"/>
@@ -258,7 +258,7 @@
             <g>
               <line x1="252" y1="172" x2="365" y2="392" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
               <rect class="chip-bg" x="122" y="150" width="130" height="44" rx="6"/>
-              <text class="chip-t" x="130" y="164">排气 DISCHARGE</text>
+              <text class="chip-t" x="130" y="164" data-i18n="chip_dis">排气 DISCHARGE</text>
               <text class="chip-v" id="cDisT" x="130" y="178">— °C</text>
               <text class="chip-v" id="cDisP" x="130" y="190" fill="#c4b5fd">— MPa</text>
             </g>
@@ -266,7 +266,7 @@
             <g>
               <line x1="252" y1="578" x2="307" y2="522" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
               <rect class="chip-bg" x="130" y="566" width="130" height="44" rx="6"/>
-              <text class="chip-t" x="138" y="580">回气 SUCTION</text>
+              <text class="chip-t" x="138" y="580" data-i18n="chip_suc">回气 SUCTION</text>
               <text class="chip-v" id="cSucT" x="138" y="594">— °C</text>
               <text class="chip-v" id="cSucP" x="138" y="606" fill="#c4b5fd">— MPa</text>
             </g>
@@ -274,7 +274,7 @@
             <g>
               <line x1="386" y1="580" x2="420" y2="540" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
               <rect class="chip-bg" x="380" y="566" width="140" height="44" rx="6"/>
-              <text class="chip-t" x="388" y="580">室外盘管 <tspan id="cOCRole">冷凝器</tspan></text>
+              <text class="chip-t" x="388" y="580"><tspan data-i18n="chip_outcoil">室外盘管</tspan> <tspan id="cOCRole">冷凝器</tspan></text>
               <text class="chip-v" id="cOCMid" x="388" y="594">中 — °C</text>
               <text class="chip-v" id="cOCOut" x="388" y="606">出 — °C</text>
               <text class="chip-v" id="cFrost" x="462" y="594" fill="#a5f3fc"></text>
@@ -282,67 +282,67 @@
             <!-- EXV 开度 -->
             <g>
               <rect class="chip-bg" x="462" y="368" width="96" height="30" rx="6"/>
-              <text class="chip-t" x="470" y="381">EXV 开度</text>
+              <text class="chip-t" x="470" y="381" data-i18n="chip_exv">EXV 开度</text>
               <text class="chip-v" id="cExv" x="470" y="393" fill="#67e8f9">— %</text>
             </g>
             <!-- 内盘 -->
             <g>
               <line x1="988" y1="300" x2="932" y2="248" stroke="#2a4a6e" stroke-width="1" stroke-dasharray="3 3"/>
               <rect class="chip-bg" x="984" y="292" width="140" height="44" rx="6"/>
-              <text class="chip-t" x="992" y="306">室内盘管 <tspan id="cICRole">蒸发器</tspan></text>
+              <text class="chip-t" x="992" y="306"><tspan data-i18n="chip_incoil">室内盘管</tspan> <tspan id="cICRole">蒸发器</tspan></text>
               <text class="chip-v" id="cICMid" x="992" y="320">中 — °C</text>
               <text class="chip-v" id="cICOut" x="992" y="332">出 — °C</text>
             </g>
             <!-- 出风 -->
             <g>
               <rect class="chip-bg" x="742" y="316" width="108" height="30" rx="6"/>
-              <text class="chip-t" x="750" y="329">内侧出风</text>
+              <text class="chip-t" x="750" y="329" data-i18n="chip_supply">内侧出风</text>
               <text class="chip-v" id="cSupply" x="750" y="341" fill="#fda4af">— °C</text>
             </g>
             <!-- 室温/回风 -->
             <g>
               <rect class="chip-bg" x="1012" y="228" width="112" height="30" rx="6"/>
-              <text class="chip-t" x="1020" y="241">回风 / 室温</text>
+              <text class="chip-t" x="1020" y="241" data-i18n="chip_room">回风 / 室温</text>
               <text class="chip-v" id="cRoom" x="1020" y="253" fill="#fda4af">— °C</text>
             </g>
             <!-- 室外环境 -->
             <g>
               <rect class="chip-bg" x="470" y="66" width="112" height="30" rx="6"/>
-              <text class="chip-t" x="478" y="79">室外环境</text>
+              <text class="chip-t" x="478" y="79" data-i18n="chip_amb">室外环境</text>
               <text class="chip-v" id="cAmb" x="478" y="91" fill="#fda4af">— °C</text>
             </g>
             <!-- 外机出风 -->
             <g>
               <rect class="chip-bg" x="14" y="572" width="106" height="30" rx="6"/>
-              <text class="chip-t" x="22" y="585">外机出风</text>
+              <text class="chip-t" x="22" y="585" data-i18n="chip_outair">外机出风</text>
               <text class="chip-v" id="cOutAir" x="22" y="597" fill="#fda4af">— °C</text>
             </g>
           </g>
         </svg>
         <div class="legend">
-          <span class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="none" stroke="#7dd3fc" stroke-width="1.6"/></svg>气态</span>
-          <span class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#7dd3fc"/></svg>液态</span>
-          <span class="li"><svg width="20" height="12"><circle cx="5" cy="6" r="3.5" fill="#7dd3fc"/><circle cx="14" cy="6" r="3.5" fill="none" stroke="#7dd3fc" stroke-width="1.5"/></svg>两相</span>
-          <span class="li"><svg width="34" height="12"><defs><linearGradient id="lgT" x1="0" x2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#f87171"/></linearGradient></defs><rect x="1" y="3" width="32" height="6" rx="3" fill="url(#lgT)"/></svg>颜色=温度</span>
-          <span class="li" style="color:var(--accent)">📌 点管路放图钉 · 点针移除 · 参数框可拖动</span>
+          <span class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="none" stroke="#7dd3fc" stroke-width="1.6"/></svg><span data-i18n="lg_gas">气态</span></span>
+          <span class="li"><svg width="12" height="12"><circle cx="6" cy="6" r="4" fill="#7dd3fc"/></svg><span data-i18n="lg_liq">液态</span></span>
+          <span class="li"><svg width="20" height="12"><circle cx="5" cy="6" r="3.5" fill="#7dd3fc"/><circle cx="14" cy="6" r="3.5" fill="none" stroke="#7dd3fc" stroke-width="1.5"/></svg><span data-i18n="lg_2ph">两相</span></span>
+          <span class="li"><svg width="34" height="12"><defs><linearGradient id="lgT" x1="0" x2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#f87171"/></linearGradient></defs><rect x="1" y="3" width="32" height="6" rx="3" fill="url(#lgT)"/></svg><span data-i18n="lg_color">颜色=温度</span></span>
+          <span class="li" style="color:var(--accent)" data-i18n="lg_pin">📌 点管路放图钉 · 点针移除 · 参数框可拖动</span>
         </div>
       </div>
 
       <!-- ============ 控制台 ============ -->
       <div class="panel" id="controls">
         <div class="ctl-head">
-          <span class="title">手动调节 · MANUAL CONTROL</span>
-          <span class="note" id="ctlNote">可单独或同时调节多个参数，系统将动态过渡到新工况</span>
+          <span class="title" data-i18n="ctl_title">手动调节 · MANUAL CONTROL</span>
+          <span class="note" id="ctlNote" data-i18n="ctl_note">可单独或同时调节多个参数，系统将动态过渡到新工况</span>
           <div class="run-mode">
-            <span class="rm-lbl">运行模式</span>
-            <span class="ut-seg"><button id="modeAuto" class="on">自动</button><button id="modeManual">手动</button></span>
+            <span class="rm-lbl" data-i18n="rm_label">运行模式</span>
+            <span class="ut-seg"><button id="modeAuto" class="on" data-i18n="rm_auto">自动</button><button id="modeManual" data-i18n="rm_manual">手动</button></span>
             <span id="manualBtns" style="display:none">
-              <button class="btn small" id="setBaseBtn">设为基准</button>
-              <button class="btn small ghost" id="pauseBtn">⏸ 暂停</button>
-              <button class="btn small ghost" id="clearBaseBtn">↺ 清除</button>
+              <button class="btn small" id="setBaseBtn" data-i18n="rm_setbase">设为基准</button>
+              <button class="btn small ghost" id="pauseBtn" data-i18n="rm_pause">⏸ 暂停</button>
+              <button class="btn small ghost" id="clearBaseBtn" data-i18n="rm_clear">↺ 清除</button>
             </span>
           </div>
-          <button id="resetBtn">恢复默认</button>
+          <button id="resetBtn" data-i18n="btn_reset">恢复默认</button>
         </div>
         <div class="sliders" id="sliders"></div>
       </div>
@@ -351,42 +351,43 @@
     <div class="col-right">
       <!-- ============ 压焓图 ============ -->
       <div class="panel" id="phPanel">
-        <div class="panel-title">压焓图 · P-h DIAGRAM <span id="phRef" style="color:#a78bfa;font-family:Consolas">R410A</span></div>
+        <div class="panel-title"><span data-i18n="pan_ph">压焓图 · P-h DIAGRAM</span> <span id="phRef" style="color:#a78bfa;font-family:Consolas">R410A</span></div>
         <canvas id="phCanvas" width="406" height="330"></canvas>
       </div>
 
       <!-- ============ 性能 ============ -->
       <div class="panel">
-        <div class="panel-title">系统性能 · PERFORMANCE</div>
+        <div class="panel-title" data-i18n="pan_perf">系统性能 · PERFORMANCE</div>
         <div id="stats">
-          <div class="stat"><div class="k" id="capLbl">制冷量</div><div class="v" id="stCap">—<small> kW</small></div></div>
-          <div class="stat"><div class="k">输入功率</div><div class="v" id="stPow">—<small> kW</small></div></div>
-          <div class="stat"><div class="k">COP</div><div class="v" id="stCop">—</div></div>
-          <div class="stat"><div class="k">质量流量</div><div class="v" id="stMdot">—<small> g/s</small></div></div>
-          <div class="stat"><div class="k">压比</div><div class="v" id="stPr">—</div></div>
+          <div class="stat"><div class="k" id="capLbl" data-i18n="st_cap_cool">制冷量</div><div class="v" id="stCap">—<small> kW</small></div></div>
+          <div class="stat"><div class="k" data-i18n="st_pow">输入功率</div><div class="v" id="stPow">—<small> kW</small></div></div>
+          <div class="stat"><div class="k" data-i18n="st_cop">COP</div><div class="v" id="stCop">—</div></div>
+          <div class="stat"><div class="k" data-i18n="st_mdot">质量流量</div><div class="v" id="stMdot">—<small> g/s</small></div></div>
+          <div class="stat"><div class="k" data-i18n="st_pr">压比</div><div class="v" id="stPr">—</div></div>
         </div>
       </div>
 
       <!-- ============ 测点 ============ -->
       <div class="panel">
-        <div class="panel-title">运行测点 · SENSORS</div>
+        <div class="panel-title" data-i18n="pan_sensors">运行测点 · SENSORS</div>
         <div id="sensorGrid"></div>
       </div>
     </div>
   </div>
 
-  <footer>基于简化稳态热力模型的教学演示 · 数值为定性参考，非选型依据 · R410A / R32 / R454B 物性为拟合近似</footer>
+  <footer data-i18n="sim_footer">基于简化稳态热力模型的教学演示 · 数值为定性参考，非选型依据 · R410A / R32 / R454B 物性为拟合近似</footer>
 </div>
 
-<script src="js/lib/config.js?v=215"></script>
+<script src="js/lib/config.js?v=216"></script>
+<script src="js/lib/i18n.js?v=216"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=215"></script>
-<script src="js/refprops.js?v=215"></script>
-<script src="js/model.js?v=215"></script>
-<script src="js/phdiagram.js?v=215"></script>
-<script src="js/scene.js?v=215"></script>
-<script src="js/sequence.js?v=215"></script>
-<script src="js/ui.js?v=215"></script>
-<script src="js/main.js?v=215"></script>
+<script src="js/lib/shell.js?v=216"></script>
+<script src="js/refprops.js?v=216"></script>
+<script src="js/model.js?v=216"></script>
+<script src="js/phdiagram.js?v=216"></script>
+<script src="js/scene.js?v=216"></script>
+<script src="js/sequence.js?v=216"></script>
+<script src="js/ui.js?v=216"></script>
+<script src="js/main.js?v=216"></script>
 </body>
 </html>

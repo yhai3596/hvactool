@@ -2,23 +2,23 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>风管设计 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=215">
-<link rel="stylesheet" href="css/site.css?v=215">
+<title data-i18n="du_pagetitle">风管设计 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=216">
+<link rel="stylesheet" href="css/site.css?v=216">
 </head>
 <body data-page="duct" data-units="1" class="tool-page">
 <div id="app">
   <!-- 尺寸设计 -->
   <div class="panel">
-    <div class="panel-title">风管尺寸设计 · SIZING（等摩阻法）</div>
+    <div class="panel-title" data-i18n="du_sizing">风管尺寸设计 · SIZING（等摩阻法）</div>
     <div class="panel-body">
       <div class="form-grid cols3" style="max-width:900px">
-        <div class="field"><label>风量（<span data-ul="flowA"></span>）</label><input id="szFlow" data-uk="flowA" type="number" step="any" value="3000"></div>
-        <div class="field"><label>设计比摩阻（<span data-ul="fricA"></span>）</label><input id="szR" data-uk="fricA" type="number" step="any" value="1.0"></div>
-        <div class="field"><label>空气温度（<span data-ul="temp"></span>）</label><input id="szT" data-uk="temp" type="number" step="any" value="20"></div>
+        <div class="field"><label><span data-i18n="du_flow">风量</span>（<span data-ul="flowA"></span>）</label><input id="szFlow" data-uk="flowA" type="number" step="any" value="3000"></div>
+        <div class="field"><label><span data-i18n="du_designR">设计比摩阻</span>（<span data-ul="fricA"></span>）</label><input id="szR" data-uk="fricA" type="number" step="any" value="1.0"></div>
+        <div class="field"><label><span data-i18n="du_airT">空气温度</span>（<span data-ul="temp"></span>）</label><input id="szT" data-uk="temp" type="number" step="any" value="20"></div>
       </div>
-      <div class="btn-row"><button class="btn" id="sizeBtn">选 型</button>
-        <span class="note" style="margin:0">镀锌钢板 ε=0.15 mm · 低速风管流速参考：干管 5~8 m/s (1000~1600 FPM)，支管 3~5 m/s</span>
+      <div class="btn-row"><button class="btn" id="sizeBtn" data-i18n="du_size_btn">选 型</button>
+        <span class="note" style="margin:0" data-i18n="du_size_note">镀锌钢板 ε=0.15 mm · 低速风管流速参考：干管 5~8 m/s (1000~1600 FPM)，支管 3~5 m/s</span>
       </div>
       <div id="sizeOut" style="margin-top:12px;display:none">
         <div class="kv-grid" id="szGrid"></div>
@@ -34,7 +34,7 @@
 
   <!-- 系统静压校核 -->
   <div class="panel" style="margin-top:10px">
-    <div class="panel-title">系统静压损失与机外静压校核 · ESP CHECK（最不利风路）</div>
+    <div class="panel-title" data-i18n="du_esp_check">系统静压损失与机外静压校核 · ESP CHECK（最不利风路）</div>
     <div class="panel-body">
       <div style="overflow-x:auto">
         <table class="data-table" id="segTable">
@@ -43,13 +43,13 @@
         </table>
       </div>
       <div class="btn-row">
-        <button class="btn small ghost" id="addSeg">＋ 添加管段</button>
-        <span class="note" style="margin:0">常用 K：90°圆弯(R/D=1) 0.22 · 矩形弯(带导流片) 0.15~0.35 · 三通直通 0.1~0.3 · 三通支管 0.5~1.5 · 渐扩 0.2~0.8 · 防火阀 0.5</span>
+        <button class="btn small ghost" id="addSeg" data-i18n="hy_add_seg">＋ 添加管段</button>
+        <span class="note" style="margin:0" data-i18n="du_k_note">常用 K：90°圆弯(R/D=1) 0.22 · 矩形弯(带导流片) 0.15~0.35 · 三通直通 0.1~0.3 · 三通支管 0.5~1.5 · 渐扩 0.2~0.8 · 防火阀 0.5</span>
       </div>
       <div class="form-grid cols3" style="margin-top:14px;max-width:900px">
-        <div class="field"><label>末端附加阻力（<span data-ul="paD"></span>）<span class="unit-hint">风口/过滤器/消声器等</span></label><input id="dpExtra" data-uk="paD" type="number" step="any" value="60"></div>
-        <div class="field"><label>风机机外静压 ESP（<span data-ul="paD"></span>）</label><input id="esp" data-uk="paD" type="number" step="any" value="200"></div>
-        <div class="field"><label>&nbsp;</label><button class="btn" id="checkBtn">校核并生成示意图</button></div>
+        <div class="field"><label><span data-i18n="du_dpextra">末端附加阻力</span>（<span data-ul="paD"></span>）<span class="unit-hint" data-i18n="du_dpextra_hint">风口/过滤器/消声器等</span></label><input id="dpExtra" data-uk="paD" type="number" step="any" value="60"></div>
+        <div class="field"><label><span data-i18n="du_esp">风机机外静压 ESP</span>（<span data-ul="paD"></span>）</label><input id="esp" data-uk="paD" type="number" step="any" value="200"></div>
+        <div class="field"><label>&nbsp;</label><button class="btn" id="checkBtn" data-i18n="du_check_btn">校核并生成示意图</button></div>
       </div>
       <div id="espBanner" class="result-banner" style="display:none;margin-top:12px"></div>
       <div class="kv-grid" id="resGrid" style="margin-top:10px"></div>
@@ -58,18 +58,19 @@
 
   <!-- 风管示意图 -->
   <div class="panel" style="margin-top:10px" id="diagPanel" hidden>
-    <div class="panel-title">风管系统示意图 · SCHEMATIC（最不利风路直线展开）</div>
+    <div class="panel-title" data-i18n="du_schematic">风管系统示意图 · SCHEMATIC（最不利风路直线展开）</div>
     <div class="panel-body" style="overflow-x:auto">
       <div id="diagBox"></div>
     </div>
   </div>
 </div>
 
-<script src="js/lib/config.js?v=215"></script>
-<script src="js/lib/units.js?v=215"></script>
+<script src="js/lib/config.js?v=216"></script>
+<script src="js/lib/i18n.js?v=216"></script>
+<script src="js/lib/units.js?v=216"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=215"></script>
-<script src="js/lib/api.js?v=215"></script>
+<script src="js/lib/shell.js?v=216"></script>
+<script src="js/lib/api.js?v=216"></script>
 <script>
 const $ = id => document.getElementById(id);
 const EPS = 0.15e-3;
@@ -116,14 +117,15 @@ function renderSizing() {
   if (!lastSizing) return;
   const { flow, tC, D } = lastSizing;
   const Q = flow / 3600;
-  let html = kv('理论直径', V('lenS', D * 1000, Units.sysOut === 'ip' ? 1 : 0), Units.u('lenS'), 'hl');
+  const T = window.T;
+  let html = kv(T('du_theo_d'), V('lenS', D * 1000, Units.sysOut === 'ip' ? 1 : 0), Units.u('lenS'), 'hl');
   for (const d of STD_ROUND.filter(d => Math.abs(d - D * 1000) / (D * 1000) < 0.35).slice(0, 3)) {
     const v = Q / (Math.PI * (d/1000) ** 2 / 4);
-    html += kv(`圆管 Φ${d}`, `${V('vel', v, 0)} ${Units.u('vel')}`, ` · ${V('fricA', frictionR(v, d/1000, tC))} ${Units.u('fricA')}`);
+    html += kv(`${T('du_round')} Φ${d}`, `${V('vel', v, 0)} ${Units.u('vel')}`, ` · ${V('fricA', frictionR(v, d/1000, tC))} ${Units.u('fricA')}`);
   }
   $('szGrid').innerHTML = html;
 
-  $('rectHead').innerHTML = `<th>矩形选项 宽×高 mm</th><th>当量直径 ${Units.u('lenS')}</th><th>流速 ${Units.u('vel')}</th><th>比摩阻 ${Units.u('fricA')}</th><th>长宽比</th>`;
+  $('rectHead').innerHTML = `<th>${T('du_rh_opt')}</th><th>${T('du_rh_de')} ${Units.u('lenS')}</th><th>${T('du_rh_v')} ${Units.u('vel')}</th><th>${T('du_rh_fric')} ${Units.u('fricA')}</th><th>${T('du_rh_ar')}</th>`;
   const rows = [];
   for (const h of STD_RECT) {
     if (h > D * 1000 * 2.2) continue;
@@ -141,14 +143,14 @@ function renderSizing() {
     const v = Q / (r.w / 1000 * r.h / 1000);
     const Rr = frictionR(Q / (Math.PI * r.de * r.de / 4), r.de, tC);
     return `<tr><td>${r.w} × ${r.h}</td><td>${V('lenS', r.de*1000, 0)}</td><td>${V('vel', v, 0)}</td><td>${V('fricA', Rr)}</td><td>${fmtN(r.w/r.h,2)}</td></tr>`;
-  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-faint)">无合适标准组合，请调整比摩阻</td></tr>';
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-faint)">${window.T('du_no_rect')}</td></tr>`;
   $('sizeOut').style.display = '';
 }
 
 /* ---- 静压校核（内部 SI）---- */
 let segs = [
-  { name: '主干管', flow: 3000, shape: 'rect', d: 400, a: 630, b: 250, len: 15, K: 0.9 },
-  { name: '支管', flow: 1000, shape: 'round', d: 250, a: 400, b: 200, len: 8, K: 1.8 },
+  { name: window.T('hy_seg_main'), flow: 3000, shape: 'rect', d: 400, a: 630, b: 250, len: 15, K: 0.9 },
+  { name: window.T('hy_seg_branch'), flow: 1000, shape: 'round', d: 250, a: 400, b: 200, len: 8, K: 1.8 },
 ];
 
 function segCalc(s, tC) {
@@ -175,14 +177,15 @@ const inLen = siv => Units.nice(Units.sysIn === 'ip' ? siv * 3.280839895 : siv);
 const inLenSI = v => Units.sysIn === 'ip' ? v / 3.280839895 : v;
 
 function renderTable() {
+  const T = window.T;
   $('segHead').innerHTML =
-    `<th>管段</th><th>风量 ${Units.uIn('flowA')}</th><th>形状</th><th>尺寸 ${Units.uIn('lenS')}</th><th>长度 ${Units.uIn('len')}</th><th>局部ΣK</th>` +
-    `<th>流速 ${Units.u('vel')}</th><th>比摩阻 ${Units.u('fricA')}</th><th>沿程 ${Units.u('paD')}</th><th>局部 ${Units.u('paD')}</th><th>小计 ${Units.u('paD')}</th><th></th>`;
+    `<th>${T('hy_h_seg')}</th><th>${T('du_h_flow')} ${Units.uIn('flowA')}</th><th>${T('du_h_shape')}</th><th>${T('du_h_size')} ${Units.uIn('lenS')}</th><th>${T('hy_h_len')} ${Units.uIn('len')}</th><th>${T('du_h_k')}</th>` +
+    `<th>${T('hy_h_v')} ${Units.u('vel')}</th><th>${T('hy_h_fric')} ${Units.u('fricA')}</th><th>${T('hy_h_dpf')} ${Units.u('paD')}</th><th>${T('hy_h_dpl')} ${Units.u('paD')}</th><th>${T('hy_h_sum')} ${Units.u('paD')}</th><th></th>`;
   const tb = $('segTable').querySelector('tbody');
   tb.innerHTML = segs.map((s, i) => `<tr data-i="${i}">
     <td><input data-k="name" type="text" value="${s.name}" style="width:76px;text-align:left"></td>
     <td><input data-k="flow" type="number" step="any" value="${inFlow(s.flow)}"></td>
-    <td><select data-k="shape"><option value="round"${s.shape==='round'?' selected':''}>圆</option><option value="rect"${s.shape==='rect'?' selected':''}>矩形</option></select></td>
+    <td><select data-k="shape"><option value="round"${s.shape==='round'?' selected':''}>${window.T('du_shape_round')}</option><option value="rect"${s.shape==='rect'?' selected':''}>${window.T('du_shape_rect')}</option></select></td>
     <td>${s.shape === 'round'
       ? `Φ<input data-k="d" type="number" step="any" value="${inMM(s.d)}" style="width:58px">`
       : `<input data-k="a" type="number" step="any" value="${inMM(s.a)}" style="width:54px">×<input data-k="b" type="number" step="any" value="${inMM(s.b)}" style="width:54px">`}</td>
@@ -222,7 +225,7 @@ function recalc() {
   });
 }
 
-$('addSeg').onclick = () => { segs.push({ name: '管段' + (segs.length + 1), flow: 1000, shape: 'rect', d: 250, a: 400, b: 200, len: 5, K: 0.5 }); renderTable(); };
+$('addSeg').onclick = () => { segs.push({ name: window.T('hy_seg_generic') + (segs.length + 1), flow: 1000, shape: 'rect', d: 250, a: 400, b: 200, len: 5, K: 0.5 }); renderTable(); };
 
 let lastCheck = null;
 $('checkBtn').onclick = () => {
@@ -240,17 +243,18 @@ function renderCheck() {
   const { duct, total, esp } = lastCheck;
   const marginPct = (esp - total) / total * 100;
   const ok = esp >= total * 1.1;
+  const T = window.T;
   $('resGrid').innerHTML =
-    kv('风管阻力合计', V('paD', duct, 1), Units.u('paD')) +
-    kv('系统总阻力', V('paD', total, 1), Units.u('paD'), 'hl') +
-    kv('风机机外静压', V('paD', esp, Units.sysOut === 'ip' ? 2 : 0), Units.u('paD')) +
-    kv('裕量', fmtN(marginPct, 1), '%', ok ? 'hl' : 'warn');
+    kv(T('du_r_ductsum'), V('paD', duct, 1), Units.u('paD')) +
+    kv(T('hy_r_dptotal'), V('paD', total, 1), Units.u('paD'), 'hl') +
+    kv(T('du_r_esp'), V('paD', esp, Units.sysOut === 'ip' ? 2 : 0), Units.u('paD')) +
+    kv(T('du_r_margin'), fmtN(marginPct, 1), '%', ok ? 'hl' : 'warn');
   const b = $('espBanner');
   b.style.display = '';
   b.className = 'result-banner' + (ok ? '' : (esp >= total ? ' warn' : ' bad'));
-  b.textContent = ok ? `✓ 机外静压满足，裕量 ${fmtN(marginPct,0)}%（建议 ≥10%）`
-    : esp >= total ? `⚠ 机外静压勉强够用（裕量 ${fmtN(marginPct,0)}% < 10%），建议复核局部阻力取值`
-    : `✗ 机外静压不足，缺 ${V('paD', total - esp, 0)} ${Units.u('paD')}：需增大风管尺寸、优化管路或选更高静压风机`;
+  b.textContent = ok ? `${T('du_esp_ok_pre')}${fmtN(marginPct,0)}${T('du_esp_ok_post')}`
+    : esp >= total ? `${T('du_esp_warn_pre')}${fmtN(marginPct,0)}${T('du_esp_warn_post')}`
+    : `${T('du_esp_bad_pre')}${V('paD', total - esp, 0)} ${Units.u('paD')}${T('du_esp_bad_post')}`;
 }
 
 /* ============ 风管示意图 ============ */
@@ -271,7 +275,7 @@ function drawDiagram() {
   for (let a = 0; a < 360; a += 90) {
     svg += `<path d="M${x+34},${cy} l${22*Math.cos((a+18)*Math.PI/180)},${22*Math.sin((a+18)*Math.PI/180)} A22,22 0 0 0 ${x+34+22*Math.cos((a-18)*Math.PI/180)},${cy+22*Math.sin((a-18)*Math.PI/180)} z" fill="${acc}" opacity=".5"/>`;
   }
-  svg += `<text x="${x+34}" y="${cy+52}" text-anchor="middle" font-size="11" fill="${txt}">风机</text>`;
+  svg += `<text x="${x+34}" y="${cy+52}" text-anchor="middle" font-size="11" fill="${txt}">${window.T('du_fan')}</text>`;
   svg += `<text x="${x+34}" y="${cy+66}" text-anchor="middle" font-size="10" fill="${num}">ESP ${V('paD', lastCheck.esp, 0)} ${Units.u('paD')}</text>`;
   x += 74;
 
@@ -294,7 +298,7 @@ function drawDiagram() {
     svg += `<text x="${x+w/2}" y="${cy-hb/2-12}" text-anchor="middle" font-size="10" fill="${txt}">${dim} ${Units.u('lenS')} · L=${V('len', s.len, 1)} ${Units.u('len')} · ΣK=${s.K}</text>`;
     // 下方标注：风量 / 流速 / 阻力
     svg += `<text x="${x+w/2}" y="${cy+hb/2+16}" text-anchor="middle" font-size="10" fill="${num}">${V('flowA', s.flow, 0)} ${Units.u('flowA')} · ${V('vel', r.v, 0)} ${Units.u('vel')}</text>`;
-    svg += `<text x="${x+w/2}" y="${cy+hb/2+30}" text-anchor="middle" font-size="10" fill="${over?hot:faint}">ΔP=${V('paD', r.sum, Units.sysOut==='ip'?3:1)} ${Units.u('paD')}${over?' ⚠超速':''}</text>`;
+    svg += `<text x="${x+w/2}" y="${cy+hb/2+30}" text-anchor="middle" font-size="10" fill="${over?hot:faint}">ΔP=${V('paD', r.sum, Units.sysOut==='ip'?3:1)} ${Units.u('paD')}${over?' '+window.T('du_over'):''}</text>`;
     x += w;
   });
 
@@ -303,9 +307,9 @@ function drawDiagram() {
   for (const dy of [-10, 0, 10]) {
     svg += `<path d="M${x+30},${cy+dy} h16 m0,0 l-5,-3.5 m5,3.5 l-5,3.5" stroke="${acc}" stroke-width="1.3" fill="none" opacity=".8"/>`;
   }
-  svg += `<text x="${x+16}" y="${cy+44}" text-anchor="middle" font-size="10" fill="${txt}">末端 +${V('paD', Units.toSI('paD', parseFloat($('dpExtra').value)||0), 0)} ${Units.u('paD')}</text>`;
+  svg += `<text x="${x+16}" y="${cy+44}" text-anchor="middle" font-size="10" fill="${txt}">${window.T('du_terminal')}${V('paD', Units.toSI('paD', parseFloat($('dpExtra').value)||0), 0)} ${Units.u('paD')}</text>`;
   // 汇总条
-  svg += `<text x="14" y="20" font-size="11" fill="${num}">系统总阻力 ${V('paD', lastCheck.total, 1)} ${Units.u('paD')} / ESP ${V('paD', lastCheck.esp, 0)} ${Units.u('paD')}（裕量 ${fmtN((lastCheck.esp-lastCheck.total)/lastCheck.total*100,0)}%）</text>`;
+  svg += `<text x="14" y="20" font-size="11" fill="${num}">${window.T('du_diag_total')} ${V('paD', lastCheck.total, 1)} ${Units.u('paD')} / ESP ${V('paD', lastCheck.esp, 0)} ${Units.u('paD')}${window.T('du_diag_margin_pre')}${fmtN((lastCheck.esp-lastCheck.total)/lastCheck.total*100,0)}${window.T('du_diag_margin_post')}</text>`;
   svg += `</svg>`;
 
   $('diagBox').innerHTML = svg;

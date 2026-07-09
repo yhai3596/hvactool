@@ -75,7 +75,7 @@ function loop(now) {
       App.flags.dripRate = 0;
       UI.paintButtons();
       UI.showSeq(null);
-      document.getElementById('procDesc').textContent = UI.PROC_DESC[back];
+      document.getElementById('procDesc').textContent = window.T ? T(UI.PROC_DESC[back]) : UI.PROC_DESC[back];
     }
   }
   App.inputsEff = Object.assign({}, App.inputs, ov);

@@ -34,8 +34,8 @@ const Units = (() => {
     volcap:{ si: 'kJ/m³', ip: 'Btu/ft³', f: 0.02683919 },
   };
 
-  let sysIn = localStorage.getItem('hvac-u-in') || 'si';
-  let sysOut = localStorage.getItem('hvac-u-out') || 'si';
+  let sysIn = localStorage.getItem('hvac-u-in') || 'ip';
+  let sysOut = localStorage.getItem('hvac-u-out') || 'ip';
   const cbIn = [], cbOut = [];
 
   function convert(kind, v, from, to) {
@@ -82,8 +82,8 @@ const Units = (() => {
     const div = document.createElement('span');
     div.id = 'unitToggle';
     div.innerHTML =
-      `<span class="ut-lbl">输入</span><span class="ut-seg" data-io="in"><button data-s="si">公制</button><button data-s="ip">美制</button></span>` +
-      `<span class="ut-lbl">输出</span><span class="ut-seg" data-io="out"><button data-s="si">公制</button><button data-s="ip">美制</button></span>`;
+      `<span class="ut-lbl" data-i18n="in_label">输入</span><span class="ut-seg" data-io="in"><button data-s="si" data-i18n="unit_si">公制</button><button data-s="ip" data-i18n="unit_ip">美制</button></span>` +
+      `<span class="ut-lbl" data-i18n="out_label">输出</span><span class="ut-seg" data-io="out"><button data-s="si" data-i18n="unit_si">公制</button><button data-s="ip" data-i18n="unit_ip">美制</button></span>`;
     container.appendChild(div);
     div.querySelectorAll('button').forEach(b => {
       b.onclick = () => (b.parentElement.dataset.io === 'in' ? setIn : setOut)(b.dataset.s);

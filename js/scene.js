@@ -61,7 +61,7 @@ const Scene = (() => {
   let route = [];        // [{pts,kind,len,start}]
   let routeLen = 0;
   let particles = [];    // {s}
-  const N_PART = 130;
+  const N_PART = 90;
   let partEls = [];
 
   function buildRoute(mode) {
@@ -117,6 +117,7 @@ const Scene = (() => {
   let snowFlakes = [], drips = [], steams = [], inStreaks = [], outStreaks = [], oilDots = [];
   let fanAngle = 0, swirlAngle = 0, hatchOff = 0, v4pos = 0, time = 0;
   let pins = [], unitIP = false;
+  let lastCompGlowO = '', lastSunO = '';
 
   function mk(tag, parent, attrs) {
     const el = document.createElementNS(SVGNS, tag);
@@ -185,7 +186,7 @@ const Scene = (() => {
     }
     updateV4(curRouteMode, dt);
 
-    // ---- 冷媒粒子（放慢约 60%，相态用形状+大小强化区分）----
+    // ---- 冷媒粒子（位置每帧更新；形状/颜色仅在相态切换或温度实质变化时重写，降低 SVG 重绘开销）----
     const baseV = clamp(10 + 700 * st.mdot, 5, 62);   // px/s
     for (let i = 0; i < N_PART; i++) {
       const p = particles[i];
@@ -194,24 +195,27 @@ const Scene = (() => {
       p.s = (p.s + baseV * mult * dt / routeLen) % 1;
       const pt = phaseTemp(rs.kind, rs.f, st);
       const el = partEls[i];
-      const c = tempColor(pt.t);
       el.setAttribute('cx', rs.x.toFixed(1));
       el.setAttribute('cy', rs.y.toFixed(1));
-      if (pt.ph === 'gas') {                 // 气态：空心环（大而通透）
-        el.setAttribute('r', 3.8);
-        el.setAttribute('fill', 'none');
-        el.setAttribute('stroke', c);
-        el.setAttribute('stroke-width', 2.1);
-        el.setAttribute('opacity', 0.95);
-      } else if (pt.ph === 'liq') {          // 液态：实心大点
-        el.setAttribute('r', 4.3);
-        el.setAttribute('fill', c);
-        el.setAttribute('stroke', 'none');
-        el.setAttribute('opacity', 1);
-      } else {                               // 两相：实心/空心交替的小点（明显区别于纯气纯液）
-        el.setAttribute('opacity', 0.95);
-        if (i % 2) { el.setAttribute('r', 3.4); el.setAttribute('fill', c); el.setAttribute('stroke', 'none'); }
-        else { el.setAttribute('r', 3); el.setAttribute('fill', 'none'); el.setAttribute('stroke', c); el.setAttribute('stroke-width', 1.8); }
+      const recolor = p.lastColT === undefined || Math.abs(pt.t - p.lastColT) > 0.8;
+      if (p.lastPh !== pt.ph || recolor) {
+        const c = tempColor(pt.t);
+        p.lastColT = pt.t;
+        if (pt.ph === 'gas') {                 // 气态：空心环
+          if (p.lastPh !== 'gas') { el.setAttribute('r', 3.8); el.setAttribute('fill', 'none'); el.setAttribute('stroke-width', 2.1); el.setAttribute('opacity', 0.95); }
+          el.setAttribute('stroke', c);
+        } else if (pt.ph === 'liq') {          // 液态：实心大点
+          if (p.lastPh !== 'liq') { el.setAttribute('r', 4.3); el.setAttribute('stroke', 'none'); el.setAttribute('opacity', 1); }
+          el.setAttribute('fill', c);
+        } else {                               // 两相：实心/空心交替
+          if (p.lastPh !== '2ph') {
+            el.setAttribute('opacity', 0.95);
+            if (i % 2) { el.setAttribute('r', 3.4); el.setAttribute('stroke', 'none'); }
+            else { el.setAttribute('r', 3); el.setAttribute('fill', 'none'); el.setAttribute('stroke-width', 1.8); }
+          }
+          if (i % 2) el.setAttribute('fill', c); else el.setAttribute('stroke', c);
+        }
+        p.lastPh = pt.ph;
       }
     }
 
@@ -231,7 +235,8 @@ const Scene = (() => {
     $('compSwirl').setAttribute('transform', `rotate(${swirlAngle.toFixed(1)} 360 478)`);
     const jit = 0.8 * Math.sin(time * hz * 0.55) * clamp(hz / 60, 0, 1.6);
     $('compBody').setAttribute('transform', `translate(${jit.toFixed(2)},0)`);
-    $('compGlow').setAttribute('opacity', (0.08 + 0.3 * hz / 120).toFixed(2));
+    const cgO = (0.08 + 0.3 * hz / 120).toFixed(2);
+    if (cgO !== lastCompGlowO) { $('compGlow').setAttribute('opacity', cgO); lastCompGlowO = cgO; }
     $('compHzTxt').textContent = hz.toFixed(0) + ' Hz';
 
     // ---- 风机 ----
@@ -252,14 +257,15 @@ const Scene = (() => {
     updateSteam(dt, fl.steam ? 1 : 0);
 
     // ---- 环境 ----
-    $('sun').setAttribute('opacity', clamp((inp.tOut - 24) / 10, 0, 0.9).toFixed(2));
+    const sunO = clamp((inp.tOut - 24) / 10, 0, 0.9).toFixed(2);
+    if (sunO !== lastSunO) { $('sun').setAttribute('opacity', sunO); lastSunO = sunO; }
     updateSnow(dt, inp.tOut);
     updateAir(dt, st, inp, fl);
     updateOil(dt, fl.oil, st);
 
     // ---- 场景水印 ----
-    const wm = { cooling: 'COOLING · 制冷运行', heating: 'HEATING · 制热运行', defrost: 'DEFROST · 化霜中', oilreturn: 'OIL RETURN · 回油运转' };
-    $('sceneMode').textContent = wm[fl.process] || '';
+    const wm = { cooling: 'wm_cooling', heating: 'wm_heating', defrost: 'wm_defrost', oilreturn: 'wm_oil' };
+    $('sceneMode').textContent = (window.T ? T(wm[fl.process]) : '') || '';
 
     updatePins(st);
   }
@@ -358,7 +364,7 @@ const Scene = (() => {
   }
 
   // ================= 运行图图钉 =================
-  const PH_NAME = { gas: '气态', liq: '液态', '2ph': '两相' };
+  const PH_NAME = { gas: 'lg_gas', liq: 'lg_liq', '2ph': 'lg_2ph' };
   // 压力口径：排气段=排气压力 Pd，冷凝/液管=冷凝压力 Pc，节流后/蒸发=蒸发压力 Pe，回气=回气压力 Ps
   function pressBy(kind, st) {
     return ({ dis: st.Pd, cond: st.Pc, liq: st.Pc, flash: st.Pe, evap: st.Pe, suc: st.Ps })[kind] || st.Pe;
@@ -433,7 +439,7 @@ const Scene = (() => {
       pin.box.setAttribute('x', bx.toFixed(1)); pin.box.setAttribute('y', by.toFixed(1));
       pin.lead.setAttribute('x1', ax.toFixed(1)); pin.lead.setAttribute('y1', (ay - 4).toFixed(1));
       pin.lead.setAttribute('x2', (bx + 41).toFixed(1)); pin.lead.setAttribute('y2', (by + 25).toFixed(1));
-      pin.t1.textContent = PH_NAME[pt.ph] || '';
+      pin.t1.textContent = (window.T ? window.T(PH_NAME[pt.ph]) : PH_NAME[pt.ph]) || '';
       pin.t2.textContent = fmtPinT(pt.t);
       pin.t3.textContent = fmtPinP(P);
       pin.t1.setAttribute('x', (bx + 7).toFixed(1)); pin.t1.setAttribute('y', (by + 16).toFixed(1));

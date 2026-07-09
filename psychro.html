@@ -2,58 +2,58 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>湿空气计算 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=215">
-<link rel="stylesheet" href="css/site.css?v=215">
+<title data-i18n="ps_pagetitle">湿空气计算 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=216">
+<link rel="stylesheet" href="css/site.css?v=216">
 </head>
 <body data-page="psychro" data-units="1" class="tool-page">
 <div id="app">
   <div class="tool-layout">
     <div>
       <div class="panel">
-        <div class="panel-title">湿空气状态 · MOIST AIR</div>
+        <div class="panel-title" data-i18n="ps_moist">湿空气状态 · MOIST AIR</div>
         <div class="panel-body">
           <div class="form-grid">
-            <div class="field"><label>大气压（<span data-ul="press"></span>）</label><input id="pAtm" data-uk="press" type="number" step="any" value="101.325"></div>
-            <div class="field"><label>或按海拔取压（<span data-ul="len"></span>）</label>
+            <div class="field"><label><span data-i18n="ps_patm">大气压</span>（<span data-ul="press"></span>）</label><input id="pAtm" data-uk="press" type="number" step="any" value="101.325"></div>
+            <div class="field"><label><span data-i18n="ps_alt">或按海拔取压</span>（<span data-ul="len"></span>）</label>
               <div class="field-inline">
-                <input id="alt" data-uk="len" type="number" step="any" placeholder="如 1600">
-                <button class="btn small ghost" id="altBtn">代入</button>
+                <input id="alt" data-uk="len" type="number" step="any" data-i18n-ph="ps_alt_ph" placeholder="如 1600">
+                <button class="btn small ghost" id="altBtn" data-i18n="ps_apply">代入</button>
               </div>
             </div>
-            <div class="field"><label>已知参数组合</label>
+            <div class="field"><label data-i18n="ps_combo_lbl">已知参数组合</label>
               <select id="combo">
-                <option value="tdb,rh">干球温度 + 相对湿度</option>
-                <option value="tdb,twb">干球温度 + 湿球温度</option>
-                <option value="tdb,tdp">干球温度 + 露点温度</option>
-                <option value="tdb,w">干球温度 + 含湿量</option>
-                <option value="tdb,h">干球温度 + 比焓</option>
-                <option value="twb,rh">湿球温度 + 相对湿度</option>
+                <option value="tdb,rh" data-i18n="ps_o_tdb_rh">干球温度 + 相对湿度</option>
+                <option value="tdb,twb" data-i18n="ps_o_tdb_twb">干球温度 + 湿球温度</option>
+                <option value="tdb,tdp" data-i18n="ps_o_tdb_tdp">干球温度 + 露点温度</option>
+                <option value="tdb,w" data-i18n="ps_o_tdb_w">干球温度 + 含湿量</option>
+                <option value="tdb,h" data-i18n="ps_o_tdb_h">干球温度 + 比焓</option>
+                <option value="twb,rh" data-i18n="ps_o_twb_rh">湿球温度 + 相对湿度</option>
               </select>
             </div>
             <div></div>
             <div class="field"><label id="lblA">—</label><input id="valA" type="number" step="any"></div>
             <div class="field"><label id="lblB">—</label><input id="valB" type="number" step="any"></div>
           </div>
-          <div class="btn-row"><button class="btn" id="calcBtn">计 算</button></div>
-          <div class="note">ASHRAE RP-1485 湿空气模型（CoolProp HAProps）。含湿量按干空气计；比焓基准 0°C 干空气（美制表册基准 0°F，绝对值有系统差，差值计算不受影响）。<br><b>图上交互</b>：直接点击右侧焓湿图任意位置取点（干球温度 + 含湿量）自动计算。</div>
+          <div class="btn-row"><button class="btn" id="calcBtn" data-i18n="pc_calc">计 算</button></div>
+          <div class="note" data-i18n-html="ps_note">ASHRAE RP-1485 湿空气模型（CoolProp HAProps）。含湿量按干空气计；比焓基准 0°C 干空气（美制表册基准 0°F，绝对值有系统差，差值计算不受影响）。<br><b>图上交互</b>：直接点击右侧焓湿图任意位置取点（干球温度 + 含湿量）自动计算。</div>
         </div>
       </div>
 
       <div class="panel" style="margin-top:10px">
-        <div class="panel-title">计算结果 · RESULT</div>
+        <div class="panel-title" data-i18n="pc_result">计算结果 · RESULT</div>
         <div class="panel-body"><div class="kv-grid" id="resGrid"></div></div>
       </div>
 
       <div class="panel" style="margin-top:10px">
-        <div class="panel-title">水蒸气饱和温压换算 · WATER SATURATION</div>
+        <div class="panel-title" data-i18n="ps_watersat">水蒸气饱和温压换算 · WATER SATURATION</div>
         <div class="panel-body">
           <div class="form-grid cols3">
-            <div class="field"><label>已知</label>
-              <select id="wsBy"><option value="T">温度 → 饱和压力</option><option value="P">压力 → 饱和温度</option></select>
+            <div class="field"><label data-i18n="ps_ws_by">已知</label>
+              <select id="wsBy"><option value="T" data-i18n="ps_ws_t2p">温度 → 饱和压力</option><option value="P" data-i18n="ps_ws_p2t">压力 → 饱和温度</option></select>
             </div>
-            <div class="field"><label id="wsLbl">温度</label><input id="wsVal" type="number" step="any" value="100"></div>
-            <div class="field"><label>&nbsp;</label><button class="btn small" id="wsBtn">换 算</button></div>
+            <div class="field"><label id="wsLbl" data-i18n="ps_ws_lbl_t">温度</label><input id="wsVal" type="number" step="any" value="100"></div>
+            <div class="field"><label>&nbsp;</label><button class="btn small" id="wsBtn" data-i18n="ps_ws_calc">换 算</button></div>
           </div>
           <div class="kv-grid" id="wsGrid" style="margin-top:10px"></div>
         </div>
@@ -61,33 +61,34 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">焓湿图（可点击取点） · PSYCHROMETRIC CHART</div>
+      <div class="panel-title" data-i18n="ps_chart">焓湿图（可点击取点） · PSYCHROMETRIC CHART</div>
       <canvas id="psyCv" width="560" height="640" style="width:100%;display:block;cursor:crosshair"></canvas>
     </div>
   </div>
 </div>
 
-<script src="js/lib/config.js?v=215"></script>
-<script src="js/lib/units.js?v=215"></script>
+<script src="js/lib/config.js?v=216"></script>
+<script src="js/lib/i18n.js?v=216"></script>
+<script src="js/lib/units.js?v=216"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=215"></script>
-<script src="js/lib/api.js?v=215"></script>
+<script src="js/lib/shell.js?v=216"></script>
+<script src="js/lib/api.js?v=216"></script>
 <script>
 const $ = id => document.getElementById(id);
 /* 组合项：kind 用于单位换算；默认值为 SI */
 const FIELDS = {
-  tdb: { label: '干球温度', kind: 'temp', def: 35 },
-  twb: { label: '湿球温度', kind: 'temp', def: 24 },
-  tdp: { label: '露点温度', kind: 'temp', def: 19 },
-  rh:  { label: '相对湿度（%）', kind: null, def: 40 },
-  w:   { label: '含湿量', kind: 'humr', def: 14 },
-  h:   { label: '比焓', kind: 'h', def: 70 },
+  tdb: { k: 'ps_f_tdb', kind: 'temp', def: 35 },
+  twb: { k: 'ps_f_twb', kind: 'temp', def: 24 },
+  tdp: { k: 'ps_f_tdp', kind: 'temp', def: 19 },
+  rh:  { k: 'ps_f_rh', kind: null, def: 40 },
+  w:   { k: 'ps_f_w', kind: 'humr', def: 14 },
+  h:   { k: 'ps_f_h', kind: 'h', def: 70 },
 };
 function setupCombo() {
   const [a, b] = $('combo').value.split(',');
   for (const [id, key] of [['A', a], ['B', b]]) {
     const f = FIELDS[key];
-    $('lbl' + id).innerHTML = f.kind ? `${f.label}（<span data-ul="${f.kind}"></span>）` : f.label;
+    $('lbl' + id).innerHTML = f.kind ? `<span>${window.T(f.k)}</span>（<span data-ul="${f.kind}"></span>）` : window.T(f.k);
     const el = $('val' + id);
     if (f.kind && Units.sysIn === 'ip') {
       const conv = { temp: v => v * 1.8 + 32, humr: v => v * 7, h: v => v * 0.4299226 };
@@ -135,18 +136,19 @@ $('calcBtn').onclick = () => {
 function render() {
   if (!last) return;
   const j = last;
+  const T = window.T;
   $('resGrid').innerHTML =
-    kv('干球温度 Tdb', V('temp', j.tdb), Units.u('temp'), 'hl') +
-    kv('湿球温度 Twb', V('temp', j.twb), Units.u('temp'), 'hl') +
-    kv('露点温度 Tdp', V('temp', j.tdp), Units.u('temp')) +
-    kv('相对湿度 RH', fmtN(j.rh, 1), '%', 'hl') +
-    kv('含湿量 W', V('humr', j.w), Units.u('humr')) +
-    kv('比焓 h', V('h', j.h), Units.u('h')) +
-    kv('比容 v', V('vspec', j.v, 4), Units.u('vspec')) +
-    kv('湿空气密度 ρ', V('rho', j.rho, 4), Units.u('rho')) +
-    kv('水蒸气分压', V('press', j.p_w, 3), Units.u('press')) +
-    kv('饱和水蒸气压@Tdb', V('press', j.p_ws, 3), Units.u('press')) +
-    kv('大气压', V('press', j.p, 2), Units.u('press'));
+    kv(T('ps_r_tdb'), V('temp', j.tdb), Units.u('temp'), 'hl') +
+    kv(T('ps_r_twb'), V('temp', j.twb), Units.u('temp'), 'hl') +
+    kv(T('ps_r_tdp'), V('temp', j.tdp), Units.u('temp')) +
+    kv(T('ps_r_rh'), fmtN(j.rh, 1), '%', 'hl') +
+    kv(T('ps_r_w'), V('humr', j.w), Units.u('humr')) +
+    kv(T('ps_r_h'), V('h', j.h), Units.u('h')) +
+    kv(T('ps_r_v'), V('vspec', j.v, 4), Units.u('vspec')) +
+    kv(T('ps_r_rho'), V('rho', j.rho, 4), Units.u('rho')) +
+    kv(T('ps_r_pw'), V('press', j.p_w, 3), Units.u('press')) +
+    kv(T('ps_r_pws'), V('press', j.p_ws, 3), Units.u('press')) +
+    kv(T('ps_r_patm'), V('press', j.p, 2), Units.u('press'));
 }
 
 /* ============ 焓湿图 ============ */
@@ -198,9 +200,9 @@ function drawChart() {
     ctx.fillText(Units.sysOut === 'ip' ? Math.round(w * 7) : w, W - CH.r + 6, Y(w) + 3);
   }
   ctx.fillStyle = cssv('--text-dim'); ctx.textAlign = 'center';
-  ctx.fillText(`干球温度 ${Units.u('temp')}`, (CH.l + W - CH.r) / 2, H - 6);
+  ctx.fillText(`${window.T('ps_f_tdb')} ${Units.u('temp')}`, (CH.l + W - CH.r) / 2, H - 6);
   ctx.save(); ctx.translate(W - 12, H / 2); ctx.rotate(Math.PI / 2);
-  ctx.fillText(`含湿量 ${Units.u('humr')}`, 0, 0); ctx.restore();
+  ctx.fillText(`${window.T('ps_f_w')} ${Units.u('humr')}`, 0, 0); ctx.restore();
 
   // 等焓线（20~110 kJ/kg）
   ctx.strokeStyle = cTxt; ctx.lineWidth = 1; ctx.setLineDash([2, 5]); ctx.globalAlpha = .45;
@@ -286,7 +288,7 @@ cv.addEventListener('click', ev => {
 /* 水蒸气饱和 */
 $('wsBy').onchange = () => {
   const t = $('wsBy').value === 'T';
-  $('wsLbl').innerHTML = t ? '温度（<span data-ul="temp"></span>）' : '压力（绝对，<span data-ul="press"></span>）';
+  $('wsLbl').innerHTML = `<span>${window.T(t ? 'ps_ws_lbl_t' : 'ps_ws_lbl_p')}</span>（<span data-ul="${t ? 'temp' : 'press'}"></span>）`;
   $('wsVal').dataset.uk = t ? 'temp' : 'press';
   $('wsVal').value = t ? Units.nice(Units.sysIn === 'ip' ? 212 : 100) : Units.nice(Units.sysIn === 'ip' ? 14.696 : 101.325);
   Units.relabel();
@@ -296,8 +298,8 @@ $('wsBtn').onclick = async () => {
     const t = $('wsBy').value === 'T';
     const j = await api('/api/watersat', { by: $('wsBy').value, value: Units.toSI(t ? 'temp' : 'press', parseFloat($('wsVal').value)) });
     $('wsGrid').innerHTML = j.p_sat !== undefined
-      ? kv('饱和压力', V('press', j.p_sat, 3), Units.u('press'), 'hl') + kv('对应温度', V('temp', j.t), Units.u('temp'))
-      : kv('饱和温度', V('temp', j.t_sat), Units.u('temp'), 'hl') + kv('对应压力', V('press', j.p, 3), Units.u('press'));
+      ? kv(window.T('ps_ws_psat'), V('press', j.p_sat, 3), Units.u('press'), 'hl') + kv(window.T('ps_ws_t'), V('temp', j.t), Units.u('temp'))
+      : kv(window.T('ps_ws_tsat'), V('temp', j.t_sat), Units.u('temp'), 'hl') + kv(window.T('ps_ws_p'), V('press', j.p, 3), Units.u('press'));
   } catch (e) { toast(e.message, true); }
 };
 

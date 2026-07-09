@@ -64,9 +64,9 @@ const PH = (() => {
       ctx.fillText(hLabel(h), X(h), H - MG.b + 13);
     }
     ctx.fillStyle = '#b8d4ec'; ctx.textAlign = 'center';
-    ctx.fillText(unitIP ? 'h  比焓 Btu/lb' : 'h  比焓 kJ/kg', (MG.l + W - MG.r) / 2, H - 6);
+    ctx.fillText((window.T ? window.T('ph_h') : 'h  比焓') + (unitIP ? '  Btu/lb' : '  kJ/kg'), (MG.l + W - MG.r) / 2, H - 6);
     ctx.save(); ctx.translate(12, (MG.t + H - MG.b) / 2); ctx.rotate(-Math.PI / 2);
-    ctx.fillText(unitIP ? 'P  绝对压力 psi (log)' : 'P  绝对压力 MPa (log)', 0, 0); ctx.restore();
+    ctx.fillText((window.T ? window.T('ph_p') : 'P  绝对压力') + (unitIP ? '  psi (log)' : '  MPa (log)'), 0, 0); ctx.restore();
 
     // ---- 等温线 ----
     ctx.strokeStyle = 'rgba(150,180,215,0.40)';
@@ -137,7 +137,7 @@ const PH = (() => {
     ctx.shadowBlur = 0;
 
     // 状态点
-    const pts = [[p1, '1', '吸气'], [p2, '2', '排气'], [p3, '3', '冷凝出'], [p4, '4', '蒸发进']];
+    const pts = [[p1, '1', window.T ? window.T('pt_suction') : '吸气'], [p2, '2', window.T ? window.T('pt_discharge') : '排气'], [p3, '3', window.T ? window.T('pt_condout') : '冷凝出'], [p4, '4', window.T ? window.T('pt_evapin') : '蒸发进']];
     ctx.font = 'bold 11px Consolas';
     for (const [p, n, lbl] of pts) {
       ctx.fillStyle = '#fff7e0';

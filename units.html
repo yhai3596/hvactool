@@ -2,20 +2,20 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>单位换算 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=215">
-<link rel="stylesheet" href="css/site.css?v=215">
+<title data-i18n="uc_pagetitle">单位换算 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=216">
+<link rel="stylesheet" href="css/site.css?v=216">
 </head>
 <body data-page="units" class="tool-page">
 <div id="app">
   <div class="panel">
-    <div class="panel-title">美制 / 公制单位换算 · UNIT CONVERTER</div>
+    <div class="panel-title" data-i18n="uc_title">美制 / 公制单位换算 · UNIT CONVERTER</div>
     <div class="panel-body">
       <div class="auth-tabs" id="catTabs" style="flex-wrap:wrap"></div>
       <div class="form-grid cols3" style="max-width:720px">
-        <div class="field"><label>数值</label><input id="val" type="number" step="any" value="1"></div>
-        <div class="field"><label>单位</label><select id="from"></select></div>
-        <div class="field"><label>&nbsp;</label><div style="font-size:11px;color:#4b6f94;padding-top:8px">输入即时换算 ↓</div></div>
+        <div class="field"><label data-i18n="uc_value">数值</label><input id="val" type="number" step="any" value="1"></div>
+        <div class="field"><label data-i18n="uc_unit">单位</label><select id="from"></select></div>
+        <div class="field"><label>&nbsp;</label><div style="font-size:11px;color:#4b6f94;padding-top:8px" data-i18n="uc_live">输入即时换算 ↓</div></div>
       </div>
       <div class="kv-grid" id="out" style="margin-top:14px"></div>
       <div class="note" id="catNote"></div>
@@ -23,10 +23,11 @@
   </div>
 </div>
 
-<script src="js/lib/config.js?v=215"></script>
+<script src="js/lib/config.js?v=216"></script>
+<script src="js/lib/i18n.js?v=216"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=215"></script>
-<script src="js/lib/api.js?v=215"></script>
+<script src="js/lib/shell.js?v=216"></script>
+<script src="js/lib/api.js?v=216"></script>
 <script>
 const $ = id => document.getElementById(id);
 /* 每类以首个单位为基准；factor = 1 基准单位等于多少该单位（即 v_base * factor = v_unit） */
@@ -44,18 +45,24 @@ const CATS = {
   '密度': { note: '', units: { 'kg/m³': 1, 'g/cm³': 0.001, 'lb/ft³': 0.06242796058 } },
   '传热系数': { note: 'U 值换算', units: { 'W/(m²·K)': 1, 'Btu/(h·ft²·°F)': 0.1761101838, 'kcal/(h·m²·°C)': 0.8598452279 } },
 };
+/* 分类内部键（中文）→ i18n 显示键；note 同理 */
+const CAT_LABEL = { '长度':'uc_len','面积':'uc_area','体积':'uc_vol','质量':'uc_mass','温度':'uc_temp','压力':'uc_press','体积流量':'uc_flow','流速':'uc_vel','功率 / 冷量':'uc_power','能量':'uc_energy','密度':'uc_density','传热系数':'uc_uvalue' };
+const CAT_NOTE = { '压力':'uc_note_press','功率 / 冷量':'uc_note_power','能量':'uc_note_energy','传热系数':'uc_note_uvalue' };
+/* 单位键含中文注释 → 英文显示（中文时保留原键，故仅需 EN 映射） */
+const UNIT_EN = { 'in 英寸':'in (inch)','ft 英尺':'ft (foot)','yd 码':'yd (yard)','mile 英里':'mile','acre 英亩':'acre','亩':'mu (Chinese)','gal 美加仑':'gal (US)','qt 美夸脱':'qt (US)','fl oz 美液盎司':'fl oz (US)','t 公吨':'t (tonne)','lb 磅':'lb (pound)','oz 盎司':'oz (ounce)','short ton 美吨':'short ton (US)','GPM 美加仑/分':'GPM (US)','mph 英里/时':'mph','RT 美制冷吨':'RT (refrig. ton)','HP 马力':'HP (horsepower)','ton·h 冷吨时':'ton·h (refrig.)' };
+const uDisp = u => (window.I18N.lang() === 'en' && UNIT_EN[u]) ? UNIT_EN[u] : u;
 
 let cat = '长度';
 function renderTabs() {
   $('catTabs').innerHTML = Object.keys(CATS).map(c =>
-    `<button class="${c===cat?'on':''}" data-c="${c}" style="flex:none;padding:7px 14px;font-size:12px;letter-spacing:1px">${c}</button>`).join('');
+    `<button class="${c===cat?'on':''}" data-c="${c}" style="flex:none;padding:7px 14px;font-size:12px;letter-spacing:1px">${window.T(CAT_LABEL[c])}</button>`).join('');
   $('catTabs').querySelectorAll('button').forEach(b => b.onclick = () => { cat = b.dataset.c; renderTabs(); renderFrom(); calc(); });
 }
 function renderFrom() {
   const c = CATS[cat];
   const list = c.special ? c.units : Object.keys(c.units);
-  $('from').innerHTML = list.map(u => `<option>${u}</option>`).join('');
-  $('catNote').textContent = c.note || '';
+  $('from').innerHTML = list.map(u => `<option value="${u}">${uDisp(u)}</option>`).join('');
+  $('catNote').textContent = CAT_NOTE[cat] ? window.T(CAT_NOTE[cat]) : '';
 }
 function tempToC(v, u) {
   if (u === '°C') return v;
@@ -85,13 +92,13 @@ function calc() {
     const cv = tempToC(v, from);
     for (const u of c.units) {
       if (u === from) continue;
-      html += `<div class="kv"><div class="k">${u}</div><div class="v">${fmtSmart(tempFromC(cv, u))}</div></div>`;
+      html += `<div class="kv"><div class="k">${uDisp(u)}</div><div class="v">${fmtSmart(tempFromC(cv, u))}</div></div>`;
     }
   } else {
     const base = v / c.units[from];
     for (const [u, f] of Object.entries(c.units)) {
       if (u === from) continue;
-      html += `<div class="kv"><div class="k">${u}</div><div class="v">${fmtSmart(base * f)}</div></div>`;
+      html += `<div class="kv"><div class="k">${uDisp(u)}</div><div class="v">${fmtSmart(base * f)}</div></div>`;
     }
   }
   $('out').innerHTML = html;

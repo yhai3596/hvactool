@@ -2,42 +2,42 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>压焓在线计算 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=215">
-<link rel="stylesheet" href="css/site.css?v=215">
+<title data-i18n="pc_pagetitle">压焓在线计算 · HVAC 工具站</title>
+<link rel="stylesheet" href="css/style.css?v=216">
+<link rel="stylesheet" href="css/site.css?v=216">
 </head>
 <body data-page="phcalc" data-units="1" class="tool-page">
 <div id="app">
   <div class="tool-layout">
     <div>
       <div class="panel">
-        <div class="panel-title">循环工况输入 · CYCLE INPUT</div>
+        <div class="panel-title" data-i18n="pc_input">循环工况输入 · CYCLE INPUT</div>
         <div class="panel-body">
           <div class="form-grid">
-            <div class="field"><label>冷媒</label><select id="fluid"></select></div>
-            <div class="field"><label>输入方式</label>
-              <select id="byMode"><option value="P">蒸发 / 冷凝压力</option><option value="T">蒸发 / 冷凝温度</option></select>
+            <div class="field"><label data-i18n="pc_f_fluid">冷媒</label><select id="fluid"></select></div>
+            <div class="field"><label data-i18n="pc_f_mode">输入方式</label>
+              <select id="byMode"><option value="P" data-i18n="pc_opt_p">蒸发 / 冷凝压力</option><option value="T" data-i18n="pc_opt_t">蒸发 / 冷凝温度</option></select>
             </div>
-            <div class="field"><label id="lblPe">蒸发压力（绝对，<span data-ul="press"></span>）</label><input id="pe" data-uk="press" type="number" step="any" value="1085"></div>
-            <div class="field"><label id="lblPc">冷凝压力（绝对，<span data-ul="press"></span>）</label><input id="pc" data-uk="press" type="number" step="any" value="2735"></div>
-            <div class="field"><label>吸气过热度（<span data-ul="dtemp"></span>）</label><input id="sh" data-uk="dtemp" type="number" step="any" value="5"></div>
-            <div class="field"><label>过冷度（<span data-ul="dtemp"></span>）</label><input id="sc" data-uk="dtemp" type="number" step="any" value="5"></div>
-            <div class="field"><label>压缩等熵效率</label><input id="eff" type="number" step="0.01" min="0.3" max="1" value="0.70"></div>
-            <div class="field"><label>质量流量（<span data-ul="mflow"></span>，选填）</label><input id="mdot" data-uk="mflow" type="number" step="any" placeholder="填写后给出能力"></div>
+            <div class="field"><label id="lblPe"><span data-i18n="pc_lbl_pe">蒸发压力，绝对</span>（<span data-ul="press"></span>）</label><input id="pe" data-uk="press" type="number" step="any" value="1085"></div>
+            <div class="field"><label id="lblPc"><span data-i18n="pc_lbl_pc">冷凝压力，绝对</span>（<span data-ul="press"></span>）</label><input id="pc" data-uk="press" type="number" step="any" value="2735"></div>
+            <div class="field"><label><span data-i18n="pc_f_sh">吸气过热度</span>（<span data-ul="dtemp"></span>）</label><input id="sh" data-uk="dtemp" type="number" step="any" value="5"></div>
+            <div class="field"><label><span data-i18n="pc_f_sc">过冷度</span>（<span data-ul="dtemp"></span>）</label><input id="sc" data-uk="dtemp" type="number" step="any" value="5"></div>
+            <div class="field"><label data-i18n="pc_f_eff">压缩等熵效率</label><input id="eff" type="number" step="0.01" min="0.3" max="1" value="0.70"></div>
+            <div class="field"><label><span data-i18n="pc_f_mdot">质量流量</span>（<span data-ul="mflow"></span>，<span data-i18n="pc_f_opt">选填</span>）</label><input id="mdot" data-uk="mflow" type="number" step="any" data-i18n-ph="pc_mdot_ph" placeholder="填写后给出能力"></div>
           </div>
-          <div class="btn-row"><button class="btn" id="calcBtn">计 算</button></div>
-          <div class="note">按理论单级蒸气压缩循环：1 吸气 → 2 排气（等熵效率修正）→ 3 冷凝出口 → 4 节流。混合冷媒蒸发温度按露点、冷凝温度按泡点。<br>
+          <div class="btn-row"><button class="btn" id="calcBtn" data-i18n="pc_calc">计 算</button></div>
+          <div class="note" data-i18n-html="pc_note">按理论单级蒸气压缩循环：1 吸气 → 2 排气（等熵效率修正）→ 3 冷凝出口 → 4 节流。混合冷媒蒸发温度按露点、冷凝温度按泡点。<br>
           <b>图上交互</b>：直接拖动压焓图中的状态点 —— 拖 <b>点1/点4</b> 上下改蒸发压力、拖 <b>点2/点3</b> 上下改冷凝压力；拖 <b>点1</b> 左右改过热度、拖 <b>点3</b> 左右改过冷度，松手自动精算。</div>
         </div>
       </div>
 
       <div class="panel" style="margin-top:10px">
-        <div class="panel-title">计算结果 · RESULT</div>
+        <div class="panel-title" data-i18n="pc_result">计算结果 · RESULT</div>
         <div class="panel-body">
           <div class="kv-grid" id="resGrid"></div>
           <div style="overflow-x:auto;margin-top:12px">
             <table class="data-table" id="ptTable" style="display:none">
-              <thead><tr><th>状态点</th><th id="thT">T</th><th id="thP">P</th><th id="thH">h</th><th>备注</th></tr></thead>
+              <thead><tr><th data-i18n="pc_th_state">状态点</th><th id="thT">T</th><th id="thP">P</th><th id="thH">h</th><th data-i18n="pc_th_note">备注</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -46,17 +46,18 @@
     </div>
 
     <div class="panel">
-      <div class="panel-title">压焓图（可拖拽） · INTERACTIVE P-h <span id="phTag" style="color:#a78bfa;font-family:Consolas"></span></div>
+      <div class="panel-title"><span data-i18n="pc_chart">压焓图（可拖拽） · INTERACTIVE P-h</span> <span id="phTag" style="color:#a78bfa;font-family:Consolas"></span></div>
       <canvas id="phCv" width="560" height="620" style="width:100%;display:block;cursor:crosshair"></canvas>
     </div>
   </div>
 </div>
 
-<script src="js/lib/config.js?v=215"></script>
-<script src="js/lib/units.js?v=215"></script>
+<script src="js/lib/config.js?v=216"></script>
+<script src="js/lib/i18n.js?v=216"></script>
+<script src="js/lib/units.js?v=216"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=215"></script>
-<script src="js/lib/api.js?v=215"></script>
+<script src="js/lib/shell.js?v=216"></script>
+<script src="js/lib/api.js?v=216"></script>
 <script>
 const $ = id => document.getElementById(id);
 const FLUIDS = ['R410A','R32','R454B','R134a','R290','R404A','R407C','R22','R1234yf','R600a','R717','R744'];
@@ -69,8 +70,9 @@ let cpv = 1.1, cpl = 1.6, wEst = 35;
 
 $('byMode').onchange = () => {
   const byT = $('byMode').value === 'T';
-  $('lblPe').innerHTML = byT ? '蒸发温度（露点，<span data-ul="temp"></span>）' : '蒸发压力（绝对，<span data-ul="press"></span>）';
-  $('lblPc').innerHTML = byT ? '冷凝温度（泡点，<span data-ul="temp"></span>）' : '冷凝压力（绝对，<span data-ul="press"></span>）';
+  const uP = byT ? 'temp' : 'press';
+  $('lblPe').innerHTML = `<span>${window.T(byT ? 'pc_lbl_te' : 'pc_lbl_pe')}</span>（<span data-ul="${uP}"></span>）`;
+  $('lblPc').innerHTML = `<span>${window.T(byT ? 'pc_lbl_tc' : 'pc_lbl_pc')}</span>（<span data-ul="${uP}"></span>）`;
   $('pe').dataset.uk = byT ? 'temp' : 'press';
   $('pc').dataset.uk = byT ? 'temp' : 'press';
   $('pe').value = Units.nice(byT ? cvIn('temp', 10) : cvIn('press', 1085));
@@ -140,33 +142,34 @@ $('calcBtn').onclick = () => doCalc(false);
 function renderResults() {
   if (!lastRes) return;
   const j = lastRes;
+  const T = window.T;
   $('resGrid').innerHTML =
-    kv('蒸发温度(露点)', V('temp', j.t_evap_dew), Units.u('temp')) +
-    kv('冷凝温度(泡点)', V('temp', j.t_cond_bubble), Units.u('temp')) +
-    kv('单位制冷量', V('h', j.qe), Units.u('h'), 'hl') +
-    kv('单位制热量', V('h', j.qc), Units.u('h')) +
-    kv('单位压缩功', V('h', j.w), Units.u('h')) +
-    kv('制冷 COP', fmtN(j.cop_c, 2), '', 'hl') +
-    kv('制热 COP', fmtN(j.cop_h, 2)) +
-    kv('压比', fmtN(j.pr, 2)) +
-    kv('排气温度', V('temp', j.points['2'].T, 1), Units.u('temp'), j.points['2'].T > 110 ? 'warn' : '') +
-    kv('吸气密度', V('rho', j.rho_suction), Units.u('rho')) +
-    kv('容积制冷量', V('volcap', j.vol_capacity, 0), Units.u('volcap')) +
+    kv(T('pc_r_tevap'), V('temp', j.t_evap_dew), Units.u('temp')) +
+    kv(T('pc_r_tcond'), V('temp', j.t_cond_bubble), Units.u('temp')) +
+    kv(T('pc_r_qe'), V('h', j.qe), Units.u('h'), 'hl') +
+    kv(T('pc_r_qc'), V('h', j.qc), Units.u('h')) +
+    kv(T('pc_r_w'), V('h', j.w), Units.u('h')) +
+    kv(T('pc_r_copc'), fmtN(j.cop_c, 2), '', 'hl') +
+    kv(T('pc_r_coph'), fmtN(j.cop_h, 2)) +
+    kv(T('pc_r_pr'), fmtN(j.pr, 2)) +
+    kv(T('pc_r_td'), V('temp', j.points['2'].T, 1), Units.u('temp'), j.points['2'].T > 110 ? 'warn' : '') +
+    kv(T('pc_r_rho'), V('rho', j.rho_suction), Units.u('rho')) +
+    kv(T('pc_r_volcap'), V('volcap', j.vol_capacity, 0), Units.u('volcap')) +
     (j.Qe_kW !== undefined
-      ? kv('制冷能力', V('power', j.Qe_kW, Units.sysOut === 'ip' ? 0 : 2), Units.u('power'), 'hl') +
-        kv('制热能力', V('power', j.Qc_kW, Units.sysOut === 'ip' ? 0 : 2), Units.u('power')) +
-        kv('压缩理论功率', V('power', j.W_kW, Units.sysOut === 'ip' ? 0 : 2), Units.u('power'))
+      ? kv(T('pc_r_capc'), V('power', j.Qe_kW, Units.sysOut === 'ip' ? 0 : 2), Units.u('power'), 'hl') +
+        kv(T('pc_r_caph'), V('power', j.Qc_kW, Units.sysOut === 'ip' ? 0 : 2), Units.u('power')) +
+        kv(T('pc_r_wpower'), V('power', j.W_kW, Units.sysOut === 'ip' ? 0 : 2), Units.u('power'))
       : '');
   $('thT').textContent = 'T ' + Units.u('temp');
   $('thP').textContent = 'P ' + Units.u('press');
   $('thH').textContent = 'h ' + Units.u('h');
   const P = j.points;
   const rows = [
-    ['1 吸气', P['1'], `过热 ${fmtN(Units.val('dtemp', cur.sh),1)} ${Units.u('dtemp')}`],
-    ['2s 等熵排气', P['2s'], '理想压缩'],
-    ['2 实际排气', P['2'], `η=${$('eff').value}`],
-    ['3 冷凝出口', P['3'], `过冷 ${fmtN(Units.val('dtemp', cur.sc),1)} ${Units.u('dtemp')}`],
-    ['4 蒸发入口', P['4'], P['4'].x != null ? `干度 x=${fmtN(P['4'].x,3)}` : ''],
+    [`1 ${T('pc_pt1')}`, P['1'], `${T('pc_n_sh')} ${fmtN(Units.val('dtemp', cur.sh),1)} ${Units.u('dtemp')}`],
+    [`2s ${T('pc_pt2s')}`, P['2s'], T('pc_n_ideal')],
+    [`2 ${T('pc_pt2')}`, P['2'], `η=${$('eff').value}`],
+    [`3 ${T('pc_pt3')}`, P['3'], `${T('pc_n_sc')} ${fmtN(Units.val('dtemp', cur.sc),1)} ${Units.u('dtemp')}`],
+    [`4 ${T('pc_pt4')}`, P['4'], P['4'].x != null ? `${T('pc_n_x')}${fmtN(P['4'].x,3)}` : ''],
   ];
   $('ptTable').querySelector('tbody').innerHTML = rows.map(([n, p, note]) =>
     `<tr><td>${n}</td><td>${V('temp', p.T)}</td><td>${V('press', p.P, 1)}</td><td>${V('h', p.h)}</td><td style="text-align:left;color:var(--text-dim)">${note}</td></tr>`).join('');
@@ -254,9 +257,9 @@ function draw(approx) {
     ctx.fillText(Units.sysOut === 'ip' ? fmtN(h * 0.4299226, 0) : h, X(h), H - MG.b + 13);
   }
   ctx.fillStyle = cssv('--text-dim'); ctx.textAlign = 'center';
-  ctx.fillText(`h 比焓 ${Units.u('h')} (IIR)`, (MG.l+W-MG.r)/2, H - 8);
+  ctx.fillText(`${window.T('ph_h')} ${Units.u('h')} (IIR)`, (MG.l+W-MG.r)/2, H - 8);
   ctx.save(); ctx.translate(12, H/2); ctx.rotate(-Math.PI/2);
-  ctx.fillText(`P 绝对压力 ${Units.u('press')} (log)`, 0, 0); ctx.restore();
+  ctx.fillText(`${window.T('ph_p')} ${Units.u('press')} (log)`, 0, 0); ctx.restore();
 
   // 穹顶
   ctx.beginPath();
@@ -282,7 +285,7 @@ function draw(approx) {
   }
 
   // 手柄
-  const lbl = { '1': '1 吸气', '2': '2 排气', '3': '3 冷凝出', '4': '4 蒸发进' };
+  const lbl = { '1': `1 ${window.T('pt_suction')}`, '2': `2 ${window.T('pt_discharge')}`, '3': `3 ${window.T('pt_condout')}`, '4': `4 ${window.T('pt_evapin')}` };
   handles = {};
   for (const k of ['1', '2', '3', '4']) {
     const p = pts[k];
@@ -312,7 +315,7 @@ function draw(approx) {
       ctx.beginPath(); ctx.roundRect(bx, by, 160, 40, 5); ctx.fill(); ctx.stroke();
       ctx.fillStyle = cssv('--num'); ctx.textAlign = 'left'; ctx.font = '10px Consolas';
       ctx.fillText(`h ${V('h', h)} ${Units.u('h')}  P ${V('press', p, 0)} ${Units.u('press')}`, bx + 8, by + 15);
-      ctx.fillText(`Tsat(露点) ${V('temp', tdew, 1)} ${Units.u('temp')}`, bx + 8, by + 30);
+      ctx.fillText(`${window.T('pc_tsat')} ${V('temp', tdew, 1)} ${Units.u('temp')}`, bx + 8, by + 30);
     }
   }
 }

@@ -11,15 +11,15 @@ const UI = (() => {
   };
 
   const SLIDERS = [
-    { k: 'comp', label: '压缩机转速', min: 20, max: 120, step: 1, unit: 'Hz' },
-    { k: 'fanIn', label: '内风机', min: 0, max: 100, step: 1, unit: '%' },
-    { k: 'fanOut', label: '外风机', min: 0, max: 100, step: 1, unit: '%' },
-    { k: 'exv', label: 'EXV 开度', min: 5, max: 100, step: 1, unit: '%', extra: v => Math.round(v * 4.8) + 'P' },
-    { k: 'charge', label: '冷媒量', min: 40, max: 130, step: 1, unit: '%' },
-    { k: 'hxIn', label: '内换热器', min: 50, max: 150, step: 1, unit: '%' },
-    { k: 'hxOut', label: '外换热器', min: 50, max: 150, step: 1, unit: '%' },
-    { k: 'tIn', label: '室内温度', min: 16, max: 32, step: 0.5, unit: '°C', kind: 'temp' },
-    { k: 'tOut', label: '室外温度', min: -25, max: 45, step: 0.5, unit: '°C', kind: 'temp' },
+    { k: 'comp', label: 'sl_comp', min: 20, max: 120, step: 1, unit: 'Hz' },
+    { k: 'fanIn', label: 'sl_fanin', min: 0, max: 100, step: 1, unit: '%' },
+    { k: 'fanOut', label: 'sl_fanout', min: 0, max: 100, step: 1, unit: '%' },
+    { k: 'exv', label: 'sl_exv', min: 5, max: 100, step: 1, unit: '%', extra: v => Math.round(v * 4.8) + 'P' },
+    { k: 'charge', label: 'sl_charge', min: 40, max: 130, step: 1, unit: '%' },
+    { k: 'hxIn', label: 'sl_hxin', min: 50, max: 150, step: 1, unit: '%' },
+    { k: 'hxOut', label: 'sl_hxout', min: 50, max: 150, step: 1, unit: '%' },
+    { k: 'tIn', label: 'sl_tin', min: 16, max: 32, step: 0.5, unit: '°C', kind: 'temp' },
+    { k: 'tOut', label: 'sl_tout', min: -25, max: 45, step: 0.5, unit: '°C', kind: 'temp' },
   ];
 
   // ---------- 单位制（公制 SI / 美制 IP）----------
@@ -33,7 +33,7 @@ const UI = (() => {
     x:     { si: ['%', v => v],    ip: ['%', v => v] },
     none:  { si: ['', v => v],     ip: ['', v => v] },
   };
-  let unitSys = localStorage.getItem('hvac-sim-units') || 'si';
+  let unitSys = localStorage.getItem('hvac-sim-units') || 'ip';
   const uconv = (kind, v) => UNIT[kind || 'none'][unitSys][1](v);
   const ulabel = kind => UNIT[kind || 'none'][unitSys][0];
   const isIP = () => unitSys === 'ip';
@@ -46,42 +46,37 @@ const UI = (() => {
   }
 
   const SENSORS = [
-    { id: 'pd', cls: 'p', label: '排气压力', kind: 'press', dec: 2, get: s => s.Pd },
-    { id: 'ps', cls: 'p', label: '回气压力', kind: 'press', dec: 2, get: s => s.Ps },
-    { id: 'dsh', cls: 'sh', label: '排气过热度', kind: 'dt', dec: 1, get: s => s.dshDis },
-    { id: 'ssh', cls: 'sh', label: '回气过热度', kind: 'dt', dec: 1, get: s => s.shSuc },
-    { id: 'sc', cls: 'sh', label: '过冷度', kind: 'dt', dec: 1, get: s => s.SC },
-    { id: 'td', cls: 't', label: '排气温度', kind: 'temp', dec: 1, get: s => s.Td },
-    { id: 'ts', cls: 't', label: '回气温度', kind: 'temp', dec: 1, get: s => s.Tsuc },
-    { id: 'cm', cls: 't', label: '冷凝器中部', kind: 'temp', dec: 1, get: s => s.condMid },
-    { id: 'co', cls: 't', label: '冷凝器出口', kind: 'temp', dec: 1, get: s => s.condOut },
-    { id: 'em', cls: 't', label: '蒸发器中部', kind: 'temp', dec: 1, get: s => s.evapMid },
-    { id: 'eo', cls: 't', label: '蒸发器出口', kind: 'temp', dec: 1, get: s => s.evapOut },
-    { id: 'sa', cls: 'air', label: '内侧出风', kind: 'temp', dec: 1, get: s => s.supplyT },
-    { id: 'ra', cls: 'air', label: '内侧回风', kind: 'temp', dec: 1, get: s => s.returnT },
-    { id: 'oa', cls: 'air', label: '外侧环境', kind: 'temp', dec: 1, get: s => s.ambT },
-    { id: 'of', cls: 'air', label: '外机出风', kind: 'temp', dec: 1, get: s => s.outAirT },
+    { id: 'pd', cls: 'p', label: 'sen_pd', kind: 'press', dec: 2, get: s => s.Pd },
+    { id: 'ps', cls: 'p', label: 'sen_ps', kind: 'press', dec: 2, get: s => s.Ps },
+    { id: 'dsh', cls: 'sh', label: 'sen_dsh', kind: 'dt', dec: 1, get: s => s.dshDis },
+    { id: 'ssh', cls: 'sh', label: 'sen_ssh', kind: 'dt', dec: 1, get: s => s.shSuc },
+    { id: 'sc', cls: 'sh', label: 'sen_sc', kind: 'dt', dec: 1, get: s => s.SC },
+    { id: 'td', cls: 't', label: 'sen_td', kind: 'temp', dec: 1, get: s => s.Td },
+    { id: 'ts', cls: 't', label: 'sen_ts', kind: 'temp', dec: 1, get: s => s.Tsuc },
+    { id: 'cm', cls: 't', label: 'sen_cm', kind: 'temp', dec: 1, get: s => s.condMid },
+    { id: 'co', cls: 't', label: 'sen_co', kind: 'temp', dec: 1, get: s => s.condOut },
+    { id: 'em', cls: 't', label: 'sen_em', kind: 'temp', dec: 1, get: s => s.evapMid },
+    { id: 'eo', cls: 't', label: 'sen_eo', kind: 'temp', dec: 1, get: s => s.evapOut },
+    { id: 'sa', cls: 'air', label: 'sen_sa', kind: 'temp', dec: 1, get: s => s.supplyT },
+    { id: 'ra', cls: 'air', label: 'sen_ra', kind: 'temp', dec: 1, get: s => s.returnT },
+    { id: 'oa', cls: 'air', label: 'sen_oa', kind: 'temp', dec: 1, get: s => s.ambT },
+    { id: 'of', cls: 'air', label: 'sen_of', kind: 'temp', dec: 1, get: s => s.outAirT },
     // ---- 节流与蒸发器状态 ----
-    { section: '节流部件 · 蒸发器 进出口状态' },
-    { id: 'thit', cls: 't', label: '节流前温度（过冷液）', kind: 'temp', dec: 1, get: s => s.condOut },
-    { id: 'thip', cls: 'p', label: '节流前压力', kind: 'press', dec: 2, get: s => s.Pc },
-    { id: 'thox', cls: 'sh', label: '节流后干度', kind: 'x', dec: 0, get: s => throttleQuality(s) * 100 },
-    { id: 'thot', cls: 't', label: '节流后温度（两相）', kind: 'temp', dec: 1, get: s => s.Te },
-    { id: 'thop', cls: 'p', label: '节流后压力', kind: 'press', dec: 2, get: s => s.Pe },
-    { id: 'evit', cls: 't', label: '蒸发器进口温度', kind: 'temp', dec: 1, get: s => s.Te },
-    { id: 'evip', cls: 'p', label: '蒸发器进口压力', kind: 'press', dec: 2, get: s => s.Pe },
-    { id: 'evot', cls: 't', label: '蒸发器出口温度', kind: 'temp', dec: 1, get: s => s.evapOut },
-    { id: 'evop', cls: 'p', label: '蒸发器出口压力', kind: 'press', dec: 2, get: s => s.Ps },
+    { section: 'sen_section' },
+    { id: 'thit', cls: 't', label: 'sen_thit', kind: 'temp', dec: 1, get: s => s.condOut },
+    { id: 'thip', cls: 'p', label: 'sen_thip', kind: 'press', dec: 2, get: s => s.Pc },
+    { id: 'thox', cls: 'sh', label: 'sen_thox', kind: 'x', dec: 0, get: s => throttleQuality(s) * 100 },
+    { id: 'thot', cls: 't', label: 'sen_thot', kind: 'temp', dec: 1, get: s => s.Te },
+    { id: 'thop', cls: 'p', label: 'sen_thop', kind: 'press', dec: 2, get: s => s.Pe },
+    { id: 'evit', cls: 't', label: 'sen_evit', kind: 'temp', dec: 1, get: s => s.Te },
+    { id: 'evip', cls: 'p', label: 'sen_evip', kind: 'press', dec: 2, get: s => s.Pe },
+    { id: 'evot', cls: 't', label: 'sen_evot', kind: 'temp', dec: 1, get: s => s.evapOut },
+    { id: 'evop', cls: 'p', label: 'sen_evop', kind: 'press', dec: 2, get: s => s.Ps },
   ];
 
   const fmtDec = cfg => (cfg.kind === 'press' && isIP()) ? 1 : cfg.dec;
 
-  const PROC_DESC = {
-    cooling: '压缩机排出高温高压气体 → 室外冷凝器放热冷凝 → EXV 节流降压 → 室内蒸发器吸热蒸发（吹冷风）→ 低压气体经气液分离器回压缩机。',
-    heating: '四通阀换向：高温排气进入室内冷凝器放热（吹热风）→ EXV 节流 → 室外蒸发器从环境吸热 → 回气返回压缩机。低温高湿环境外盘会逐渐结霜。',
-    defrost: '反向循环化霜：暂停制热，四通阀切至制冷方向，用高温排气融化室外盘管霜层，期间内外风机停转。',
-    oilreturn: '回油运转：压缩机升至高频、EXV 开大，用高流速冷媒把滞留在管路与换热器中的润滑油带回压缩机，保障润滑。',
-  };
+  const PROC_DESC = { cooling: 'pd_cooling', heating: 'pd_heating', defrost: 'pd_defrost', oilreturn: 'pd_oil' };
 
   let app = null;
   const sliderEls = {};
@@ -158,7 +153,7 @@ const UI = (() => {
     for (const cfg of SLIDERS) {
       const row = document.createElement('div');
       row.className = 'slider-row';
-      row.innerHTML = `<label>${cfg.label}</label>
+      row.innerHTML = `<label>${window.T ? T(cfg.label) : cfg.label}</label>
         <input type="range" min="${cfg.min}" max="${cfg.max}" step="${cfg.step}">
         <div class="val"><span></span>${cfg.extra ? '<small></small>' : ''}</div>`;
       box.appendChild(row);
@@ -200,13 +195,13 @@ const UI = (() => {
       if (s.section) {
         const hdr = document.createElement('div');
         hdr.className = 'sensor-section';
-        hdr.textContent = s.section;
+        hdr.textContent = window.T ? T(s.section) : s.section;
         grid.appendChild(hdr);
         continue;
       }
       const div = document.createElement('div');
       div.className = 'sensor ' + s.cls;
-      div.innerHTML = `<div class="k">${s.label}</div>
+      div.innerHTML = `<div class="k">${window.T ? T(s.label) : s.label}</div>
         <div class="v"><span class="num">—</span><span class="u">${ulabel(s.kind)}</span></div>
         <span class="trend"></span>
         <div class="delta"></div>`;
@@ -238,14 +233,14 @@ const UI = (() => {
       app.seq = new Sequence('oilreturn', app);
     }
     paintButtons();
-    $('procDesc').textContent = PROC_DESC[app.process];
+    $('procDesc').textContent = T(PROC_DESC[app.process]);
   }
 
   function paintButtons() {
     document.querySelectorAll('.mode-btn').forEach(b =>
       b.classList.toggle('active', b.dataset.mode === app.process));
-    const names = { cooling: '制冷运行', heating: '制热运行', defrost: '化霜中', oilreturn: '回油运转' };
-    $('procName').textContent = names[app.process];
+    const names = { cooling: 'proc_cooling', heating: 'proc_heating', defrost: 'proc_defrost', oilreturn: 'proc_oil' };
+    $('procName').textContent = T(names[app.process]);
   }
 
   // ---------- 时序进度 ----------
@@ -346,7 +341,7 @@ const UI = (() => {
 
     // 性能
     const heatSide = app.internalMode === 'heating';
-    $('capLbl').textContent = heatSide ? '制热量' : '制冷量';
+    $('capLbl').textContent = window.T(heatSide ? 'st_cap_heat' : 'st_cap_cool');
     const capKW = (heatSide ? s.Qc : s.Qe) / 1000, powKW = s.W / 1000;
     $('stCap').firstChild.textContent = fmt(uconv('cap', capKW), isIP() ? 1 : 2);
     $('stPow').firstChild.textContent = fmt(uconv('cap', powKW), isIP() ? 1 : 2);
@@ -364,12 +359,12 @@ const UI = (() => {
     $('cDisP').textContent = P(s.Pd);
     $('cSucT').textContent = T(s.Tsuc);
     $('cSucP').textContent = P(s.Ps);
-    $('cOCRole').textContent = cool ? '· 冷凝器' : '· 蒸发器';
-    $('cICRole').textContent = cool ? '· 蒸发器' : '· 冷凝器';
-    $('cOCMid').textContent = '中 ' + T(cool ? s.condMid : s.evapMid);
-    $('cOCOut').textContent = '出 ' + T(cool ? s.condOut : s.evapOut);
-    $('cICMid').textContent = '中 ' + T(cool ? s.evapMid : s.condMid);
-    $('cICOut').textContent = '出 ' + T(cool ? s.evapOut : s.condOut);
+    $('cOCRole').textContent = window.T(cool ? 'role_cond' : 'role_evap');
+    $('cICRole').textContent = window.T(cool ? 'role_evap' : 'role_cond');
+    $('cOCMid').textContent = window.T('mid_p') + ' ' + T(cool ? s.condMid : s.evapMid);
+    $('cOCOut').textContent = window.T('out_p') + ' ' + T(cool ? s.condOut : s.evapOut);
+    $('cICMid').textContent = window.T('mid_p') + ' ' + T(cool ? s.evapMid : s.condMid);
+    $('cICOut').textContent = window.T('out_p') + ' ' + T(cool ? s.evapOut : s.condOut);
     $('cFrost').textContent = app.flags.frost > 0.02 ? '霜' + Math.round(app.flags.frost * 100) + '%' : '';
     $('cExv').textContent = Math.round(app.inputsEff.exv) + ' % · ' + Math.round(app.inputsEff.exv * 4.8) + 'P';
     $('cSupply').textContent = T(s.supplyT);
@@ -387,15 +382,15 @@ const UI = (() => {
   function renderHints(s) {
     const R = REFRIGERANTS[app.inputs.ref];
     const list = [];
-    if (s.SH < 1.2) list.push(['过热度过低 · 回液风险', 1]);
-    if (s.SH > 15) list.push(['过热度过高 · 缺氟或节流不足', 0]);
-    if (s.SC < 1) list.push(['过冷度过低 · 冷媒量偏少', 0]);
-    if (s.SC > 15) list.push(['过冷度过高 · 冷媒量偏多或节流过小', 0]);
-    if (s.Td > 108) list.push(['排气温度过高', 1]);
-    if (s.PR > 8) list.push(['压比过大 · 工况恶劣', 0]);
-    if (s.Ps < 0.15) list.push(['低压过低 · 保护倾向', 1]);
-    if (s.Pd > R.PcritMPa * 0.88) list.push(['高压过高 · 保护倾向', 1]);
-    if (app.process === 'heating' && app.flags.frost > 0.6) list.push(['外盘结霜严重 · 建议化霜', 0]);
+    if (s.SH < 1.2) list.push([T('hint_sh_low'), 1]);
+    if (s.SH > 15) list.push([T('hint_sh_high'), 0]);
+    if (s.SC < 1) list.push([T('hint_sc_low'), 0]);
+    if (s.SC > 15) list.push([T('hint_sc_high'), 0]);
+    if (s.Td > 108) list.push([T('hint_td_high'), 1]);
+    if (s.PR > 8) list.push([T('hint_pr_high'), 0]);
+    if (s.Ps < 0.15) list.push([T('hint_ps_low'), 1]);
+    if (s.Pd > R.PcritMPa * 0.88) list.push([T('hint_pd_high'), 1]);
+    if (app.process === 'heating' && app.flags.frost > 0.6) list.push([T('hint_frost'), 0]);
 
     const key = list.map(x => x[0]).join('|');
     if (key === lastHints) return;
