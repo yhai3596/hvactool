@@ -50,6 +50,12 @@ UPLOAD_DIR = pathlib.Path(tempfile.gettempdir()) / "fdd_console_uploads"
 # 基线库工件:训练(读原始数据)与使用(检测/诊断)分离的落盘层。
 # data/lake 在 gitignore 内 —— 工件是本机数据资产,不进代码仓库。
 ARTIFACT_DIR = ROOT / "data" / "lake" / "console_baseline"
+# 现场设备基线库(M3 形态预实现):每台现场设备的健康期稳态箱,逐机落盘;
+# 之后该设备的新数据相对历史基线出残差 → 完整 M-DIAG 诊断(逐机原则完全合规)。
+FIELD_BASE_DIR = ROOT / "data" / "lake" / "field_baselines"
+# 设备自报保护位(C1 列):厂商判定事实,直接列报;不作模型输入(DK-014)。
+PROTECTION_COLS = ("HpLimit", "LpLimit", "TdLimit", "TfLimit", "I2Limit",
+                   "I1Limit", "WetLimit", "DsmLimit", "CoolantLackLimit")
 
 _LOCK = threading.Lock()
 STATE = {
@@ -730,6 +736,20 @@ def _profile_field(p: pathlib.Path):
     issues.append("现场数据口径注记:时区按样本 -05:00 摄取(tz_unverified);"
                   "容量档判定用实验室 InvHz 带,现场 CompRps 阈值未标定(M3),仅供参考;"
                   "固件上报 Sh/Sc 含饱和表偏差,本工具一律用物理口径重算。")
+    prot = {}
+    for c in PROTECTION_COLS:
+        if c in raw.columns:
+            n = int((pd.to_numeric(raw[c], errors="coerce").fillna(0) > 0).sum())
+            if n:
+                prot[c] = n
+    info["protection"] = prot or None
+    if prot:
+        issues.append(f"设备自报保护位激活:{prot}(保护位是厂商侧判定事实,直接列报;"
+                      "不作模型输入,DK-014)。")
+    if prot.get("CoolantLackLimit"):
+        issues.append("⚠ CoolantLackLimit(厂商缺冷媒保护)激活 "
+                      f"{prot['CoolantLackLimit']} 行 —— 设备自身的缺冷媒判定已触发,"
+                      "建议优先核查冷媒量(该保护正是项目对照双基线之一)。")
     if len(raw) < 30:
         issues.append("有效行不足 30,不可分析。")
         return ({"info": info, "issues": issues, "conditions": [],
@@ -802,6 +822,94 @@ def _self_bins(frames) -> dict:
                q_kw=("q_kw", "median")).reset_index())
     gl = gl[gl["n"] >= 12].reset_index(drop=True)
     return {"bin": g, "letter": gl}
+
+
+# ------------------------------------------------- 现场设备基线库(逐机历史基线)
+
+def _fb_paths(device: str):
+    key = device.split("#")[-1] if "#" in str(device) else re.sub(r"\W", "_", str(device))
+    return FIELD_BASE_DIR / f"{key}.pkl", FIELD_BASE_DIR / f"{key}.meta.json"
+
+
+def _load_field_baseline(device):
+    """加载该设备的历史健康基线(无则 (None, None))。"""
+    if not device:
+        return None, None
+    pk, mj = _fb_paths(device)
+    if not (pk.exists() and mj.exists()):
+        return None, None
+    try:
+        return pd.read_pickle(pk), json.loads(mj.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — 工件损坏视同不存在
+        return None, None
+
+
+def api_field_baseline_list(_body=None):
+    out = []
+    if FIELD_BASE_DIR.exists():
+        for mj in sorted(FIELD_BASE_DIR.glob("*.meta.json")):
+            try:
+                out.append(json.loads(mj.read_text(encoding="utf-8")))
+            except Exception:  # noqa: BLE001
+                continue
+    return {"devices": out}
+
+
+def api_field_baseline_save(body):
+    """把用户确认为健康期的一批现场数据固化为该设备的历史基线(逐机,落盘)。
+    此后该设备的新数据检测自动升级为「逐机历史基线诊断」。"""
+    paths = _collect_batch_paths(body)
+    if {_sniff_dialect(p) for p in paths} != {"field"}:
+        raise ApiError("只支持现场数据文件建设备基线",
+                       "实验室机台基线由①页训练;产线数据不建运行基线(L2 轨道)。")
+    frames, devs, prot_warn = [], {}, {}
+    for p in paths:
+        try:
+            pay, fr, dev = _profile_file(p, None)
+        except Exception:  # noqa: BLE001
+            continue
+        if fr is None or not dev:
+            continue
+        frames.append(fr)
+        d = devs.setdefault(dev, {"files": 0, "rows": 0, "t0": None, "t1": None})
+        d["files"] += 1
+        d["rows"] += int(len(fr))
+        span = pay["info"].get("span") or [None, None]
+        d["t0"] = min([x for x in (d["t0"], span[0]) if x]) if (d["t0"] or span[0]) else None
+        d["t1"] = max([x for x in (d["t1"], span[1]) if x]) if (d["t1"] or span[1]) else None
+        for k, v in (pay["info"].get("protection") or {}).items():
+            prot_warn[k] = prot_warn.get(k, 0) + v
+    if not frames:
+        raise ApiError("没有可用的现场数据帧", "确认所选文件为 AC_Data_RunState 导出且非空。")
+    bins = _self_bins(frames)
+    FIELD_BASE_DIR.mkdir(parents=True, exist_ok=True)
+    saved, skipped = [], []
+    for dev, dinfo in devs.items():
+        db = {"bin": bins["bin"][bins["bin"]["unit"] == dev].reset_index(drop=True),
+              "letter": bins["letter"][bins["letter"]["unit"] == dev].reset_index(drop=True)}
+        if not len(db["bin"]):
+            skipped.append({"device": dev, "reason": "稳态数据不足(<2 分钟稳态箱)"})
+            continue
+        pk, mj = _fb_paths(dev)
+        pd.to_pickle(db, pk)
+        meta = {"device": dev,
+                "created": dt.datetime.now().isoformat(timespec="seconds"),
+                "files": dinfo["files"], "rows": dinfo["rows"],
+                "span": [dinfo["t0"], dinfo["t1"]],
+                "bins": int(len(db["bin"])),
+                "protection_active": prot_warn or None,
+                "note": (body.get("note") or "").strip() or "用户确认为健康期数据"}
+        mj.write_text(json.dumps(_safe(meta), ensure_ascii=False, indent=1),
+                      encoding="utf-8")
+        saved.append(meta)
+    warning = None
+    if prot_warn:
+        warning = (f"注意:本批数据存在设备自报保护位激活 {prot_warn} —— 保护激活期通常"
+                   "不是健康期,以此为基线可能吸收故障态;请确认后再使用,或换一批干净数据重建。")
+    if not saved:
+        raise ApiError("未能建立任何设备基线", "; ".join(f"{s['device']}:{s['reason']}"
+                                                for s in skipped) or "无稳态数据。")
+    return {"saved": saved, "skipped": skipped, "warning": warning}
 
 
 def _profile_file(p: pathlib.Path, unit_override=None):
