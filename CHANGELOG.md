@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 注册失败根因修复（CORS）+ 注册同源代理 — 2026-07-10
+
+用户浏览器注册"成功率太低"的**真正根因**：Edge Function 的 CORS `Allow-Headers` 漏了 supabase-js 实际发送的 `x-client-info` 头 → 预检 OPTIONS 通过但真实 POST 被浏览器整体拦截（`net::ERR_FAILED`，请求根本不发出）。这解释了此前 Edge 日志"只有 OPTIONS 没有 POST"、以及"curl 全成功（无 CORS）、浏览器总失败"的矛盾。
+
+- **CORS 修复**（`register-with-invite` v4 / `admin-api` v3）：`Allow-Headers` 补全 `x-client-info`，并**反射预检的 `Access-Control-Request-Headers`**，对 SDK 未来新增头免疫；浏览器实测由 3/3 失败 → 全部成功（有效码 726ms 注册成功）
+- **注册同源代理**（双保险，兼治国内直连 supabase.co 不稳）：[server.py](server.py) 新增 `POST /api/register`，由新加坡服务器转发注册请求（连接级失败重试 3 次、HTTP 业务错误原样透传）；[login.html](login.html) 注册**优先走页面同源** `/api/register`（国内网络更稳），后端不可用（404/501/502/504）自动回退直连 Supabase（带重试）——本地静态预览/旧后端均兼容
+- server.py 变更经 autopull 自动重启后端生效，无需服务器操作
+
 ## 管理后台 + 埋点统计 + 注册可靠性修复 — 2026-07-09
 
 新增仅管理员可见的后台(用户/积分/邀请码/建号/设置)、全站行为埋点、可配置邀请说明,并修复注册间歇性失败。资源版本 `v=216 → v=217`。

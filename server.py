@@ -10,7 +10,10 @@ HVAC 工具站本地服务
 import json
 import math
 import os
+import time
 import traceback
+import urllib.error
+import urllib.request
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -437,6 +440,35 @@ def api_liquid(qs):
     }
 
 
+# ---------------------------------------------------------------
+# 注册同源代理：国内浏览器直连 supabase.co 不稳定（GFW），
+# 改走 页面同源 /api/register → 本服务器（新加坡）→ Supabase（国际链路稳定）。
+# 仅转发注册这一个动作；密钥为前端公开 publishable key，无敏感信息。
+# ---------------------------------------------------------------
+SB_FUNC_URL = 'https://lnzepjubgtdclvmridxw.supabase.co/functions/v1/register-with-invite'
+SB_PUB_KEY = 'sb_publishable_m4cNAyw4SzOdv-eogmOsDg_kHicDMEf'
+
+
+def proxy_register(payload):
+    """转发注册请求；连接级失败重试 3 次，HTTP 业务错误（400 等）原样透传不重试。"""
+    last_err = None
+    for attempt in range(3):
+        req = urllib.request.Request(SB_FUNC_URL, data=payload, method='POST', headers={
+            'Content-Type': 'application/json',
+            'apikey': SB_PUB_KEY,
+            'Authorization': 'Bearer ' + SB_PUB_KEY,
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=25) as r:
+                return r.getcode(), r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+        except Exception as e:
+            last_err = e
+            time.sleep(0.8 * (attempt + 1))
+    raise RuntimeError('upstream unreachable: %s' % last_err)
+
+
 ROUTES = {
     '/api/health': api_health,
     '/api/fluidinfo': api_fluid_info,
@@ -485,6 +517,27 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
         super().do_GET()
+
+    def do_POST(self):
+        u = urlparse(self.path)
+        if u.path == '/api/register':
+            try:
+                n = int(self.headers.get('Content-Length') or 0)
+                if n <= 0 or n > 10000:
+                    raise ValueError('bad content length')
+                payload = self.rfile.read(n)
+                code, body = proxy_register(payload)
+            except Exception:
+                body = json.dumps({'error': 'proxy_unavailable'}).encode('utf-8')
+                code = 502
+            self.send_response(code)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(404)
+        self.end_headers()
 
 
 if __name__ == '__main__':

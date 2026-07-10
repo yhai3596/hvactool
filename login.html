@@ -51,9 +51,34 @@ $('tabReg').onclick = () => setMode('reg');
 
 function say(t, color) { const m = $('msg'); m.textContent = t; m.style.color = color || '#6ee7b7'; }
 
-/* 注册调用带重试：区分「业务错误」（函数返回 JSON {error}，如邀请码无效 → 不重试）
- * 与「网络级瞬时失败」（连接被丢弃、拿不到 JSON 错误体 → 自动重试）。 */
+/* 注册调用（双路径 + 重试）：
+ * 路径A（首选）：同源 /api/register —— 页面所在服务器（新加坡）转发到 Supabase。
+ *   国内浏览器直连 supabase.co 经常被网络层丢弃（成功率低），同源转发绕开这段。
+ * 路径B（回退）：直连 Supabase Edge Function（本地静态预览 / 后端未升级时用）。
+ * 业务错误（如邀请码无效）两条路径都立即返回，不重试。 */
+async function registerViaProxy(body) {
+  const r = await fetch('api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  // 404/501=后端无此端点（未升级/纯静态）；502/504=代理转发不可用 → 切直连
+  if (r.status === 404 || r.status === 501 || r.status === 502 || r.status === 504) throw new Error('proxy-unavailable');
+  return await r.json();   // {ok:true} 或 {error:...}
+}
 async function registerWithRetry(body, tries) {
+  // 路径A：同源代理
+  let proxyDown = false;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const j = await registerViaProxy(body);
+      return (j && j.error) ? { bizError: j.error } : { ok: true };
+    } catch (e) {
+      if (String(e && e.message) === 'proxy-unavailable') { proxyDown = true; break; }
+      if (i < tries - 1) { say(T('msg_reg_retry'), '#fbbf24'); await new Promise(r => setTimeout(r, 800)); }
+    }
+  }
+  // 路径B：直连 Supabase（带重试）
   let lastNetErr = null;
   for (let i = 0; i < tries; i++) {
     const { data, error } = await sbClient.functions.invoke('register-with-invite', { body });
