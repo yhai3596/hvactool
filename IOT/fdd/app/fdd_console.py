@@ -1101,22 +1101,43 @@ def _detect_file(p: pathlib.Path, unit_override=None, self_bins=None):
         out["summary"] = {"verdict": "无法检测", "detail": "文件未通过体检(见问题项),"
                           "无法进入稳态分段与诊断。", "counts": {}}
         return out
+    field_mode = None
     if is_field:
-        # 现场设备:不在实验室基线池(逐机原则,禁止跨机)→ 逐机自基线漂移筛查。
-        bins = self_bins if self_bins is not None else _self_bins([frame])
-        in_pool = bool((bins["bin"]["unit"] == str(unit)).any())
-        scope = "本批文件集" if self_bins is not None else "仅本文件"
-        out["baseline"] = {
-            "unit": unit, "in_pool": in_pool, "mode": "self",
-            "artifact_version": None,
-            "bins_for_unit": int((bins["bin"]["unit"] == str(unit)).sum()),
-            "note": (f"【逐机自基线漂移筛查】参照 = 该设备自身稳态箱中位(范围:{scope})。"
-                     "现场设备不进实验室基线(DK-017/铁律 10 禁止跨机);本模式只能发现"
-                     "段间漂移/不一致,整程恒定的故障不可见;结论为方向性提示,"
-                     "非 M3 验收诊断(现场健康基线随 M3 逐台积累后升级)。"
-                     if in_pool else
-                     "该设备稳态数据不足(<2 分钟稳态箱),自基线不可建 —— 仅提供画像;"
-                     "多选同设备多个文件可扩大自基线样本。")}
+        # 现场设备:不在实验室基线池(逐机原则,禁止跨机)。参照优先级:
+        # 该设备落盘历史健康基线(逐机历史基线诊断)→ 本批/本文件自基线(漂移筛查)。
+        hist_db, hist_meta = _load_field_baseline(unit)
+        if hist_db is not None and len(hist_db.get("bin", ())):
+            bins, field_mode = hist_db, "history"
+            hm = hist_meta or {}
+            span = hm.get("span") or [None, None]
+            out["baseline"] = {
+                "unit": unit, "in_pool": True, "mode": "history",
+                "artifact_version": None,
+                "bins_for_unit": int((bins["bin"]["unit"] == str(unit)).sum()),
+                "history_meta": hm,
+                "note": (f"【逐机历史基线诊断】参照 = 该设备用户确认健康期的稳态箱中位"
+                         f"(冻结于 {hm.get('created', '?')},{hm.get('files', '?')} 文件/"
+                         f"{hm.get('bins', '?')} 箱,期间 {span[0]} ~ {span[1]})。"
+                         "参照独立于被检数据,整程恒定的故障亦可见;仍为逐机参照面"
+                         "(DK-017/铁律 10,不跨机);非 M3 事件级验收——参照质量取决于"
+                         "冻结期数据的健康确认与工况覆盖,基线工况外的段按无基线不可判。")}
+        else:
+            bins, field_mode = (self_bins if self_bins is not None
+                                else _self_bins([frame])), "self"
+            in_pool = bool((bins["bin"]["unit"] == str(unit)).any())
+            scope = "本批文件集" if self_bins is not None else "仅本文件"
+            out["baseline"] = {
+                "unit": unit, "in_pool": in_pool, "mode": "self",
+                "artifact_version": None,
+                "bins_for_unit": int((bins["bin"]["unit"] == str(unit)).sum()),
+                "note": (f"【逐机自基线漂移筛查】参照 = 该设备自身稳态箱中位(范围:{scope})。"
+                         "现场设备不进实验室基线(DK-017/铁律 10 禁止跨机);本模式只能发现"
+                         "段间漂移/不一致,整程恒定的故障不可见;结论为方向性提示,"
+                         "非 M3 验收诊断(在④页把确认健康期的该设备数据「设为设备基线」后,"
+                         "自动升级为逐机历史基线诊断)。"
+                         if in_pool else
+                         "该设备稳态数据不足(<2 分钟稳态箱),自基线不可建 —— 仅提供画像;"
+                         "多选同设备多个文件可扩大自基线样本。")}
     else:
         if STATE["lab"] is None:
             raise ApiError("基线库尚未就绪",
@@ -1262,11 +1283,14 @@ def _detect_file(p: pathlib.Path, unit_override=None, self_bins=None):
                   f"{worst['condition']} 工况,置信 {worst['diagnosis']['confidence']};"
                   f"共诊断 {len(diagnosed)} 段,{undiagnosed} 段无基线不可判。")
     else:
-        verdict = "段间一致(自基线)" if is_field else "未见异常"
+        verdict = ("段间一致(自基线)" if field_mode == "self"
+                   else "未见异常(逐机历史基线)" if field_mode == "history"
+                   else "未见异常")
         detail = (f"共诊断 {len(diagnosed)} 段全部 none"
                   + (f";另有 {undiagnosed} 段无基线不可判。" if undiagnosed else "。"))
     if is_field and verdict not in ("无法检测", "无稳态段"):
-        detail = "【逐机自基线漂移筛查,非 M3 验收诊断】" + detail
+        detail = ("【逐机历史基线诊断,非 M3 事件级验收】" if field_mode == "history"
+                  else "【逐机自基线漂移筛查,非 M3 验收诊断】") + detail
     out["summary"] = {"verdict": verdict, "detail": detail, "counts": counts,
                       "segments_total": len(segments),
                       "segments_diagnosed": len(diagnosed),
@@ -1342,7 +1366,8 @@ def _batch_summary(results):
             "files_undiagnosable": sum(1 for r in results
                                        if r["verdict"] and "不可判" in r["verdict"]),
             "files_clean": sum(1 for r in results
-                               if r["verdict"] in ("未见异常", "段间一致(自基线)")),
+                               if r["verdict"] in ("未见异常", "段间一致(自基线)",
+                                                   "未见异常(逐机历史基线)")),
             "units": units}
 
 
@@ -1532,6 +1557,7 @@ ROUTES_GET = {
     "/api/batch/status": api_batch_status,
     "/api/artifact": api_artifact,
     "/api/manual": api_manual,
+    "/api/field_baseline/list": api_field_baseline_list,
 }
 ROUTES_POST = {
     "/api/load": api_load,
@@ -1544,6 +1570,7 @@ ROUTES_POST = {
     "/api/upload": api_upload,
     "/api/selftest": api_selftest,
     "/api/uncertainty": api_uncertainty,
+    "/api/field_baseline/save": api_field_baseline_save,
 }
 
 

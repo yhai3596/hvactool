@@ -195,9 +195,11 @@ ul.doc{line-height:1.9;padding-left:20px}
   L2 出厂指纹轨道,完整摄取等 HMAC 盐协议,SN 一律掩码)</b>。两级分析:<b>快速体检</b>(数据质量画像)与
   <b>检测与诊断</b>——基线参照面是<b>逐机</b>的(DK-017/铁律 10),绝不跨机凑基线:<br>
   · <b>实验室文件</b>:残差 vs ①基线库中该机台的健康基线 → 验收级诊断;<br>
-  · <b>现场文件</b>:现场设备不在实验室基线池 → 自动进入<b>逐机自基线漂移筛查</b>(参照 = 该设备
-  本批数据自身的稳态箱中位;能发现段间漂移与方向性异常,整程恒定故障不可见,非 M3 验收诊断;
-  多选同一设备的多个文件可显著扩大自基线样本)。现场 SN 在界面与导出中一律掩码。文件只读,不入库。</div>
+  · <b>现场文件</b>:现场设备不在实验室基线池(禁止拿实验室机台冒充现场基线)。
+  该设备<b>已有历史基线</b>(下方「3. 设备基线库」建立)→ <b>逐机历史基线诊断</b>:参照 = 该设备
+  自己确认健康期的稳态箱,独立于被检数据,整程恒定故障亦可见(仍非 M3 事件级验收);
+  <b>尚无历史基线</b> → 逐机自基线漂移筛查(参照 = 本批数据自身,只能发现段间漂移,
+  整程恒定故障不可见)。现场 SN 在界面与导出中一律掩码。文件只读,不入库。</div>
   <div class="card">
     <h2>1. 选取文件</h2>
     <div style="margin-bottom:8px">
@@ -235,6 +237,20 @@ ul.doc{line-height:1.9;padding-left:20px}
     <div id="fcOut"></div>
     <div id="detOut"></div>
     <div id="batchOut"></div>
+  </div>
+  <div class="card">
+    <h2>3. 设备基线库(现场逐机历史基线)</h2>
+    <div class="explain">把<b>用户确认为健康期</b>的一批现场数据固化为该设备的历史基线(落盘
+    data/lake/field_baselines/,逐机,DK-017/铁律 10 合规:设备只和自己的历史比)。此后该设备的
+    新数据检测自动升级为<b>逐机历史基线诊断</b>。保存时若批内存在设备自报保护位激活会给出污染警告
+    ——保护激活期通常不是健康期,请人工确认后再用。重建 = 选取新的健康期数据再次保存(同设备覆盖)。</div>
+    <label class="f"><span>基线备注(健康期依据,建议填写)</span>
+      <input type="text" id="fbNote" placeholder="例:2026-06 安装验收后运行正常,无保护位激活,无用户投诉"></label>
+    <button class="act" id="btnFbSave" style="background:#2e7d32">把当前选取的现场数据设为设备基线</button>
+    <span class="muted" style="margin-left:8px">使用上方「1. 选取文件」的当前选取(现场文件 / 设备目录)</span>
+    <div id="fbOut"></div>
+    <h3 style="margin-top:12px">已有设备基线 <button class="mini" id="btnFbRefresh">刷新</button></h3>
+    <div id="fbList" class="muted">(加载中…)</div>
   </div>
 </section>
 
@@ -494,10 +510,11 @@ function detectHtml(r){const sm=r.summary||{};
   h+=`<div style="margin-top:4px">`+Object.entries(sm.counts).map(([k,v])=>{const hh=HYP[k]||[k,"b-gray"];
    return `<span class="badge ${hh[1]}">${esc(hh[0])} × ${v}</span>`;}).join(" ")+`</div>`;
  h+=`</div>`;
- if(r.baseline){const selfMode=r.baseline.mode==="self";
+ if(r.baseline){const bm=r.baseline.mode;
   h+=`<div class="alert ${r.baseline.in_pool?"a-info":"a-warn"}">`+
-   (selfMode?`<span class="badge b-orange" style="margin-right:6px">自基线漂移筛查</span>`:"")+
-   `<b>基线:</b>${esc(r.baseline.note)}(${selfMode?"设备":"机台"} ${esc(r.baseline.unit)},基线箱 ${r.baseline.bins_for_unit} 个${r.baseline.artifact_version?",工件 v"+r.baseline.artifact_version:""})</div>`;}
+   (bm==="self"?`<span class="badge b-orange" style="margin-right:6px">自基线漂移筛查</span>`:
+    bm==="history"?`<span class="badge b-green" style="margin-right:6px">逐机历史基线诊断</span>`:"")+
+   `<b>基线:</b>${esc(r.baseline.note)}(${bm==="lab"?"机台":"设备"} ${esc(r.baseline.unit)},基线箱 ${r.baseline.bins_for_unit} 个${r.baseline.artifact_version?",工件 v"+r.baseline.artifact_version:""})</div>`;}
  if(r.sensors){h+=`<h3>传感器信任检验(sense,逐机参照)</h3>`+
   "<div>"+r.sensors.map(x=>`<span class="badge ${x.status==="flagged"?"b-red":x.status==="ok"?"b-green":"b-gray"}">${esc(x.sensor)}:${esc(x.status)}</span>`).join(" ")+"</div>";}
  if(r.sensor_note)h+=`<div class="alert a-warn">${esc(r.sensor_note)}</div>`;
@@ -528,9 +545,40 @@ $("#btnDetect").addEventListener("click",async()=>{
  try{const r=await api("/api/detect",{path:currentPath(),unit:$("#fcUnit").value});renderDetect(r);}
  catch(e){$("#detOut").innerHTML="";}});
 
+/* ---------- ④ 设备基线库(现场逐机历史基线) ---------- */
+async function loadFbList(){const box=$("#fbList");
+ try{const r=await api("/api/field_baseline/list");
+  if(!r.devices.length){box.innerHTML="<span class='muted'>(尚无设备基线;现场检测在建基线前为自基线漂移筛查)</span>";return;}
+  box.innerHTML=table(r.devices.map(d=>({"设备":d.device,"冻结时间":d.created,"文件":d.files,"行数":d.rows,
+   "健康期":(d.span||[]).join(" ~ "),"稳态箱":d.bins,
+   "保护位":d.protection_active?JSON.stringify(d.protection_active):"无","备注":d.note||""})),
+   ["设备","冻结时间","文件","行数","健康期","稳态箱","保护位","备注"]);}
+ catch(e){box.innerHTML="<span class='muted'>(读取失败)</span>";}}
+$("#btnFbRefresh").addEventListener("click",loadFbList);
+loadFbList();
+$("#btnFbSave").addEventListener("click",async()=>{
+ const body={note:$("#fbNote").value};
+ const manualDir=$("#fcDir").value.trim();
+ if(SEL.kind==="files"&&SEL.paths.length)body.paths=SEL.paths;
+ else if(SEL.kind==="dir"&&SEL.dir)body.dir=SEL.dir;
+ else if(manualDir)body.dir=manualDir;
+ else if(currentPath())body.paths=[currentPath()];
+ else{toast("请先在「1. 选取文件」选取现场数据(文件或设备目录)");return;}
+ $("#fbOut").innerHTML="<span class='spin'></span>构建设备基线(稳态分箱,落盘)…";
+ try{const r=await api("/api/field_baseline/save",body);
+  let h="";
+  if(r.warning)h+=`<div class="alert a-warn">${esc(r.warning)}</div>`;
+  h+=`<div class="alert a-info">已保存 ${r.saved.length} 台设备基线:`+
+   r.saved.map(s=>`<b>${esc(s.device)}</b>(${s.files} 文件 / ${s.bins} 稳态箱,${(s.span||[]).join(" ~ ")})`).join(";")+
+   `。该设备后续检测自动升级为逐机历史基线诊断。</div>`;
+  if(r.skipped&&r.skipped.length)h+=`<div class="alert a-warn">跳过:${r.skipped.map(s=>esc(s.device+":"+s.reason)).join(";")}</div>`;
+  $("#fbOut").innerHTML=h;loadFbList();toast("设备基线已保存",true);}
+ catch(e){$("#fbOut").innerHTML="";}});
+
 /* ---------- ④ 批量检验(设备级) ---------- */
 let BATCH=null,pollBatch=null;
-function vBadge(v){const map={"未见异常":"b-green","疑似少冷媒/泄漏":"b-red","疑似节流受限":"b-orange",
+function vBadge(v){const map={"未见异常":"b-green","未见异常(逐机历史基线)":"b-green",
+ "疑似少冷媒/泄漏":"b-red","疑似节流受限":"b-orange",
  "内机侧非特异异常":"b-blue","错误":"b-red"};
  return `<span class="badge ${map[v]||"b-gray"}">${esc(v||"—")}</span>`;}
 $("#btnDirBatch").addEventListener("click",()=>{const d=$("#fcDir").value.trim();
