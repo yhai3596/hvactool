@@ -545,8 +545,19 @@ class Handler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        # 未知路径：先读掉请求体再响应，避免连接被 RST（客户端收不到 404）
+        try:
+            n = int(self.headers.get('Content-Length') or 0)
+            if 0 < n <= 100000:
+                self.rfile.read(n)
+        except Exception:
+            pass
+        body = json.dumps({'error': 'not found'}).encode('utf-8')
         self.send_response(404)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
         self.end_headers()
+        self.wfile.write(body)
 
 
 if __name__ == '__main__':
