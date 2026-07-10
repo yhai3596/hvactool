@@ -116,8 +116,35 @@ function toast(m, ok = true) {
   const el = $('adminMsg'); el.textContent = m; el.style.borderColor = ok ? 'var(--accent)' : 'var(--hot)'; el.style.display = '';
   clearTimeout(msgTimer); msgTimer = setTimeout(() => el.style.display = 'none', 2600);
 }
+/* 后台调用（双路径）：
+ * 路径A（首选）：同源 /api/fn/admin-api —— 页面所在服务器转发，同源无 CORS 预检，
+ *   绕开浏览器直连 supabase.co 的网络/CORS 问题（Authorization 携带管理员 JWT 透传）。
+ * 路径B（回退）：直连 Edge Function（本地静态预览 / 后端未升级时用）。 */
+async function adminViaProxy(body, token) {
+  const r = await fetch('api/fn/admin-api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: JSON.stringify(body),
+  });
+  if (r.status === 404 || r.status === 501 || r.status === 502 || r.status === 504) throw new Error('proxy-unavailable');
+  let j; try { j = await r.json(); } catch (_) { throw new Error('proxy-unavailable'); }
+  return j;
+}
 async function adminApi(action, extra = {}) {
-  const { data, error } = await window.sbClient.functions.invoke('admin-api', { body: { action, ...extra } });
+  const body = { action, ...extra };
+  let token = null;
+  try { const s = await window.sbClient.auth.getSession(); token = s.data && s.data.session && s.data.session.access_token; } catch (_) {}
+  // 路径A：同源代理
+  try {
+    const j = await adminViaProxy(body, token);
+    if (j && j.error) throw new Error(j.error);
+    return j;
+  } catch (e) {
+    const m = String(e && e.message);
+    if (m !== 'proxy-unavailable' && !(e instanceof TypeError)) throw e;   // 业务/权限错误直接上抛
+  }
+  // 路径B：直连 Edge Function
+  const { data, error } = await window.sbClient.functions.invoke('admin-api', { body });
   if (error) {
     let msg = error.message || 'error';
     try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch (_) {}

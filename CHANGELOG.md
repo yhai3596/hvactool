@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 后台调用同源代理（修复 admin 页不可用）— 2026-07-10
+
+后台页所有动作报 `Failed to send a request to the Edge Function` —— 浏览器直连 supabase.co 的 functions 调用被拦（与注册同类：CORS 修复前的缓存页面 / 国内网络对 functions 端点丢包）。治本：后台调用也走同源代理。
+
+- [server.py](server.py)：注册专用代理升级为**白名单函数代理** `POST /api/fn/<name>`（仅 `register-with-invite` / `admin-api`），**Authorization 透传**（后台需管理员 JWT）；`/api/register` 保留为旧别名
+- [admin.html](admin.html)：`adminApi()` 双路径 —— 首选同源 `/api/fn/admin-api`（同源无 CORS 预检），后端不可用（404/501/502/504）自动回退直连；业务/权限错误直接上抛不回退
+- 实测：无 JWT 经代理调用 → `401 unauthorized` 原样透传（链路通、服务端鉴权门完好）；浏览器回退路径 CORS 穿透正常
+
 ## 注册失败根因修复（CORS）+ 注册同源代理 — 2026-07-10
 
 用户浏览器注册"成功率太低"的**真正根因**：Edge Function 的 CORS `Allow-Headers` 漏了 supabase-js 实际发送的 `x-client-info` 头 → 预检 OPTIONS 通过但真实 POST 被浏览器整体拦截（`net::ERR_FAILED`，请求根本不发出）。这解释了此前 Edge 日志"只有 OPTIONS 没有 POST"、以及"curl 全成功（无 CORS）、浏览器总失败"的矛盾。

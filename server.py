@@ -441,25 +441,27 @@ def api_liquid(qs):
 
 
 # ---------------------------------------------------------------
-# 注册同源代理：国内浏览器直连 supabase.co 不稳定（GFW），
-# 改走 页面同源 /api/register → 本服务器（新加坡）→ Supabase（国际链路稳定）。
-# 仅转发注册这一个动作；密钥为前端公开 publishable key，无敏感信息。
+# Supabase Edge Function 同源代理：国内浏览器直连 supabase.co 不稳定（GFW/CORS），
+# 改走 页面同源 /api/fn/<name>（或旧别名 /api/register）→ 本服务器（新加坡）→ Supabase。
+# 同源请求无 CORS 预检；Authorization 透传（后台需调用者 JWT），未带则用公开 publishable key。
+# 仅白名单函数可转发，避免开放代理。
 # ---------------------------------------------------------------
-SB_FUNC_URL = 'https://lnzepjubgtdclvmridxw.supabase.co/functions/v1/register-with-invite'
+SB_FUNC_BASE = 'https://lnzepjubgtdclvmridxw.supabase.co/functions/v1/'
 SB_PUB_KEY = 'sb_publishable_m4cNAyw4SzOdv-eogmOsDg_kHicDMEf'
+SB_FN_ALLOW = {'register-with-invite', 'admin-api'}
 
 
-def proxy_register(payload):
-    """转发注册请求；连接级失败重试 3 次，HTTP 业务错误（400 等）原样透传不重试。"""
+def proxy_function(name, payload, auth_header=None):
+    """转发到 Edge Function；连接级失败重试 3 次，HTTP 业务错误（4xx/5xx）原样透传不重试。"""
     last_err = None
     for attempt in range(3):
-        req = urllib.request.Request(SB_FUNC_URL, data=payload, method='POST', headers={
+        req = urllib.request.Request(SB_FUNC_BASE + name, data=payload, method='POST', headers={
             'Content-Type': 'application/json',
             'apikey': SB_PUB_KEY,
-            'Authorization': 'Bearer ' + SB_PUB_KEY,
+            'Authorization': auth_header or ('Bearer ' + SB_PUB_KEY),
         })
         try:
-            with urllib.request.urlopen(req, timeout=25) as r:
+            with urllib.request.urlopen(req, timeout=30) as r:
                 return r.getcode(), r.read()
         except urllib.error.HTTPError as e:
             return e.code, e.read()
@@ -520,13 +522,20 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         u = urlparse(self.path)
-        if u.path == '/api/register':
+        fn = None
+        if u.path == '/api/register':               # 旧别名，等价 /api/fn/register-with-invite
+            fn = 'register-with-invite'
+        elif u.path.startswith('/api/fn/'):
+            cand = u.path[len('/api/fn/'):]
+            if cand in SB_FN_ALLOW:
+                fn = cand
+        if fn:
             try:
                 n = int(self.headers.get('Content-Length') or 0)
-                if n <= 0 or n > 10000:
+                if n <= 0 or n > 100000:
                     raise ValueError('bad content length')
                 payload = self.rfile.read(n)
-                code, body = proxy_register(payload)
+                code, body = proxy_function(fn, payload, self.headers.get('Authorization'))
             except Exception:
                 body = json.dumps({'error': 'proxy_unavailable'}).encode('utf-8')
                 code = 502
