@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 导航加 ECOER Portal 回链（仅本地显示）— 2026-07-10
+
+- [shell.js](js/lib/shell.js)：导航栏新增「← ECOER Portal」链接（`http://127.0.0.1:8787/`），供本地开发在工具站与 ECOER Portal 间跳转
+- **仅本地显示**：`location.hostname` 为 `localhost`/`127.0.0.1` 时才渲染；线上 `hvac.geopro.cc` / `hvac.geotoday.net` 自动隐藏（避免访客点到指向自己电脑的坏链接）
+- 资源版本 `shell.js v=217 → v=218`
+
 ## 后台调用同源代理（修复 admin 页不可用）— 2026-07-10
 
 后台页所有动作报 `Failed to send a request to the Edge Function` —— 浏览器直连 supabase.co 的 functions 调用被拦（与注册同类：CORS 修复前的缓存页面 / 国内网络对 functions 端点丢包）。治本：后台调用也走同源代理。

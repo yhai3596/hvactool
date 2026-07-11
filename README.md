@@ -159,12 +159,15 @@ ssh root@<server> 'systemctl restart hvac'
 
 冷媒物性统一采用 **IIR 基准**（0°C 饱和液 h=200 kJ/kg，s=1.0 kJ/kg·K），与常用物性表册一致。
 
-## 账号系统
+## 账号系统与后台
 
-- Supabase 项目 `hvac-tools`（免费档），邮箱 + 密码注册/登录/退出，默认需邮件确认
-- 前端仅持有 **publishable key**（设计上可公开）；密码由 Supabase 加密托管
-- 登录门禁在前端实现（本地工具定位）；如需服务端强制鉴权需另加中间层
-- `supabase-js` CDN 加载失败时自动降级为离线模式，不阻断工具使用
+- **邀请码注册制**：注册需有效邀请码，经 Edge Function `register-with-invite` 建号（免邮件确认，注册即可登录），每人注册后获 5 个邀请码
+- **积分**：初始 1000，每日按日历天惰性扣 30，每成功邀请 1 人 +300；`credit_log` 记流水，顶栏 ⚡ 显示
+- **中英双语**：全站可切换（默认英语 + 美制），`js/lib/i18n.js` 字典 + 全局 `window.T()` + `data-i18n`
+- **管理后台** `admin.html`（仅管理员 `is_admin()` 显示入口）：用户管理（改积分 / 补发码）、新增账号、埋点看板、站点设置（可配邀请说明中英文）。所有后台写经 Edge Function `admin-api`，服务端 `getUser` 验签 + `admins` 成员校验才放行——**前端隐藏仅观感，真正的门在服务端**
+- **埋点** `js/lib/analytics.js`（全站注入）：页面浏览 / 停留时长 / 点击（仅按钮·链接，不采输入框值），直插 `events` 表（RLS 仅允许 INSERT，用户读不到他人行为）
+- **注册 / 后台可靠性**：浏览器直连 supabase.co 的 Edge Function 在国内网络不稳，前端优先走**同源代理** `POST /api/fn/<name>`（server.py 转发到 Supabase），失败自动回退直连
+- 前端仅持有 **publishable key**（设计上可公开）；密码由 Supabase 加密托管；`supabase-js` CDN 加载失败自动降级离线模式，不阻断工具使用
 
 ## 目录结构
 
@@ -172,16 +175,18 @@ ssh root@<server> 'systemctl restart hvac'
 HVAC/
 ├── index.html  sim.html  refprops.html  phcalc.html
 ├── psychro.html  hydronic.html  duct.html  energy.html
-├── units.html  login.html
-├── server.py               Python 后端：静态托管 + CoolProp JSON API
+├── units.html  login.html  admin.html   管理后台（仅管理员）
+├── server.py               Python 后端：静态托管 + CoolProp JSON API + 注册/后台同源代理
 ├── start.bat               Windows 本地一键启动
 ├── css/
 │   ├── style.css           仿真页样式
 │   └── site.css            工具站共享样式
 ├── js/
 │   ├── lib/config.js       Supabase 地址/公开钥、导航、门禁开关
-│   ├── lib/shell.js        导航注入 + 登录门禁 + 页脚
-│   ├── lib/api.js          fetch 封装 + toast
+│   ├── lib/i18n.js         中英双语字典 + window.T()
+│   ├── lib/shell.js        导航注入 + 登录门禁 + 页脚 + 语言/主题切换
+│   ├── lib/analytics.js    全站埋点（浏览/停留/点击）
+│   ├── lib/api.js          fetch 封装 + toast + 后端报错翻译
 │   ├── lib/units.js        双单位制引擎
 │   └── refprops/model/scene/phdiagram/sequence/ui/main.js   仿真引擎
 ├── README.md   CHANGELOG.md
