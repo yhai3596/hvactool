@@ -422,3 +422,29 @@ html[data-theme="contrast"] {
 #scene [stop-color="#22405f"] { stop-color: var(--sc-acc2); }
 #scene [stop-color="#122236"] { stop-color: var(--sc-acc3); }
 #scene #steam circle { fill: var(--sc-steam); }
+
+/* ═══════════════════════════════════════════════════════════
+   移动端适配(≤899px)· 基础层
+   规则只在窄屏生效;≥900px 桌面样式零改动(只追加不修改)。
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 899px) {
+  body { min-width: 0; }
+  #app { padding: 8px 8px 14px; }
+  /* 触屏:消除双击缩放 300ms 延迟 */
+  a, button, input, select { touch-action: manipulation; }
+
+  /* —— 仿真页最小兜底(单列堆叠;场景 SVG/压焓图已按宽自适应,精修见二期)—— */
+  header { flex-wrap: wrap; gap: 8px 12px; }
+  header h1 { font-size: 15px; white-space: normal; }
+  .mode-group { flex-wrap: wrap; margin-left: 0; gap: 6px; }
+  .mode-btn { padding: 7px 12px; letter-spacing: 1px; }
+  /* minmax(0,1fr):压掉 canvas/SVG 内在宽,防轨道撑破视口 */
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .sliders { grid-template-columns: 1fr; gap: 6px 22px; }
+  #stats { grid-template-columns: repeat(3, 1fr); }
+  #sensorGrid { grid-template-columns: repeat(2, 1fr); }
+
+  /* 滑杆触控热区加高、滑块加大 */
+  input[type="range"] { height: 30px; }
+  input[type="range"]::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -7px; }
+}

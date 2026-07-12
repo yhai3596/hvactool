@@ -8,6 +8,7 @@
       brand: 'HVAC TOOLS', nav_home: 'Home', nav_sim: 'Simulation', nav_refprops: 'Refrigerant', nav_phcalc: 'P-h Cycle',
       nav_psychro: 'Psychrometrics', nav_hydronic: 'Hydronics', nav_duct: 'Duct', nav_energy: 'Energy', nav_units: 'Units',
       lang_label: 'Lang', login_register: 'Log in / Sign up', logout: 'Log out', invites_btn: 'Invites', nav_admin: 'Admin', offline: 'Offline · login unavailable', auth_unreachable: 'Auth service unreachable',
+      fold_note: 'Notes',
       // 主页
       home_title: 'HVAC Tools', home_sub: 'Inverter heat-pump simulation · CoolProp high-accuracy properties · Psychrometrics / hydronics / duct / energy',
       svc_label: 'Compute service', svc_checking: 'checking…', svc_online: 'online', svc_offline: 'offline (run start.bat)', cp_label: 'Property engine',
@@ -141,6 +142,7 @@
       brand: 'HVAC 工具站', nav_home: '首页', nav_sim: '系统仿真', nav_refprops: '冷媒物性', nav_phcalc: '压焓计算',
       nav_psychro: '湿空气', nav_hydronic: '水力计算', nav_duct: '风管设计', nav_energy: '能耗电费', nav_units: '单位换算',
       lang_label: '语言', login_register: '登录 / 注册', logout: '退出', invites_btn: '邀请码', nav_admin: '后台', offline: '离线模式 · 登录不可用', auth_unreachable: '认证服务不可达',
+      fold_note: '说明',
       home_title: 'HVAC 工具站', home_sub: '变频热泵仿真 · CoolProp 高精度物性 · 湿空气 / 水力 / 风管 / 能耗 工程计算',
       svc_label: '计算服务', svc_checking: '检测中…', svc_online: '在线', svc_offline: '离线（请运行 start.bat）', cp_label: '物性引擎',
       card_sim_h: '变频系统动态仿真', card_sim_p: '一拖一热泵制冷/制热/化霜/回油全过程动画，冷媒相变可视化 + 压焓图 + 测点，9 参数实时调节',

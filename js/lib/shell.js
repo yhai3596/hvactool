@@ -30,8 +30,10 @@ function shellRenderNav() {
     : `<span class="lang-seg">${LANGS.map(l => `<button data-l="${l.code}"${cur === l.code ? ' class="on"' : ''}>${l.label}</button>`).join('')}</span>`;
   nav.innerHTML =
     `<a class="brand" data-i18n="brand" href="index.html">HVAC TOOLS</a>` +
+    `<span class="nav-links">` +
     SITE_CONFIG.NAV.map(n =>
       `<a class="nav-link${n.key === page ? ' on' : ''}" data-i18n="nav_${n.key}" href="${n.href}">${n.label}</a>`).join('') +
+    `</span>` +
     `<span class="spacer"></span>` +
     langCtrl +
     `<span id="unitSlot"></span>` +
@@ -54,6 +56,11 @@ function shellRenderNav() {
     Units.initDefaults();
   }
   if (window.I18N) I18N.apply(nav);
+  // 窄屏:nav-links 是横滑条,把当前页 tab 滚进视野(桌面无滚动容器,跳过)
+  if (window.matchMedia && window.matchMedia('(max-width: 899px)').matches) {
+    const curTab = nav.querySelector('.nav-link.on');
+    if (curTab && curTab.scrollIntoView) curTab.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
 }
 
 function shellSetChip(html) {
@@ -185,6 +192,53 @@ async function shellShowCredits() {
       : `<div style="color:var(--text-dim);font-size:12px">${T('cred_empty')}</div>`);
 }
 
+/* ===== 移动端折叠(≤899px)=====
+ * .note 说明:自动加折叠头,默认收起(省屏幕,点击展开)
+ * .panel-title 栏目:点标题收起/展开该栏,收起状态 localStorage 记忆
+ * 桌面视觉由 CSS 兜底(折叠规则只写在 ≤899px media 内),此处状态类残留无害 */
+function shellInitMobileFold() {
+  if (!window.matchMedia || !window.matchMedia('(max-width: 899px)').matches) return;
+  const page = document.body.dataset.page || 'x';
+
+  document.querySelectorAll('.note').forEach(note => {
+    if (note.dataset.fold) return;
+    note.dataset.fold = '1';
+    const head = document.createElement('button');
+    head.type = 'button';
+    head.className = 'note-fold';
+    head.innerHTML = `<span class="nf-a">▸</span><span data-i18n="fold_note">${T('fold_note')}</span>`;
+    note.before(head);
+    note.classList.add('folded');
+    head.addEventListener('click', () => {
+      const open = !note.classList.toggle('folded');
+      head.querySelector('.nf-a').textContent = open ? '▾' : '▸';
+    });
+  });
+
+  document.querySelectorAll('.panel').forEach((panel, i) => {
+    const title = panel.querySelector(':scope > .panel-title');
+    if (!title || title.dataset.fold) return;
+    title.dataset.fold = '1';
+    const kid = title.dataset.i18n || title.querySelector('[data-i18n]')?.dataset.i18n || title.id || 'p' + i;
+    const key = 'hvac-fold-' + page + '-' + kid;
+    const arrow = document.createElement('span');
+    arrow.className = 'pt-arrow';
+    title.appendChild(arrow);
+    const set = folded => {
+      panel.classList.toggle('p-folded', folded);
+      arrow.textContent = folded ? '▸' : '▾';
+    };
+    set(localStorage.getItem(key) === '1');
+    title.addEventListener('click', e => {
+      if (e.target.closest('button, a, select, input, label')) return;
+      const folded = !panel.classList.contains('p-folded');
+      set(folded);
+      if (folded) localStorage.setItem(key, '1');
+      else { localStorage.removeItem(key); window.dispatchEvent(new Event('resize')); } // 展开补发 resize:canvas 类内容重绘兜底
+    });
+  });
+}
+
 function shellRenderFooter() {
   const app = document.getElementById('app') || document.body;
   if (document.getElementById('siteFooter')) return;
@@ -201,5 +255,12 @@ document.addEventListener('DOMContentLoaded', () => {
   shellRenderNav();
   shellRenderFooter();
   if (window.I18N) I18N.apply();   // 渲染全页 data-i18n（页面正文）
+  shellInitMobileFold();
+  // 桌面窗口缩到手机宽时补初始化(幂等,已处理过的元素跳过)
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(max-width: 899px)');
+    const onMq = e => { if (e.matches) shellInitMobileFold(); };
+    mq.addEventListener ? mq.addEventListener('change', onMq) : mq.addListener(onMq);
+  }
   shellInitAuth();
 });

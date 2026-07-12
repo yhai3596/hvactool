@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 全站移动端适配(一期)+ 说明/栏目折叠 — 2026-07-12
+
+手机端从"980px 桌面页缩小渲染"变为原生移动布局;PC 端零改动(移动规则全部锁在 `@media (max-width:899px)` 内,只追加不修改)。资源版本 `v=220 → v=222`。
+
+- **viewport 补全**:9 个缺失页面补 `<meta name="viewport">`(此前仅 index/sim 有)
+- **解锁桌面锁宽**:`body min-width:1280` / `.tool-page min-width:1100` 在 ≤899px 置零
+- **导航手机形态**([shell.js](js/lib/shell.js)):导航链接包进 `.nav-links` 容器(桌面 `display:contents` 渲染完全不变),手机上独占一行**横滑 tab 条**,当前页自动滚入居中;控件 `flex-shrink:0` 防压缩裁字;取消 sticky 省屏
+- **工具页单列化**:`.tool-layout`/仿真 `.layout` 单列,取消左右各自 sticky 独立滚动;门户卡片 4→2→1 列阶梯
+- **输入触控优化**:输入框/下拉 16px(根治 iOS 聚焦自动放大)+ min-height 42px;主按钮 44px 且 btn-row 内均分;全局 `touch-action:manipulation` 去双击缩放延迟;滑杆热区 30px/滑块 18px
+- **两处 `minmax(0,1fr)` 关键修复**:phcalc/sim 的 canvas 运行时按 dpr 重设 `width` 属性(如 946px),会把 `1fr` 网格轨道内在宽撑破视口 —— 布局轨道与表单列均显式压零
+- **宽表格兜底**:`.data-table` 手机上自身横向滚动;结果卡 `minmax(130px,1fr)`
+- **sim 一期兜底**:header/模式按钮换行、滑杆单列、性能 3 列/测点 2 列;场景 SVG 与压焓图本身按宽自适应(精修见二期)
+- **说明折叠**:各页 `.note` 手机上自动收成「▸ 说明/Notes」一行(shell.js 注入,默认收起,点击展开;`fold_note` 中英词条)
+- **栏目折叠 + 记忆**:`.panel-title` 手机上可点击收起该栏(右侧 ▾/▸ 指示,触控区加大);收起状态按 `hvac-fold-<页>-<栏目词条名>` 存 localStorage,下次访问保持;展开时补发 `resize` 兜底 canvas 重绘;桌面永远全显(折叠规则仅在移动 media 内,状态残留无害)
+- **验证**:375px iframe 实测 10 页全部 `scrollWidth=375` 零横向溢出;折叠→刷新→记忆→展开→canvas 完好全链路通过;1440px 桌面截图回归与线上一致;三主题抽查正常
+
 ## 全站主题体验 + 性能体检 — 2026-07-12
 
 仿真页启用三主题、高对比换为米黄"纸感"、场景/压焓图全面主题化，并做全站性能体检修复两处高消耗设计。资源版本 `v=218 → v=220`。

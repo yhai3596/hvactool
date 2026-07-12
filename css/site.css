@@ -235,3 +235,92 @@ html[data-theme="light"] #siteNav a.nav-link.on { color: #fff; background: var(-
 html[data-theme="light"] .auth-tabs button.on { color: #fff; background: var(--accent); }
 html[data-theme="contrast"] .btn:not(.ghost) { background: var(--accent); color: #fff; box-shadow: none; }
 html[data-theme="contrast"] #siteNav a.nav-link.on { color: #fff; background: var(--accent); }
+
+/* ═══════════════════════════════════════════════════════════
+   移动端适配(≤899px)· 站点壳层
+   .nav-links 是 shell.js 新增的分组容器:桌面 display:contents
+   (渲染结果与未包裹时完全一致),窄屏变成独占一行的横滑 tab 条。
+   其余规则只在 ≤899px 生效,桌面零改动。
+   ═══════════════════════════════════════════════════════════ */
+#siteNav .nav-links { display: contents; }
+
+/* 折叠控件(shell.js 注入)仅手机呈现;桌面隐藏且内容始终全显 */
+.note-fold, .pt-arrow { display: none; }
+
+@media (max-width: 899px) {
+  /* —— 说明折叠:默认收起,点击展开 —— */
+  .note-fold {
+    display: flex; align-items: center; gap: 6px; width: 100%;
+    margin-top: 10px; padding: 6px 0 0; background: none; border: none;
+    color: var(--text-dim); font-size: 12px; cursor: pointer; text-align: left;
+    font-family: inherit; letter-spacing: .5px;
+  }
+  .note-fold .nf-a { color: var(--accent); font-size: 10px; }
+  .note.folded { display: none; }
+  .note-fold + .note { margin-top: 6px; }
+
+  /* —— 栏目折叠:点标题收起该栏 —— */
+  .panel > .panel-title { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; padding: 12px 14px 10px; }
+  .pt-arrow { display: inline; margin-left: auto; color: var(--text-dim); font-size: 12px; padding: 2px 0 2px 8px; }
+  .panel.p-folded > :not(.panel-title) { display: none !important; }
+  .panel.p-folded > .panel-title { padding-bottom: 12px; }
+
+  body.tool-page { min-width: 0; }
+
+  /* —— 导航:取消 sticky 省屏幕;链接行独占一行可横滑 —— */
+  #siteNav { position: static; padding: 8px 10px; gap: 6px; }
+  /* 控件禁止被 flex 压缩裁剪:放不下就正常换行 */
+  #siteNav > * { flex-shrink: 0; }
+  #siteNav .spacer { display: none; }
+  #unitToggle { flex-wrap: wrap; }
+  #siteNav .brand { margin-right: 4px; }
+  #siteNav .nav-links {
+    display: flex; order: 99; width: 100%;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    gap: 2px; padding: 2px 0;
+    scrollbar-width: none;
+  }
+  #siteNav .nav-links::-webkit-scrollbar { display: none; }
+  #siteNav a.nav-link { padding: 8px 12px; flex: 0 0 auto; }
+  #siteNav .user-chip { flex-wrap: wrap; row-gap: 6px; }
+  #siteNav .user-chip b { max-width: 120px; }
+  #siteNav .chip-btn { padding: 6px 12px; }
+  .theme-seg, .lang-seg, .lang-select { margin-right: 6px; }
+  .ut-seg button, .theme-seg button, .lang-seg button { padding: 6px 10px; }
+
+  /* —— 工具页:单列,取消左右各自 sticky 独立滚动。
+        minmax(0,1fr):canvas 运行时重设 width 属性(内在宽>视口),
+        1fr 轨道会被其 min-content 撑破 —— 必须显式压零 —— */
+  .tool-layout, .tool-layout.wide-input { grid-template-columns: minmax(0, 1fr); }
+  .tool-layout > * { position: static; max-height: none; overflow: visible; }
+  /* minmax(0,1fr):防 input 内在最小宽度把列撑出屏 */
+  .form-grid, .form-grid.cols3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-grid.cols1 { grid-template-columns: 1fr; }
+
+  /* —— 输入:16px 根治 iOS 聚焦自动放大;触控目标加大 —— */
+  .field input, .field select,
+  .field-inline input, .field-inline select {
+    font-size: 16px; padding: 9px 10px; min-height: 42px;
+  }
+  .btn { min-height: 44px; }
+  .btn-row .btn { flex: 1 1 auto; }
+  .data-table input, .data-table select { font-size: 14px; min-height: 36px; }
+
+  /* —— 宽表格自身横向滚动兜底 —— */
+  .data-table { display: block; overflow-x: auto; }
+
+  /* —— 结果卡/toast/登录/页脚 —— */
+  .kv-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  #toastBox { left: 10px; right: 10px; top: 10px; align-items: center; }
+  .toast { max-width: 100%; }
+  .auth-box { margin: 24px auto; }
+  #siteFooter { font-size: 11.5px; gap: 8px; }
+}
+
+/* 门户卡片:平板 2 列,手机 1 列(桌面 4 列不变) */
+@media (max-width: 899px) and (min-width: 600px) {
+  .portal-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 599px) {
+  .portal-grid { grid-template-columns: 1fr; }
+}
