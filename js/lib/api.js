@@ -20,7 +20,13 @@ async function api(path, params) {
   } catch (e) {
     throw new Error(window.T ? window.T('err_no_service') : '无法连接本地计算服务，请确认已运行 server.py（start.bat）');
   }
-  const j = await r.json();
+  let j;
+  try {
+    j = await r.json();
+  } catch (_) {
+    // 收到非 JSON（如 404/502 的 HTML 错误页）= 计算服务不可用，给友好提示
+    throw new Error(window.T ? window.T('err_no_service') : '无法连接本地计算服务，请确认已运行 server.py（start.bat）');
+  }
   if (j.error) throw new Error(trBackendMsg(j.error) + (j.hint ? '｜' + trBackendMsg(j.hint) : ''));
   return j;
 }

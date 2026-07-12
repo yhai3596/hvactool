@@ -53,28 +53,29 @@ html[data-theme="light"] {
 }
 
 /* ---- 高对比主题 ---- */
+/* 米黄「纸感」主题（内部键沿用 contrast，兼容已存的用户偏好） */
 html[data-theme="contrast"] {
-  --bg: #000000;
-  --page-bg: #000000;
-  --panel: #000000;
-  --panel-border: #9aa7b8;
-  --grid-line: rgba(255, 255, 255, 0.07);
-  --accent: #00e5ff;
-  --accent2: #66aaff;
-  --hot: #ff6b6b;
-  --cold: #5bc8ff;
-  --warn: #ffd23f;
-  --ok: #39ff9a;
-  --text: #ffffff;
-  --text-dim: #cfd8e3;
-  --text-faint: #aab6c5;
-  --input-bg: #000000;
-  --input-border: #cfd8e3;
-  --card-bg: #0a0a0a;
-  --card-border: #9aa7b8;
-  --num: #00e5ff;
-  --tbl-line: #9aa7b8;
-  --nav-solid: #000000;
+  --bg: #f3ecd9;
+  --page-bg: linear-gradient(180deg, #f8f3e4, #efe6cf);
+  --panel: rgba(255, 253, 246, 0.94);
+  --panel-border: #d9cead;
+  --grid-line: rgba(120, 100, 60, 0.06);
+  --accent: #0e7490;
+  --accent2: #b45309;
+  --hot: #c2410c;
+  --cold: #0369a1;
+  --warn: #a16207;
+  --ok: #15803d;
+  --text: #3b3222;
+  --text-dim: #77694c;
+  --text-faint: #998a6a;
+  --input-bg: #fffdf6;
+  --input-border: #cfc3a2;
+  --card-bg: #fbf6e9;
+  --card-border: #e2d8bc;
+  --num: #92600a;
+  --tbl-line: #d9cead;
+  --nav-solid: #fbf6e9;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -82,8 +83,9 @@ html[data-theme="contrast"] {
 html, body { height: 100%; }
 
 body {
-  background: var(--page-bg);
-  background-attachment: fixed;
+  /* 渐变背景放在下方 ::before 固定层（合成器缓存）；
+     body 不用 background-attachment:fixed —— 它会让滚动时整页背景重绘（Windows 卡顿源） */
+  background: var(--bg);
   color: var(--text);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
   font-size: 13px;
@@ -94,10 +96,12 @@ body {
 body::before {
   content: "";
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
+  background:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 42px 42px;
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+    var(--page-bg);
+  background-size: 42px 42px, 42px 42px, auto;
+  background-repeat: repeat, repeat, no-repeat;
 }
 
 #app { position: relative; z-index: 1; padding: 10px 14px 16px; display: flex; flex-direction: column; gap: 10px; }
@@ -116,12 +120,18 @@ header h1 {
   -webkit-background-clip: text; background-clip: text; color: transparent;
   white-space: nowrap;
 }
+/* 浅底主题：标题渐变换主题深色，避免发虚 */
+html[data-theme="light"] header h1,
+html[data-theme="contrast"] header h1 {
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; background-clip: text;
+}
 header .sub { color: var(--text-dim); font-size: 11px; letter-spacing: 2px; white-space: nowrap; }
 
 .mode-group { display: flex; gap: 6px; margin-left: auto; }
 .mode-btn {
   padding: 7px 18px; border-radius: 8px; cursor: pointer;
-  background: rgba(20, 36, 60, 0.8); color: var(--text-dim);
+  background: var(--input-bg); color: var(--text-dim);
   border: 1px solid var(--panel-border);
   font-size: 13px; font-weight: 600; letter-spacing: 2px;
   transition: all .25s;
@@ -139,7 +149,7 @@ header .sub { color: var(--text-dim); font-size: 11px; letter-spacing: 2px; whit
 .ref-group .lbl { color: var(--text-dim); font-size: 11px; margin-right: 2px; }
 .ref-btn {
   padding: 5px 10px; border-radius: 6px; cursor: pointer;
-  background: rgba(20, 36, 60, 0.8); color: var(--text-dim);
+  background: var(--input-bg); color: var(--text-dim);
   border: 1px solid var(--panel-border); font-size: 11px; font-family: var(--mono);
 }
 .ref-btn.active { color: #04121c; background: linear-gradient(135deg, #a78bfa, #818cf8); border-color: transparent; font-weight: 700; }
@@ -176,7 +186,7 @@ header .sub { color: var(--text-dim); font-size: 11px; letter-spacing: 2px; whit
 @keyframes blink { 50% { opacity: .35; } }
 #procDesc { color: var(--text-dim); font-size: 12px; flex: 1; min-width: 200px; }
 #seqProgress { display: none; align-items: center; gap: 8px; font-size: 11px; color: var(--warn); font-family: var(--mono); white-space: nowrap; }
-#seqProgress .bar { width: 130px; height: 6px; background: #12233b; border-radius: 3px; overflow: hidden; }
+#seqProgress .bar { width: 130px; height: 6px; background: var(--input-border); border-radius: 3px; overflow: hidden; }
 #seqProgress .bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--warn)); transition: width .3s; }
 #hints { display: flex; gap: 6px; flex-wrap: wrap; }
 .hint-pill {
@@ -189,13 +199,14 @@ header .sub { color: var(--text-dim); font-size: 11px; letter-spacing: 2px; whit
 @keyframes hintIn { from { opacity: 0; transform: translateY(4px); } }
 
 /* ============ 场景 ============ */
+/* 场景颜色已全部变量化（见文件尾"场景主题化"区块），随主题切换 */
 #scenePanel { padding: 0; }
 #scene { display: block; width: 100%; height: auto; }
 
 .legend {
   position: absolute; left: 12px; top: 10px; display: flex; gap: 14px; align-items: center;
-  font-size: 10px; color: var(--text-dim); background: rgba(5, 10, 20, .55);
-  padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(30, 58, 95, .6);
+  font-size: 10px; color: var(--sc-chipt); background: var(--sc-chipbg);
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--sc-chipline);
   pointer-events: none;
 }
 .legend .li { display: flex; align-items: center; gap: 4px; }
@@ -227,7 +238,7 @@ header .sub { color: var(--text-dim); font-size: 11px; letter-spacing: 2px; whit
 input[type="range"] { -webkit-appearance: none; width: 100%; height: 22px; background: transparent; cursor: pointer; }
 input[type="range"]::-webkit-slider-runnable-track {
   height: 4px; border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent) var(--fill, 50%), #14273f var(--fill, 50%));
+  background: linear-gradient(90deg, var(--accent) var(--fill, 50%), var(--input-border) var(--fill, 50%));
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; width: 13px; height: 13px; margin-top: -4.5px; border-radius: 50%;
@@ -236,21 +247,22 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* ============ 压焓图 ============ */
+/* 画布配色经 cssv() 读主题变量（--ph-*），随主题重绘 */
 #phPanel { padding-bottom: 8px; }
 #phCanvas { display: block; width: 100%; margin-top: 4px; }
 
 /* ============ 性能行 ============ */
 #stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px 12px 12px; }
-.stat { text-align: center; background: rgba(10, 25, 45, .6); border: 1px solid #12283f; border-radius: 8px; padding: 6px 2px; }
+.stat { text-align: center; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 6px 2px; }
 .stat .k { font-size: 10px; color: var(--text-dim); }
-.stat .v { font-family: var(--mono); font-size: 15px; color: #7dd3fc; margin-top: 2px; }
+.stat .v { font-family: var(--mono); font-size: 15px; color: var(--num-t); margin-top: 2px; }
 .stat .v small { font-size: 9px; color: var(--text-dim); }
 
 /* ============ 测点表 ============ */
 #sensorGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px 12px 12px; }
-.sensor-section { grid-column: 1 / -1; font-size: 10px; letter-spacing: 2px; color: var(--accent); margin-top: 6px; padding: 2px 0 1px; border-top: 1px solid #12283f; }
+.sensor-section { grid-column: 1 / -1; font-size: 10px; letter-spacing: 2px; color: var(--accent); margin-top: 6px; padding: 2px 0 1px; border-top: 1px solid var(--card-border); }
 .sensor-section::before { content: "▸ "; }
-.sensor { background: rgba(10, 25, 45, .6); border: 1px solid #12283f; border-radius: 8px; padding: 6px 8px; position: relative; }
+.sensor { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 6px 8px; position: relative; }
 .sensor .k { font-size: 10px; color: var(--text-dim); white-space: nowrap; }
 .sensor .v { font-family: var(--mono); font-size: 16px; margin-top: 2px; display: flex; align-items: baseline; gap: 3px; transition: font-size .18s ease, color .3s ease; }
 .sensor .v .num { transition: transform .18s ease; transform-origin: left center; }
@@ -260,10 +272,10 @@ input[type="range"]::-webkit-slider-thumb {
 .sensor .delta .base { color: var(--text-faint); }
 .sensor .delta .up { color: #ff6b6b; font-weight: 600; }
 .sensor .delta .dn { color: #34d399; font-weight: 600; }
-.sensor.p .v { color: #c4b5fd; }
-.sensor.t .v { color: #7dd3fc; }
-.sensor.sh .v { color: #6ee7b7; }
-.sensor.air .v { color: #fda4af; }
+.sensor.p .v { color: var(--num-p); }
+.sensor.t .v { color: var(--num-t); }
+.sensor.sh .v { color: var(--num-sh); }
+.sensor.air .v { color: var(--num-air); }
 /* 数值变化中：放大 + 变红 + 微光，稳定后自动恢复 */
 .sensor.changing { border-color: rgba(255,90,103,.65); box-shadow: 0 0 10px rgba(255,90,103,.28); }
 .sensor.changing .v { color: #ff5a67 !important; font-size: 21px; font-weight: 700; }
@@ -273,9 +285,9 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* ============ SVG 内元素 ============ */
 text { user-select: none; }
-.chip-bg { fill: rgba(6, 14, 26, 0.88); stroke: #1e3a5f; stroke-width: 1; rx: 5; }
-.chip-t { font-size: 10px; fill: #6b8aa8; }
-.chip-v { font-size: 12px; font-family: var(--mono); fill: #7dd3fc; font-weight: 600; }
+.chip-bg { fill: var(--sc-chipbg); stroke: var(--sc-chipline); stroke-width: 1; rx: 5; }
+.chip-t { font-size: 10px; fill: var(--sc-chipt); }
+.chip-v { font-size: 12px; font-family: var(--mono); fill: var(--sc-chipv); font-weight: 600; }
 /* 运行图图钉 */
 .pin-mark { font-size: 21px; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
 .pin-mark:hover { font-size: 23px; }
@@ -285,10 +297,128 @@ text { user-select: none; }
 .pin-t { font-size: 12px; font-family: var(--mono); fill: #7dd3fc; cursor: move; }
 .pin-p { font-size: 12px; font-family: var(--mono); fill: #c4b5fd; cursor: move; }
 .pin:hover .pin-box { stroke: #fff; fill: rgba(20,42,64,.96); }
-.svg-label { font-size: 10px; fill: #6b8aa8; letter-spacing: 1px; }
-.svg-label-s { font-size: 9px; fill: #55708c; }
-.pipe-base { fill: none; stroke: #24405c; stroke-linejoin: round; stroke-linecap: round; }
+.svg-label { font-size: 10px; fill: var(--sc-label); letter-spacing: 1px; }
+.svg-label-s { font-size: 9px; fill: var(--sc-label-s); }
+.pipe-base { fill: none; stroke: var(--sc-line3); stroke-linejoin: round; stroke-linecap: round; }
 .pipe-flow { fill: none; stroke-linejoin: round; stroke-linecap: round; opacity: .55; }
-.casing { fill: #0d1a2e; stroke: #2a4a6e; stroke-width: 1.6; }
-.casing-inner { fill: #0a1425; stroke: #1c3450; stroke-width: 1; }
+.casing { fill: var(--sc-casing); stroke: var(--sc-line2); stroke-width: 1.6; }
+.casing-inner { fill: var(--sc-casing2); stroke: var(--sc-line1); stroke-width: 1; }
 footer { text-align: center; color: #3d5670; font-size: 10px; padding-bottom: 4px; }
+
+/* ═══════════════════════════════════════════════════════════
+   场景主题化 —— 变量组 + 属性映射
+   深色 = 原值（视觉零变化）；浅色/米黄 = “白天场景”。
+   sim.html 的内联 SVG 颜色经 [fill=]/[stroke=] 属性选择器接管，
+   scene.js 动态元素同样命中，HTML/JS 零改动、零运行开销。
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --sc-sky1:#071226; --sc-sky2:#0a1a30;
+  --sc-room1:#101c30; --sc-room2:#0d1626;
+  --sc-ground:#0b1424; --sc-gline:#1b3350;
+  --sc-struct1:#0f2138; --sc-struct2:#183050; --sc-struct3:#14263e;
+  --sc-line1:#1c3450; --sc-line2:#2a4a6e; --sc-line3:#24405c;
+  --sc-line4:#33587e; --sc-line5:#1e3a5c; --sc-line6:#4b6f94;
+  --sc-casing:#0d1a2e; --sc-casing2:#0a1425;
+  --sc-fanface:#081120; --sc-blade:#2d5a86; --sc-hub:#3b6c9e; --sc-hubline:#5c93c9;
+  --sc-comp1:#1b3350; --sc-comp2:#2c4f78; --sc-comp3:#16293f; --sc-metal-line:#3d6ea3;
+  --sc-acc1:#15283e; --sc-acc2:#22405f; --sc-acc3:#122236;
+  --sc-bluetxt:#a5f3fc; --sc-bluetxt2:#5c93c9;
+  --sc-furn1:#0e1c31; --sc-furn2:#0f1e33; --sc-furn3:#0c1a2c; --sc-plant:#1f7a54;
+  --sc-coil1:#dff3ff; --sc-coil2:#cfeeff; --sc-coil-line:#67e8f9;
+  --sc-wm:#1a3a5c;
+  --sc-chipbg:rgba(6,14,26,.88); --sc-chipline:#1e3a5f; --sc-chipt:#6b8aa8; --sc-chipv:#7dd3fc;
+  --sc-label:#6b8aa8; --sc-label-s:#55708c;
+  --sc-flow:#7dd3fc; --sc-flow-hot:#fda4af; --sc-purple:#c4b5fd;
+  --sc-drip:#9bd7f7; --sc-steam:#cfeeff; --sc-snow:#dbeafe;
+  --num-t:#7dd3fc; --num-p:#c4b5fd; --num-sh:#6ee7b7; --num-air:#fda4af;
+  --ph-grid:rgba(120,180,220,.16); --ph-grid2:rgba(120,180,220,.11);
+  --ph-tick:#9fc0dc; --ph-axis:#b8d4ec;
+  --ph-iso:rgba(150,180,215,.40); --ph-isot:rgba(170,196,224,.85);
+  --ph-cycle:#fbbf24; --ph-cyct:#fcd34d; --ph-ptfill:#fff7e0; --ph-orbit:#fff;
+  --ph-outline:rgba(5,10,20,.85);
+}
+/* 白天场景（浅色 + 米黄共享；米黄在下方微调底色） */
+html[data-theme="light"], html[data-theme="contrast"] {
+  --sc-sky1:#cfe3f7; --sc-sky2:#e9f3fc;
+  --sc-room1:#eef4fa; --sc-room2:#e2ecf5;
+  --sc-ground:#ccd8e4; --sc-gline:#9db4c9;
+  --sc-struct1:#dbe6f2; --sc-struct2:#cfdded; --sc-struct3:#d6e2ef;
+  --sc-line1:#9db4cb; --sc-line2:#7f9cb8; --sc-line3:#8aa5bf;
+  --sc-line4:#7794b3; --sc-line5:#a8bccf; --sc-line6:#7d97ad;
+  --sc-casing:#e3ecf5; --sc-casing2:#d9e4ef;
+  --sc-fanface:#c6d4e2; --sc-blade:#5a87b0; --sc-hub:#4a7aa6; --sc-hubline:#2f5f8c;
+  --sc-comp1:#b9cde3; --sc-comp2:#9dbbd9; --sc-comp3:#aac3dc; --sc-metal-line:#5c88b4;
+  --sc-acc1:#c2d3e4; --sc-acc2:#aac0d8; --sc-acc3:#b5c8dc;
+  --sc-bluetxt:#0b4a6f; --sc-bluetxt2:#33607e;
+  --sc-furn1:#c9d6e3; --sc-furn2:#cfdae6; --sc-furn3:#c2d0de; --sc-plant:#2e8b62;
+  --sc-coil1:#7fb5d8; --sc-coil2:#5c9cc6; --sc-coil-line:#0284c7;
+  --sc-wm:#b5c7d8;
+  --sc-chipbg:rgba(255,255,255,.88); --sc-chipline:#b6c8d8; --sc-chipt:#5b7188; --sc-chipv:#075985;
+  --sc-label:#5b7188; --sc-label-s:#6d8298;
+  --sc-flow:#0369a1; --sc-flow-hot:#be3b4d; --sc-purple:#6d5bd0;
+  --sc-drip:#2e7fb8; --sc-steam:#8fb4cc; --sc-snow:#9db8d4;
+  --num-t:#075985; --num-p:#5b4bc4; --num-sh:#047857; --num-air:#be3b4d;
+  --ph-grid:rgba(30,60,90,.15); --ph-grid2:rgba(30,60,90,.10);
+  --ph-tick:#4a6b8a; --ph-axis:#33556f;
+  --ph-iso:rgba(60,90,120,.45); --ph-isot:rgba(60,90,120,.90);
+  --ph-cycle:#b45309; --ph-cyct:#8a4b06; --ph-ptfill:#fff; --ph-orbit:#7c2d12;
+  --ph-outline:rgba(255,255,255,.85);
+}
+/* 米黄底色微调（暖调天空/室内/地面/水印） */
+html[data-theme="contrast"] {
+  --sc-sky1:#eee0bd; --sc-sky2:#f8efd8;
+  --sc-room1:#f7f0de; --sc-room2:#efe6cd;
+  --sc-ground:#ded1ad; --sc-gline:#b5a37c;
+  --sc-wm:#cdbf99;
+  --sc-chipbg:rgba(255,252,242,.90); --sc-chipline:#cfc3a2;
+}
+/* —— 内联 SVG 颜色 → 变量（fill）—— */
+#scene [fill="#183050"] { fill: var(--sc-struct2); }
+#scene [fill="#0f2138"] { fill: var(--sc-struct1); }
+#scene [fill="#14263e"] { fill: var(--sc-struct3); }
+#scene [fill="#0b1424"] { fill: var(--sc-ground); }
+#scene [fill="#081120"] { fill: var(--sc-fanface); }
+#scene [fill="#2d5a86"] { fill: var(--sc-blade); }
+#scene [fill="#3b6c9e"] { fill: var(--sc-hub); }
+#scene [fill="#5c93c9"] { fill: var(--sc-hubline); }
+#scene [fill="#2c4f78"] { fill: var(--sc-comp2); }
+#scene [fill="#a5f3fc"] { fill: var(--sc-bluetxt); }
+#scene [fill="#7dd3fc"] { fill: var(--sc-flow); }
+#scene [fill="#fda4af"] { fill: var(--sc-flow-hot); }
+#scene [fill="#c4b5fd"] { fill: var(--sc-purple); }
+#scene [fill="#55708c"] { fill: var(--sc-label-s); }
+#scene [fill="#0e1c31"] { fill: var(--sc-furn1); }
+#scene [fill="#0f1e33"] { fill: var(--sc-furn2); }
+#scene [fill="#0c1a2c"] { fill: var(--sc-furn3); }
+#scene [fill="#dff3ff"] { fill: var(--sc-coil1); }
+#scene [fill="#cfeeff"] { fill: var(--sc-coil2); }
+#scene [fill="#67e8f9"] { fill: var(--sc-coil-line); }
+#scene [fill="#1a3a5c"] { fill: var(--sc-wm); }
+#scene [fill="#9bd7f7"] { fill: var(--sc-drip); }
+#scene [fill="#dbeafe"] { fill: var(--sc-snow); }
+/* —— 内联 SVG 颜色 → 变量（stroke）—— */
+#scene [stroke="#2a4a6e"] { stroke: var(--sc-line2); }
+#scene [stroke="#1c3450"] { stroke: var(--sc-line1); }
+#scene [stroke="#24405c"] { stroke: var(--sc-line3); }
+#scene [stroke="#33587e"] { stroke: var(--sc-line4); }
+#scene [stroke="#1e3a5c"] { stroke: var(--sc-line5); }
+#scene [stroke="#1b3350"] { stroke: var(--sc-gline); }
+#scene [stroke="#4b6f94"] { stroke: var(--sc-line6); }
+#scene [stroke="#5c93c9"] { stroke: var(--sc-hubline); }
+#scene [stroke="#3d6ea3"] { stroke: var(--sc-metal-line); }
+#scene [stroke="#3b6c9e"] { stroke: var(--sc-hub); }
+#scene [stroke="#7dd3fc"] { stroke: var(--sc-flow); }
+#scene [stroke="#67e8f9"] { stroke: var(--sc-coil-line); }
+#scene [stroke="#1f7a54"] { stroke: var(--sc-plant); }
+/* —— 渐变 stop → 变量（SVG stop-color 可由 CSS 覆盖）—— */
+#scene [stop-color="#071226"] { stop-color: var(--sc-sky1); }
+#scene [stop-color="#0a1a30"] { stop-color: var(--sc-sky2); }
+#scene [stop-color="#101c30"] { stop-color: var(--sc-room1); }
+#scene [stop-color="#0d1626"] { stop-color: var(--sc-room2); }
+#scene [stop-color="#1b3350"] { stop-color: var(--sc-comp1); }
+#scene [stop-color="#2c4f78"] { stop-color: var(--sc-comp2); }
+#scene [stop-color="#16293f"] { stop-color: var(--sc-comp3); }
+#scene [stop-color="#15283e"] { stop-color: var(--sc-acc1); }
+#scene [stop-color="#22405f"] { stop-color: var(--sc-acc2); }
+#scene [stop-color="#122236"] { stop-color: var(--sc-acc3); }
+#scene #steam circle { fill: var(--sc-steam); }

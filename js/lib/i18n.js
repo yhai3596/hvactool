@@ -39,7 +39,7 @@
       // 页脚
       footer_cr: '© Alan · Feedback welcome!', footer_wx: 'Follow WeChat: ', footer_wx_name: 'Alan’s AI World',
       // 开关
-      unit_si: 'Metric', unit_ip: 'US', in_label: 'In', out_label: 'Out', th_dark: 'Dark', th_light: 'Light', th_contrast: 'Contrast',
+      unit_si: 'Metric', unit_ip: 'US', in_label: 'In', out_label: 'Out', th_dark: 'Dark', th_light: 'Light', th_contrast: 'Cream',
       // 仿真页
       sim_h1: 'Inverter Split Heat-Pump Simulation', sim_sub: 'INVERTER HEAT-PUMP SIMULATOR', lbl_ref: 'Refrigerant', lbl_unit: 'Unit',
       mode_cooling: 'Cooling', mode_heating: 'Heating', mode_defrost: 'Defrost', mode_oil: 'Oil Return',
@@ -166,7 +166,7 @@
       cred_title: '我的积分', cred_foot: '初始 1000 分 · 每天消耗 30 分 · 每邀请 1 人 +300 分', cred_days: '可用约 {d} 天', cred_empty: '暂无明细',
       reason_signup: '注册赠送', reason_backfill: '账号初始', reason_invite: '邀请奖励', reason_daily: '每日消耗',
       footer_cr: '© 版权 Alan 所有 · 欢迎交流联系！', footer_wx: '关注 Alan 的公众号：', footer_wx_name: 'Alan 的 AI 世界',
-      unit_si: '公制', unit_ip: '美制', in_label: '输入', out_label: '输出', th_dark: '深色', th_light: '浅色', th_contrast: '高对比',
+      unit_si: '公制', unit_ip: '美制', in_label: '输入', out_label: '输出', th_dark: '深色', th_light: '浅色', th_contrast: '米黄',
       // 仿真页
       sim_h1: 'HVAC 变频一拖一系统动态仿真', sim_sub: 'INVERTER HEAT-PUMP SIMULATOR', lbl_ref: '冷媒', lbl_unit: '单位',
       mode_cooling: '制 冷', mode_heating: '制 热', mode_defrost: '化 霜', mode_oil: '回 油',

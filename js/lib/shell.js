@@ -28,14 +28,10 @@ function shellRenderNav() {
   const langCtrl = LANGS.length > 2
     ? `<select class="lang-select" id="langSel">${LANGS.map(l => `<option value="${l.code}"${cur === l.code ? ' selected' : ''}>${l.label}</option>`).join('')}</select>`
     : `<span class="lang-seg">${LANGS.map(l => `<button data-l="${l.code}"${cur === l.code ? ' class="on"' : ''}>${l.label}</button>`).join('')}</span>`;
-  // ECOER Portal 回链仅本地开发时显示（线上访客的 127.0.0.1 指向其自身，故隐藏）
-  const isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  const portalLink = isLocal ? `<a class="nav-link portal-link" href="http://127.0.0.1:8787/">← ECOER Portal</a>` : '';
   nav.innerHTML =
     `<a class="brand" data-i18n="brand" href="index.html">HVAC TOOLS</a>` +
     SITE_CONFIG.NAV.map(n =>
       `<a class="nav-link${n.key === page ? ' on' : ''}" data-i18n="nav_${n.key}" href="${n.href}">${n.label}</a>`).join('') +
-    portalLink +
     `<span class="spacer"></span>` +
     langCtrl +
     `<span id="unitSlot"></span>` +
