@@ -408,16 +408,24 @@ const Scene = (() => {
     // 点图钉 → 删除
     pin.mark.addEventListener('click', ev => { ev.stopPropagation(); removePin(pin); });
     // 拖参数框（框体与文字）→ 移动
-    for (const el of [pin.box, pin.t1, pin.t2, pin.t3]) el.addEventListener('mousedown', ev => startDrag(ev, pin));
+    for (const el of [pin.box, pin.t1, pin.t2, pin.t3]) el.addEventListener('pointerdown', ev => startDrag(ev, pin));
     pins.push(pin);
   }
   function startDrag(ev, pin) {
+    // Pointer Events:鼠标/触屏统一;capture 到目标元素,move/up 不脱靶
     ev.stopPropagation(); ev.preventDefault();
+    const tgt = ev.target;
+    if (tgt.setPointerCapture) try { tgt.setPointerCapture(ev.pointerId); } catch (_) {}
     const start = svgPoint(ev), sox = pin.ox, soy = pin.oy;
     function move(e) { const p = svgPoint(e); pin.ox = sox + (p.x - start.x); pin.oy = soy + (p.y - start.y); }
-    function up() { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); }
-    document.addEventListener('mousemove', move);
-    document.addEventListener('mouseup', up);
+    function up() {
+      tgt.removeEventListener('pointermove', move);
+      tgt.removeEventListener('pointerup', up);
+      tgt.removeEventListener('pointercancel', up);
+    }
+    tgt.addEventListener('pointermove', move);
+    tgt.addEventListener('pointerup', up);
+    tgt.addEventListener('pointercancel', up);
   }
   function removePin(pin) {
     pin.g.remove();

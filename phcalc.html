@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title data-i18n="pc_pagetitle">压焓在线计算 · HVAC 工具站</title>
-<link rel="stylesheet" href="css/style.css?v=222">
-<link rel="stylesheet" href="css/site.css?v=222">
+<link rel="stylesheet" href="css/style.css?v=223">
+<link rel="stylesheet" href="css/site.css?v=223">
 </head>
 <body data-page="phcalc" data-units="1" class="tool-page">
 <div id="app">
@@ -53,13 +53,13 @@
   </div>
 </div>
 
-<script src="js/lib/config.js?v=222"></script>
-<script src="js/lib/i18n.js?v=222"></script>
-<script src="js/lib/units.js?v=222"></script>
+<script src="js/lib/config.js?v=223"></script>
+<script src="js/lib/i18n.js?v=223"></script>
+<script src="js/lib/units.js?v=223"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=222"></script>
-<script src="js/lib/analytics.js?v=222"></script>
-<script src="js/lib/api.js?v=222"></script>
+<script src="js/lib/shell.js?v=223"></script>
+<script src="js/lib/analytics.js?v=223"></script>
+<script src="js/lib/api.js?v=223"></script>
 <script>
 const $ = id => document.getElementById(id);
 const FLUIDS = ['R410A','R32','R454B','R134a','R290','R404A','R407C','R22','R1234yf','R600a','R717','R744'];
@@ -326,20 +326,28 @@ function pos(ev) {
   const r = cv.getBoundingClientRect();
   return { x: (ev.clientX - r.left) * LW / r.width, y: (ev.clientY - r.top) * LH / r.height };
 }
+/* 触屏:命中半径加大(≈16px 物理)、拖拽重算防抖放宽 */
+const IS_TOUCH_UI = window.matchMedia && window.matchMedia('(max-width: 899px)').matches;
+const HIT_R = IS_TOUCH_UI ? 26 : 14;
+const DEB_MS = IS_TOUCH_UI ? 400 : 260;
 function hitHandle(p) {
   for (const k in handles) {
-    if (Math.hypot(handles[k].x - p.x, handles[k].y - p.y) < 14) return k;
+    if (Math.hypot(handles[k].x - p.x, handles[k].y - p.y) < HIT_R) return k;
   }
   return null;
 }
 
-cv.addEventListener('mousedown', ev => {
+/* Pointer Events:鼠标/触屏/笔统一;capture 后 move/up 不脱靶 */
+cv.addEventListener('pointerdown', ev => {
   const p = pos(ev);
   dragging = hitHandle(p);
-  if (dragging) ev.preventDefault();
+  if (dragging) {
+    ev.preventDefault();
+    if (cv.setPointerCapture) try { cv.setPointerCapture(ev.pointerId); } catch (_) {}
+  }
 });
 
-cv.addEventListener('mousemove', ev => {
+cv.addEventListener('pointermove', ev => {
   const p = pos(ev);
   mousePos = p;
   if (!XY || !dome) return;
@@ -367,13 +375,16 @@ cv.addEventListener('mousemove', ev => {
   writeCurToInputs();
   draw(approxPoints());
   clearTimeout(debTimer);
-  debTimer = setTimeout(() => doCalc(true), 260);
+  debTimer = setTimeout(() => doCalc(true), DEB_MS);
 });
 
-window.addEventListener('mouseup', () => {
+function endDrag() {
   if (dragging) { dragging = null; cv.style.cursor = 'crosshair'; doCalc(true); }
-});
-cv.addEventListener('mouseleave', () => { mousePos = null; if (!dragging) draw(); });
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+window.addEventListener('pointerup', endDrag);   // 兜底(未 capture 的极端情况)
+cv.addEventListener('pointerleave', () => { mousePos = null; if (!dragging) draw(); });
 
 /* 单位/主题联动 */
 Units.onOut(() => { renderResults(); draw(); });

@@ -447,4 +447,23 @@ html[data-theme="contrast"] {
   /* 滑杆触控热区加高、滑块加大 */
   input[type="range"] { height: 30px; }
   input[type="range"]::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -7px; }
+
+  /* —— 仿真场景:放大 ~2 倍横向滑动查看(容器横滚,纵向滚页不冲突)—— */
+  #scenePanel { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #scene { width: 760px; }
+  /* 右缘渐隐:暗示可横滑(纯视觉,不挡触控) */
+  #scenePanel::after {
+    content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 26px;
+    background: linear-gradient(90deg, transparent, var(--panel));
+    pointer-events: none;
+  }
+  /* 图例缩小,少遮场景 */
+  .legend { font-size: 9px; gap: 8px; padding: 3px 8px; opacity: .9; }
+  .legend svg { transform: scale(.85); }
+
+  /* phcalc 交互压焓图:拖点优先,不与页面滚动抢手势(图在页尾且可折叠) */
+  #phCv { touch-action: none; }
 }
+
+/* 图钉参数框可触屏拖动(touch-action 仅影响触屏,桌面无副作用) */
+.pin-box, .pin-ph, .pin-t, .pin-p { touch-action: none; }
