@@ -13,5 +13,6 @@ const SITE_CONFIG = {
     { href: 'duct.html', key: 'duct', label: '风管设计' },
     { href: 'energy.html', key: 'energy', label: '能耗电费' },
     { href: 'units.html', key: 'units', label: '单位换算' },
+    { href: 'quiz.html', key: 'quiz', label: '考证小测' },
   ],
 };

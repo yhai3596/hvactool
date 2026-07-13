@@ -70,7 +70,8 @@ function shellSetChip(html) {
 
 async function shellInitAuth() {
   const page = document.body.dataset.page || '';
-  const isPublic = page === 'home' || page === 'login';
+  // quiz 页公开：面向美国技师的需求验证落地页，登录墙会杀死转化
+  const isPublic = page === 'home' || page === 'login' || page === 'quiz';
 
   if (!window.supabase) {
     shellSetChip('<span class="offline-badge">' + T('offline') + '</span>');

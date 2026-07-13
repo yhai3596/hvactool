@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-i18n="qz_pagetitle">2026 A2L & EPA 608 Practice Quiz · Free Wrong-Answer Diagnosis · HVAC Tools</title>
+<meta name="description" content="Free 12-question 2026 diagnostic quiz for HVAC techs: A2L refrigerants (R-32 / R-454B), EPA Section 608 core rules and the 2026 refrigerant-management updates — with instant AI wrong-answer diagnosis. No sign-up.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="2026 A2L & EPA 608 Diagnostic Quiz — free, with wrong-answer diagnosis">
+<meta property="og:description" content="12 exam-style questions on the A2L transition & the 2026 EPA rules. Most techs miss at least 3. See which misconceptions are hiding in your head — free, 5 min, no sign-up.">
+<meta name="twitter:card" content="summary">
+<link rel="stylesheet" href="css/style.css?v=224">
+<link rel="stylesheet" href="css/site.css?v=224">
+<style>
+/* ===== quiz 页专属样式（全部走主题变量，三主题自适配） ===== */
+.qz-hero { text-align: center; padding: 34px 18px 30px; }
+.qz-kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--text-faint); }
+.qz-hero h1 { font-size: 26px; letter-spacing: 1px; margin: 10px 0 12px;
+  background: linear-gradient(90deg, #7dd3fc, #22d3ee, #34d399);
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+.qz-hero .lead { max-width: 620px; margin: 0 auto; color: var(--text-dim); font-size: 13px; line-height: 1.8; }
+.qz-hero .lead b { color: var(--text); }
+.qz-pills { display: flex; gap: 8px; justify-content: center; margin: 16px 0 20px; flex-wrap: wrap; }
+.qz-pill { font-size: 11px; font-family: var(--mono); letter-spacing: 1px; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--panel-border); color: var(--text-dim); background: var(--card-bg); }
+.qz-meta { margin-top: 10px; font-size: 11px; color: var(--text-faint); }
+
+.qz-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.qz-count { font-family: var(--mono); font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.qz-track { flex: 1 1 120px; height: 6px; border-radius: 3px; background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; }
+.qz-fill { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, var(--cold), var(--accent)); transition: width .3s; }
+.qz-chip { font-size: 10.5px; font-family: var(--mono); letter-spacing: 1px; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--panel-border); color: var(--accent); background: var(--card-bg); }
+.qz-qtext { font-size: 15px; line-height: 1.7; color: var(--text); margin: 6px 0 14px; }
+.qz-opts { display: grid; gap: 8px; }
+.qz-opt { display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; cursor: pointer;
+  background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 11px 13px;
+  color: var(--text); font-size: 13.5px; line-height: 1.55; transition: border-color .15s, transform .1s; }
+.qz-opt:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.qz-opt:disabled { cursor: default; opacity: .92; }
+.qz-opt .ltr { font-family: var(--mono); font-size: 12px; color: var(--text-dim); border: 1px solid var(--card-border);
+  border-radius: 6px; padding: 1px 7px; flex: none; margin-top: 1px; }
+.qz-opt.is-right { border-color: var(--ok); background: rgba(110, 231, 183, .08); }
+.qz-opt.is-right .ltr { color: var(--ok); border-color: var(--ok); }
+.qz-opt.is-wrong { border-color: var(--hot); background: rgba(251, 113, 133, .08); }
+.qz-opt.is-wrong .ltr { color: var(--hot); border-color: var(--hot); }
+.qz-fb { margin-top: 14px; border-radius: 10px; padding: 12px 14px; font-size: 12.5px; line-height: 1.7;
+  border: 1px solid rgba(110, 231, 183, .4); background: rgba(110, 231, 183, .06); }
+.qz-fb.bad { border-color: rgba(251, 113, 133, .4); background: rgba(251, 113, 133, .06); }
+.qz-fb .verdict { font-weight: 700; letter-spacing: 1px; }
+.qz-fb.ok .verdict { color: var(--ok); }
+.qz-fb.bad .verdict { color: var(--hot); }
+.qz-fb .qz-why { color: var(--text-dim); margin-top: 4px; }
+.qz-flag { margin-top: 8px; font-size: 11.5px; color: var(--warn); }
+.qz-flag b { color: var(--warn); }
+
+.qz-scorebox { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.qz-scorenum { font-family: var(--mono); font-size: 44px; color: var(--num); line-height: 1; }
+.qz-scorenum small { font-size: 16px; color: var(--text-dim); }
+.qz-level { font-size: 13px; color: var(--text); }
+.qz-level .tag { display: block; font-size: 10.5px; font-family: var(--mono); letter-spacing: 2px; color: var(--text-faint); margin-bottom: 4px; }
+.qz-bars { display: grid; gap: 8px; margin-top: 14px; }
+.qz-bar-row { display: grid; grid-template-columns: 150px 1fr 52px; gap: 10px; align-items: center; font-size: 12px; color: var(--text-dim); }
+.qz-bar { height: 8px; border-radius: 4px; background: var(--card-bg); border: 1px solid var(--card-border); overflow: hidden; }
+.qz-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cold), var(--ok)); }
+.qz-bar-row .pct { font-family: var(--mono); text-align: right; color: var(--num); }
+
+.qz-diag-card { border: 1px solid var(--card-border); background: var(--card-bg); border-radius: 10px; padding: 13px 15px; margin-top: 10px; }
+.qz-diag-card .head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.qz-diag-card .badge { font-size: 9.5px; font-family: var(--mono); letter-spacing: 1.5px; padding: 2px 8px; border-radius: 4px;
+  color: var(--warn); border: 1px solid var(--warn); }
+.qz-diag-card.possible .badge { color: var(--text-faint); border-color: var(--panel-border); }
+.qz-diag-card .name { font-size: 13.5px; color: var(--text); font-weight: 700; }
+.qz-diag-card .desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.7; margin-top: 7px; }
+.qz-diag-card .row { font-size: 12px; line-height: 1.7; margin-top: 6px; color: var(--text-dim); }
+.qz-diag-card .row b { color: var(--text); }
+.qz-diag-card .row.fix { color: var(--text); }
+.qz-plan { margin-top: 6px; font-size: 12.5px; color: var(--text-dim); line-height: 1.9; }
+.qz-plan li::marker { color: var(--accent); }
+
+.qz-cta { border: 1px solid var(--panel-border); border-radius: 12px; padding: 18px; margin-top: 12px;
+  background: linear-gradient(135deg, rgba(34, 211, 238, .07), rgba(52, 211, 153, .05)); }
+.qz-cta h3 { font-size: 15px; color: var(--text); letter-spacing: .5px; }
+.qz-cta p { font-size: 12px; color: var(--text-dim); line-height: 1.7; margin: 8px 0 12px; }
+.qz-lead-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.qz-lead-row input { flex: 1 1 220px; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text);
+  border-radius: 8px; padding: 9px 12px; font-size: 13px; }
+.qz-lead-row input:focus { border-color: var(--accent); outline: none; }
+.qz-lead-msg { font-size: 12px; margin-top: 8px; }
+.qz-lead-msg.ok { color: var(--ok); }
+.qz-lead-msg.err { color: var(--hot); }
+.qz-fb-row { display: flex; gap: 10px; align-items: center; margin-top: 14px; font-size: 12.5px; color: var(--text-dim); flex-wrap: wrap; }
+.qz-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+@media (max-width: 899px) {
+  .qz-hero { padding: 22px 10px 20px; }
+  .qz-hero h1 { font-size: 21px; }
+  .qz-bar-row { grid-template-columns: 108px 1fr 44px; }
+  .qz-scorenum { font-size: 36px; }
+}
+</style>
+</head>
+<body data-page="quiz" class="tool-page">
+<div id="app">
+
+  <!-- 首屏 -->
+  <section class="panel qz-hero" id="qzIntro">
+    <div class="qz-kicker" data-i18n="qz_kicker">DIAGNOSTIC QUIZ · 2026 EDITION</div>
+    <h1 data-i18n="qz_title">2026 A2L / EPA 608 Diagnostic Quiz</h1>
+    <p class="lead" data-i18n-html="qz_hero_p"></p>
+    <div class="qz-pills">
+      <span class="qz-pill">🔥 <span data-i18n="qz_pill_a2l">A2L transition</span></span>
+      <span class="qz-pill">📋 <span data-i18n="qz_pill_608">EPA 608 core</span></span>
+      <span class="qz-pill">🆕 <span data-i18n="qz_pill_26">2026 rule updates</span></span>
+    </div>
+    <button class="btn" id="qzStart" data-track="quiz_start_btn" data-i18n="qz_start">Start the quiz</button>
+    <div class="qz-meta" data-i18n="qz_meta">12 questions · ~5 min · free · no sign-up</div>
+  </section>
+
+  <!-- 答题区 -->
+  <section class="panel" id="qzPlay" hidden>
+    <div class="panel-body">
+      <div class="qz-top">
+        <span class="qz-count" id="qzCount">1 / 12</span>
+        <div class="qz-track"><div class="qz-fill" id="qzFill"></div></div>
+        <span class="qz-chip" id="qzDomain"></span>
+      </div>
+      <div class="qz-qtext" id="qzQText"></div>
+      <div class="qz-opts" id="qzOpts"></div>
+      <div id="qzFb" hidden></div>
+      <div class="btn-row"><button class="btn" id="qzNext" hidden></button></div>
+    </div>
+  </section>
+
+  <!-- 报告区 -->
+  <section id="qzReport" hidden>
+    <div class="panel">
+      <div class="panel-title" data-i18n="qz_report_kicker">DIAGNOSIS REPORT</div>
+      <div class="panel-body">
+        <div class="qz-scorebox">
+          <div class="qz-scorenum" id="qzScore">0<small>/12</small></div>
+          <div class="qz-level"><span class="tag" data-i18n="qz_readiness">Readiness</span><span id="qzLevel"></span></div>
+        </div>
+        <div class="qz-bars" id="qzBars"></div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <div class="panel-title" data-i18n="qz_diag_h">Wrong-answer diagnosis</div>
+      <div class="panel-body">
+        <div style="font-size:12px;color:var(--text-dim);line-height:1.7" data-i18n="qz_diag_p"></div>
+        <div id="qzDiag"></div>
+        <div style="margin-top:16px">
+          <b style="font-size:13px;color:var(--text)" data-i18n="qz_plan_h">Suggested next steps</b>
+          <ul class="qz-plan" id="qzPlan" style="padding-left:18px;margin-top:6px"></ul>
+        </div>
+      </div>
+    </div>
+    <div class="qz-cta">
+      <h3 data-i18n="qz_cta_h">Want the full exam simulator?</h3>
+      <p data-i18n="qz_cta_p"></p>
+      <div class="qz-lead-row">
+        <input type="email" id="qzEmail" autocomplete="email" data-i18n-ph="qz_email_ph" placeholder="you@company.com">
+        <button class="btn" id="qzLeadBtn" data-track="quiz_lead_btn" data-i18n="qz_email_btn">Get early access</button>
+      </div>
+      <div class="qz-lead-msg" id="qzLeadMsg"></div>
+      <div class="qz-fb-row">
+        <span data-i18n="qz_fb_q">Was this diagnosis useful?</span>
+        <span id="qzFbBtns">
+          <button class="btn ghost small" id="qzFbYes" data-track="quiz_fb_yes" data-i18n="qz_fb_yes">👍 Useful</button>
+          <button class="btn ghost small" id="qzFbNo" data-track="quiz_fb_no" data-i18n="qz_fb_no">👎 Not really</button>
+        </span>
+      </div>
+      <div class="qz-actions">
+        <button class="btn ghost small" id="qzShare" data-track="quiz_share" data-i18n="qz_share">Copy my result</button>
+        <button class="btn ghost small" id="qzRetake" data-track="quiz_retake" data-i18n="qz_retake">↺ Retake</button>
+      </div>
+    </div>
+    <div class="note" data-i18n="qz_src_note"></div>
+  </section>
+
+  <div class="note" data-i18n="qz_note" id="qzDisclaimer"></div>
+</div>
+
+<script src="js/lib/config.js?v=224"></script>
+<script src="js/lib/i18n.js?v=224"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/lib/shell.js?v=224"></script>
+<script src="js/lib/analytics.js?v=224"></script>
+<script src="js/quiz-bank.js?v=224"></script>
+<script src="js/quiz.js?v=224"></script>
+</body>
+</html>

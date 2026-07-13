@@ -52,4 +52,7 @@
       el.id || el.tagName.toLowerCase();
     send('click', label, null);
   }, true);
+
+  // 4) 供页面自定义漏斗事件（quiz 等）：hvacTrack(event_type, target, value)
+  window.hvacTrack = send;
 })();
