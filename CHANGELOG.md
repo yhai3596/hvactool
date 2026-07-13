@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 移动端收尾:sim 图例瘦身 + 图钉提示移出场景 + 控制台参与折叠 — 2026-07-13
+
+二期遗留两小项清零。资源版本 `v=224 → v=225`(v224 已被同日考证小测占用,顺延防缓存不失效)。
+
+- **图例不再遮场景**:图钉操作长提示(`lg_pin`)手机上从场景内图例移出 —— 图例瘦身为单行小盒(气/液/两相/颜色=温度,~271px),右上 Ambient 等参数框不再被遮;提示改为场景下方 `.scene-tip` 独立一行(复用现有词条,零新增 i18n;桌面 `display:none` 维持原样)
+- **控制台可折叠**:[sim.html](sim.html) 控制台标题加 `data-fold-head` 标记;[shell.js](js/lib/shell.js) 栏目折叠头选择器扩展(`.panel-title` 或 `.ctl-head [data-fold-head]`),点击只绑标题文字(不误触 模式切换/Reset);折叠时保留头行(site.css 折叠规则补 `:not(.ctl-head)`);记忆 key 自动沿用(`hvac-fold-sim-ctl_title`)
+- **CSS 教训(纯追加策略注意点)**:`.scene-tip` 桌面隐藏基础规则最初被追加在 media 块之后,同优先级"后者胜"把手机显示规则也盖掉 —— **追加的非 media 基础规则必须落在 media 块之前**;首轮 iframe 验证(`tipVisible:false`)抓出后已修
+- **验证**:375px iframe —— 图例 271px/提示下移可见/点标题折叠(滑杆藏、头行留)/localStorage 记忆刷新保持/再点展开清除、页面零溢出;1200px 桌面 —— 提示隐藏、图例完整、无折叠箭头、滑杆常显
+
 ## 考证小测(需求验证 MVP):2026 A2L / EPA 608 错因诊断 — 2026-07-13
 
 在现有工具站上挂一个面向美国 HVAC 技师的考证诊断小测,验证「考试模拟 + 学习工具」方向的真实需求(可行性分析见 [docs/EXAM-TOOL-FEASIBILITY.md](docs/EXAM-TOOL-FEASIBILITY.md))。资源版本 `v=223 → v=224`。

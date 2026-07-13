@@ -423,6 +423,10 @@ html[data-theme="contrast"] {
 #scene [stop-color="#122236"] { stop-color: var(--sc-acc3); }
 #scene #steam circle { fill: var(--sc-steam); }
 
+/* 场景下方图钉提示:桌面隐藏(桌面提示在图例里),手机由下方 media 块显示
+   —— 基础规则必须在 media 块之前,否则同优先级后者覆盖 */
+.scene-tip { display: none; }
+
 /* ═══════════════════════════════════════════════════════════
    移动端适配(≤899px)· 基础层
    规则只在窄屏生效;≥900px 桌面样式零改动(只追加不修改)。
@@ -457,9 +461,17 @@ html[data-theme="contrast"] {
     background: linear-gradient(90deg, transparent, var(--panel));
     pointer-events: none;
   }
-  /* 图例缩小,少遮场景 */
+  /* 图例缩小,少遮场景;图钉长提示移出图例(见 .scene-tip) */
   .legend { font-size: 9px; gap: 8px; padding: 3px 8px; opacity: .9; }
   .legend svg { transform: scale(.85); }
+  .legend .li-pin { display: none; }
+  .scene-tip {
+    display: block; padding: 7px 12px;
+    font-size: 10.5px; color: var(--accent);
+    border-top: 1px solid var(--card-border);
+  }
+  /* 控制台折叠头:标题加触控热区 */
+  .ctl-head .title { padding: 6px 10px 6px 0; }
 
   /* phcalc 交互压焓图:拖点优先,不与页面滚动抢手势(图在页尾且可折叠) */
   #phCv { touch-action: none; }

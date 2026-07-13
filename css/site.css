@@ -262,7 +262,7 @@ html[data-theme="contrast"] #siteNav a.nav-link.on { color: #fff; background: va
   /* —— 栏目折叠:点标题收起该栏 —— */
   .panel > .panel-title { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; padding: 12px 14px 10px; }
   .pt-arrow { display: inline; margin-left: auto; color: var(--text-dim); font-size: 12px; padding: 2px 0 2px 8px; }
-  .panel.p-folded > :not(.panel-title) { display: none !important; }
+  .panel.p-folded > :not(.panel-title):not(.ctl-head) { display: none !important; }
   .panel.p-folded > .panel-title { padding-bottom: 12px; }
 
   body.tool-page { min-width: 0; }

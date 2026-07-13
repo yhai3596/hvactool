@@ -217,7 +217,9 @@ function shellInitMobileFold() {
   });
 
   document.querySelectorAll('.panel').forEach((panel, i) => {
-    const title = panel.querySelector(':scope > .panel-title');
+    // 折叠头:panel-title,或显式标记 data-fold-head(如 sim 控制台 .ctl-head 内的标题)
+    const title = panel.querySelector(':scope > .panel-title')
+      || panel.querySelector(':scope > .ctl-head [data-fold-head]');
     if (!title || title.dataset.fold) return;
     title.dataset.fold = '1';
     const kid = title.dataset.i18n || title.querySelector('[data-i18n]')?.dataset.i18n || title.id || 'p' + i;
