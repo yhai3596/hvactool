@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## PWA(可安装+离线壳)+ 小程序 CoolProp 云函数包 — 2026-07-13
+
+小程序规划(面向国内暖通工程师)Phase 0 落地:现站 PWA 化 + 已验证的云函数计算引擎。资源版本 `v=225 → v=226`。
+
+- **PWA**:[manifest.webmanifest](manifest.webmanifest)(standalone,压焓循环视觉图标 192/512/180)+ [sw.js](sw.js)(HTML network-first / 静态 cache-first(靠 ?v=N 失效)/ **/api 永不缓存** / 跨域不拦);[shell.js](js/lib/shell.js) 注册(https/localhost,失败静默);12 页加 `theme-color`/manifest/apple-touch-icon
+  - **维护约定:全站 bump ?v=N 时必须同步改 sw.js 的 `SW_VERSION`**(旧缓存 activate 时清除)
+  - 本地验证:SW activated 全站 scope、预缓存 12 项、/api 确认不入缓存;安卓 Chrome 将出"安装应用",iOS 用"添加到主屏幕"
+- **小程序云函数包** [miniapp/](miniapp/README.md)(Phase 0 spike 通过,待用户在微信开发者工具部署):
+  - [cloudfunctions/coolprop/index.js](miniapp/cloudfunctions/coolprop/index.js):9 个 action(health/fluidinfo/sat/sattable/dome/phcycle/props/psychro/watersat)等价迁移自 server.py,单位/IIR 基准/R454B `.mix` 映射一致
+  - 引擎 `coolprop-wasm`(CoolProp 7.2 WASM,CJS 动态 import,实例常驻缓存):**与线上 Python 8.0 数值对齐到小数点后 4 位**(h1 430.0167/qe 164.0567/COP 4.4779);12 冷媒全可用;HAPropsSI 湿空气可用;热调用 ~1.3ms
+  - `wx.cloud.callFunction` 走微信通道 → **绕开小程序 request 域名备案要求**(境外后端不合规问题就此解决);README 含部署步骤(云函数超时须 3s→20s)与 API 表
+- 选型背景:小程序面向国内工程师(默认中文+公制,与网站相反);个人主体无 web-view,套壳不可行;sim SVG 场景不迁移;详见对话规划(裁剪 MVP:单位换算/物性/压焓/湿空气 4 页,免登录)
+
 ## 移动端收尾:sim 图例瘦身 + 图钉提示移出场景 + 控制台参与折叠 — 2026-07-13
 
 二期遗留两小项清零。资源版本 `v=224 → v=225`(v224 已被同日考证小测占用,顺延防缓存不失效)。

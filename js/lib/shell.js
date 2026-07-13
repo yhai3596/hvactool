@@ -254,6 +254,11 @@ function shellRenderFooter() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // PWA:注册 Service Worker(https 或本地调试;失败静默,不影响任何功能)
+  if ('serviceWorker' in navigator &&
+      (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
   shellInitTheme();
   shellRenderNav();
   shellRenderFooter();

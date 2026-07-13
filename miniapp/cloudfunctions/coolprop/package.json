@@ -1,0 +1,9 @@
+{
+  "name": "coolprop",
+  "version": "1.0.0",
+  "description": "HVAC 工具站小程序·CoolProp 物性计算云函数(等价迁移自 server.py)",
+  "main": "index.js",
+  "dependencies": {
+    "coolprop-wasm": "^6.6.0"
+  }
+}
