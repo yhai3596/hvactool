@@ -1,15 +1,19 @@
-/* quiz-bank.js —— 2026 A2L / EPA 608 诊断题库
+/* quiz-bank.js —— 2026 A2L / EPA 608 / 州执照(机械规范)诊断题库
  * 结构：questions[].options[].mc → misconceptions 表（错因诊断的知识底座）
  * 题目/诊断内容为英文（与真实考试一致）；正确项 mc 为 null。
+ * 每次作答从题库按板块配额随机抽样（见 quiz.js SAMPLE_PLAN），非每次全量出题。
  * 事实基准（2026-07 逐条核对）：
  *   - 2024 ERR 规则（89 FR 82682，泄漏修复 2026-01-01 生效：≥15 lb、GWP>53、触发率 10/20/30）
  *   - Technology Transitions（40 CFR 84 Subpart B）+ 2026-05-26 再审议最终规则（取消 R-410A 安装截止线）
- *   - 40 CFR 82 Subpart F（608 四类证 / 抽空表 / 排放禁令 / 80% 充装）
+ *   - 40 CFR 82 Subpart F（608 四类证 / 抽空表 / 排放禁令 / 80% 充装 / Type I·II·III 定义）
  *   - GWP 取 EPA AR4 口径：R-410A 2088 · R-32 675 · R-454B 466
- *   - ASHRAE 34/15.2、UL 60335-2-40、AHRI 过渡指南、Carrier/Chemours OEM 文档 */
+ *   - ASHRAE 34/15.2、UL 60335-2-40、AHRI 过渡指南、Carrier/Chemours OEM 文档
+ *   - 机械规范(mech_* 板块)：概念/通识层面核对 2021 IMC 章节结构(Ch.4 通风/Ch.6 风管/Ch.7 燃烧空气/
+ *     Ch.8 烟道排气/Ch.11 制冷机房) —— 仅原创复述行业通识概念与广泛采用的经验数值，不摘录 IMC 条文原文；
+ *     各州实际采用的规范版本/地方修订不同，实考请以当地 AHJ 采用版本为准 */
 window.QUIZ_BANK = {
-  version: '2026.07',
-  domains: ['a2l', 'core', 'rule26'],
+  version: '2026.07-v2',
+  domains: ['a2l', 'core', 'rule26', 'type1', 'type3', 'mech_vent', 'mech_duct', 'mech_combustion', 'mech_chimney'],
   misconceptions: {
     mc_a3: {
       name: 'Treating A2L like propane (A3)',
@@ -122,6 +126,104 @@ window.QUIZ_BANK = {
       fix: 'EPA Section 608 remains THE federal certification for handling regulated refrigerants, including A2Ls. A2L safety training (ESCO, OEM, ACCA) is strongly expected — and often required by employers/suppliers — but it is not a separate EPA card.',
       ref: 'EPA 608 program pages; ESCO A2L training program description',
       plan: 'Keep the two layers separate in your notes: federal 608 certification vs industry A2L training.',
+    },
+    mc_type1_scope: {
+      name: 'Stretching Type I past small appliances',
+      desc: 'You are letting "small charge" stand in for "small appliance" — Type I is defined by the equipment category, not just by how many pounds are in it.',
+      fix: 'A small appliance is a pre-assembled, hermetically sealed unit factory-charged with ≤5 lbs of refrigerant (fridges, window units, small reach-ins, PTACs, water coolers). A split system with a small charge is still NOT a small appliance — it needs Type II.',
+      ref: 'EPA 608 Core/Type I definitions; 40 CFR 82 Subpart F',
+      plan: 'Test yourself: "factory-sealed AND ≤5 lb AND not a split system" — all three, or it is not Type I.',
+    },
+    mc_openbook: {
+      name: 'Assuming any section can be taken open-book',
+      desc: 'You generalized one exception into a blanket rule for the whole certification.',
+      fix: 'Type I is the ONLY Section 608 section that may be administered open-book. Type II, Type III and the Core exam (and therefore Universal) must be closed-book.',
+      ref: 'EPA 608 certifying-organization program rules (ESCO, Mainstream Engineering, etc.)',
+      plan: 'One-liner: "Type I is the exception, everything else is closed-book."',
+    },
+    mc_lowpressure: {
+      name: 'Mixing up low-pressure vs high-pressure system logic',
+      desc: 'You are applying high-pressure-system intuition (leaks push refrigerant OUT) to a low-pressure system, where the physics runs the other way.',
+      fix: 'Type III low-pressure appliances (chillers using low-pressure refrigerants) run BELOW atmospheric pressure through most of their cycle. A leak there pulls air and moisture IN rather than pushing refrigerant out — which is why these systems need a purge unit and a different troubleshooting mindset.',
+      ref: 'EPA 608 Type III material; chiller OEM manuals',
+      plan: 'Flip the mental model for Type III: "sub-atmospheric — air leaks IN, not refrigerant OUT."',
+    },
+    mc_purge: {
+      name: 'Misreading what a purge unit actually does',
+      desc: 'The name "purge" is pulling your answer toward "removes refrigerant" — it does the opposite job.',
+      fix: 'A purge unit on a low-pressure chiller removes the non-condensable air/moisture that leaks INTO the sub-atmospheric system, venting that air (not refrigerant) while recovering any refrigerant vapor that came along with it. It is not a refrigerant-recovery device for the main charge.',
+      ref: 'Low-pressure chiller OEM/service literature; EPA 608 Type III',
+      plan: 'Anchor: "purge unit = air/moisture out, refrigerant stays in."',
+    },
+    mc_confined_space: {
+      name: 'Skipping the confined-space threshold test',
+      desc: 'You are deciding "enough combustion air" by eyeballing the room instead of running the actual volume-per-input check the code uses.',
+      fix: 'A widely used mechanical/fuel-gas-code test: a space is "confined" when it provides less than roughly 50 cubic feet of volume per 1,000 Btu/h of the COMBINED input rating of all fuel-burning appliances in it. Confined spaces need a dedicated combustion-air path; large "unconfined" spaces may already have enough air by volume/infiltration alone.',
+      ref: 'Widely adopted mechanical/fuel-gas code combustion-air provisions (IMC-style; also NFPA 54)',
+      plan: 'Practice the math once: add up appliance Btu/h, divide room volume by (total Btu/h ÷ 1000), compare to 50.',
+    },
+    mc_combustion_source: {
+      name: 'Assuming indoor air is always an acceptable combustion-air source',
+      desc: 'You are treating the indoor-air method as the default everywhere, when it is only valid when the space itself is large enough (or specifically connected) to supply the air.',
+      fix: 'Codes offer two conceptual paths: the INDOOR air method (relying on the space\'s own volume/openings to adjacent spaces — workable mainly in unconfined spaces) and the OUTDOOR air method (dedicated openings or ducts bringing air from outside — required once a space is confined). A confined mechanical room almost always needs the outdoor-air path.',
+      ref: 'Mechanical/fuel-gas code combustion-air methods (indoor vs outdoor air)',
+      plan: 'Ask "is this space confined?" first — that answer picks the method, not preference.',
+    },
+    mc_duct_material: {
+      name: 'Treating all duct materials/locations as interchangeable',
+      desc: 'You are picking duct material by what is on the truck rather than by where the duct runs and what it passes through.',
+      fix: 'Ducts routed through rated assemblies, plenums, or certain occupancy types must use listed/labeled materials meeting specific flame-spread and smoke-developed limits (or be protected by fire/smoke dampers) — not just "any" galvanized or flexible duct.',
+      ref: 'Mechanical code duct-construction/fire-safety provisions (IMC-style, Ch. 6 concept area)',
+      plan: 'Before running a duct, ask what it passes through (rated wall? plenum? return path for a specific occupancy?) — that answer picks the allowed material.',
+    },
+    mc_duct_clearance: {
+      name: 'Ignoring clearance-to-combustibles for ducts near heat sources',
+      desc: 'You are assuming "it is just sheet metal" makes a duct immune to the same clearance logic that applies to the appliance it is connected to.',
+      fix: 'Ducts routed near or connected to heat-producing equipment still need the same kind of clearance to combustible materials (or approved thermal protection) that the appliance itself requires — this is a common inspection citation on retrofit jobs.',
+      ref: 'Mechanical code appliance/duct clearance provisions',
+      plan: 'Treat "clearance to combustibles" as following the heat source through the whole duct run, not stopping at the appliance cabinet.',
+    },
+    mc_vent_category: {
+      name: 'Flattening vent categories into "old vs new equipment"',
+      desc: 'You are using equipment age as a proxy for the actual two-factor definition the code uses.',
+      fix: 'Modern gas-appliance vent categories (I–IV) are defined by TWO factors: vent static pressure (negative/natural-draft vs positive/fan-assisted) and flue-gas temperature (non-condensing vs condensing). A furnace is not "Category IV" just because it is new — it is Category IV because it is positive-pressure AND condensing.',
+      ref: 'Mechanical/fuel-gas code venting-category definitions (also NFPA 54)',
+      plan: 'Draw the 2×2 grid once (pressure × condensing) and place one example appliance in each cell.',
+    },
+    mc_b_vent: {
+      name: 'Over-extending what a Type B vent is listed for',
+      desc: 'Because Type B vent is common and familiar, you are assuming it is a universal solution rather than a listed product with real limits.',
+      fix: 'Type B (double-wall metal) vent is listed for certain natural-draft, Category I gas appliances only. It is NOT rated for oil-fired or solid-fuel appliances, and it is not what most high-efficiency condensing (Category IV) furnaces vent through — those use special listed vent piping per the manufacturer\'s instructions.',
+      ref: 'Vent/chimney listing standards; appliance manufacturer venting instructions',
+      plan: 'Before specifying Type B, confirm: gas-fired, natural-draft, Category I — all three.',
+    },
+    mc_shared_vent: {
+      name: 'Assuming any appliances can share a vent if the math works',
+      desc: 'You are treating vent sizing as a pure capacity/math problem and skipping the compatibility question entirely.',
+      fix: 'Connecting a positive-pressure, condensing (Category IV) appliance to the same flue as a natural-draft (Category I) appliance is a classic, dangerous violation — the pressurized/condensing appliance can force combustion gases backward into the other appliance\'s draft, or its condensate can damage a flue never designed for it. Category compatibility comes before sizing math.',
+      ref: 'Mechanical/fuel-gas code common-venting restrictions',
+      plan: 'Rule of thumb: never let a fan-assisted condensing appliance share a flue with a natural-draft one, no matter what the size tables say.',
+    },
+    mc_machineryroom_scope: {
+      name: 'Assuming every A2L install needs a mechanical-room detection system',
+      desc: 'You are applying commercial-equipment-room rules to a small residential split system that never needed them.',
+      fix: 'Most residential A2L split systems stay within ASHRAE 15.2 charge limits and rely on the INDOOR UNIT\'S OWN integral leak-detection/mitigation built in per its UL 60335-2-40 listing — not a separate mechanical-room ventilation and detection system. Dedicated machinery-room ventilation/detection becomes a code question mainly for larger charges, commercial equipment rooms, or indoor installations that exceed listed charge limits.',
+      ref: 'ASHRAE 15.2 charge limits; UL 60335-2-40 integral safety systems; mechanical code machinery-room provisions (Ch. 11 concept area)',
+      plan: 'Ask "charge size relative to ASHRAE 15.2 limit, and is this a dedicated equipment room?" before assuming a separate detection system is required.',
+    },
+    mc_sensor_place: {
+      name: 'Placing refrigerant sensors like a natural-gas detector',
+      desc: 'You are reflexively mounting the detector high because that is the habit for lighter-than-air natural gas leaks.',
+      fix: 'Most common A2L refrigerants (R-32, R-454B) are HEAVIER than air. Where a dedicated detection system is used, sensors are typically mounted LOW (near floor level), the opposite placement from a natural-gas detector.',
+      ref: 'A2L refrigerant vapor-density data; equipment installation/listing instructions',
+      plan: 'Two-line rule: natural gas → lighter than air → detector high. A2L refrigerant → heavier than air → detector low.',
+    },
+    mc_ventilation_rate: {
+      name: 'Ventilation-rate logic is fuzzy (purpose, method, and table structure)',
+      desc: 'You are blending ventilation air with comfort conditioning, filtration, or duct sizing — related systems, but governed by separate code logic.',
+      fix: 'Minimum outdoor-air ventilation rates exist to dilute indoor contaminants/CO2 (an indoor-air-quality purpose, distinct from comfort heating/cooling capacity). Codes typically allow natural ventilation (sized operable openings) as an alternative to mechanical ventilation in eligible occupancies. Any major exhaust system (like a kitchen hood) raises a separate makeup-air/pressure-balance question. Ventilation-rate tables usually combine a per-person term with a per-area term, varying by occupancy type.',
+      ref: 'Mechanical code ventilation provisions (IMC-style Ch. 4 concept area; ASHRAE 62.1 referenced logic)',
+      plan: 'Separate four ideas cleanly: ventilation purpose (IAQ dilution) vs comfort conditioning vs filtration vs makeup air — each is a distinct code concern.',
     },
   },
 
@@ -281,6 +383,384 @@ window.QUIZ_BANK = {
       answer: 0,
       why: 'Section 608 remains the federal certification for regulated refrigerants including A2L substitutes. Expect employers, distributors and AHJs to also require documented A2L safety training — but that is industry practice layered on top, not a new EPA license.',
       ref: 'EPA Section 608 program; ESCO A2L training program',
+    },
+
+    /* ---------- EPA 608 Type I (small appliances) ---------- */
+    {
+      id: 'q13', domain: 'type1',
+      text: 'Which of these is correctly classified as a Section 608 "small appliance" requiring only Type I certification?',
+      options: [
+        { t: 'A pre-assembled, hermetically sealed window air conditioner factory-charged with 3 lbs of R-410A', mc: null },
+        { t: 'A split-system residential heat pump charged with 4 lbs of R-454B, because the charge is under 5 lbs', mc: 'mc_type1_scope', why: 'Split systems are excluded from the small-appliance definition regardless of charge size — they need Type II, not Type I.' },
+        { t: 'A 5-ton rooftop package unit, since "package unit" sounds self-contained like a small appliance', mc: 'mc_type1_scope', why: 'Package units of this size hold far more than 5 lbs and are not factory-sealed small appliances — Type II territory.' },
+        { t: 'Any appliance a technician chooses to service under an open-book exam', mc: 'mc_openbook', why: 'The open-book format is a feature of the Type I exam delivery, not a definition of what counts as a small appliance.' },
+      ],
+      answer: 0,
+      why: 'Small appliance = pre-assembled, hermetically sealed, factory-charged with ≤5 lbs of refrigerant (window units, small reach-ins, PTACs, water coolers, etc.). Split systems are excluded no matter how little they are charged with.',
+      ref: 'EPA 608 Core/Type I definitions; 40 CFR 82 Subpart F',
+    },
+    {
+      id: 'q14', domain: 'type1',
+      text: 'Which Section 608 exam section may legally be administered open-book?',
+      options: [
+        { t: 'Type I only', mc: null },
+        { t: 'Type I and Type II, since both cover lower-charge equipment', mc: 'mc_openbook', why: 'Only Type I gets the open-book allowance. Type II is closed-book like Core and Type III.' },
+        { t: 'The Core exam, since it is "foundational" material', mc: 'mc_openbook', why: 'Core is closed-book. The open-book exception is specific to Type I, not to any exam labeled "foundational."' },
+        { t: 'None of them — all four Section 608 exams are closed-book', mc: 'mc_openbook', why: 'Type I is the one documented exception; it may be taken open-book.' },
+      ],
+      answer: 0,
+      why: 'Type I is the only Section 608 section that certifying organizations may administer open-book. Core, Type II and Type III are closed-book.',
+      ref: 'EPA-approved certifying organization program rules (ESCO, Mainstream Engineering, etc.)',
+    },
+    {
+      id: 'q15', domain: 'type1',
+      text: 'A window air conditioner (small appliance) has reached the end of its life and is headed for disposal. What must happen to its refrigerant first?',
+      options: [
+        { t: 'It must be recovered using certified recovery equipment before final disposal', mc: null },
+        { t: 'It may be vented, since small appliances fall under a general exemption from the venting prohibition', mc: 'mc_vent', why: 'There is no blanket small-appliance exemption from the venting prohibition. Refrigerant must still be recovered before the unit is scrapped.' },
+        { t: 'Nothing — appliance recyclers are responsible for refrigerant, not the servicing technician', mc: 'mc_rrr', why: 'Whoever disposes of (or arranges disposal for) the appliance is responsible for ensuring recovery happens — it does not become someone else\'s problem by default.' },
+        { t: 'It must be reclaimed to AHRI 700 purity before disposal', mc: 'mc_rrr', why: 'Reclamation applies when refrigerant changes ownership for reuse. Disposal of a small appliance requires recovery, not a full reclaim cycle.' },
+      ],
+      answer: 0,
+      why: 'Even small appliances must have refrigerant recovered with certified equipment before final disposal — the venting prohibition applies regardless of appliance category.',
+      ref: '40 CFR 82 Subpart F; EPA 608 Type I disposal requirements',
+    },
+    {
+      id: 'q16', domain: 'type1',
+      text: 'Which technician needs ONLY Type I certification (no Type II) to legally service the equipment described?',
+      options: [
+        { t: 'A tech who exclusively services small reach-in coolers, window units and dehumidifiers', mc: null },
+        { t: 'A tech who services residential split-system heat pumps and mini-splits', mc: 'mc_type1_scope', why: 'Split systems and mini-splits require Type II regardless of how small their charge is.' },
+        { t: 'A tech who services rooftop package units on light-commercial buildings', mc: 'mc_type1_scope', why: 'Rooftop package units are high-pressure appliances above the small-appliance charge/category threshold — Type II applies.' },
+        { t: 'A tech who services commercial chillers', mc: 'mc_lowpressure', why: 'Chillers fall under Type II (medium/high-pressure) or Type III (low-pressure), never Type I.' },
+      ],
+      answer: 0,
+      why: 'Type I alone covers only pre-assembled, hermetically sealed, factory-charged units ≤5 lbs — reach-ins, window units, PTACs, dehumidifiers, water coolers. Anything involving split systems, package units or chillers needs Type II or III.',
+      ref: 'EPA 608 Type I scope definitions',
+    },
+
+    /* ---------- EPA 608 Type III (low-pressure appliances) ---------- */
+    {
+      id: 'q17', domain: 'type3',
+      text: 'What fundamentally distinguishes a Type III "low-pressure appliance" from a Type II high-pressure system?',
+      options: [
+        { t: 'It uses a low-pressure refrigerant and operates below atmospheric pressure through much of its cycle', mc: null },
+        { t: 'It simply has a smaller total refrigerant charge than a Type II system', mc: 'mc_lowpressure', why: 'Charge size is not the defining factor — low-pressure chillers often hold a large charge. The defining trait is the refrigerant/operating-pressure class.' },
+        { t: 'It runs at a higher pressure than Type II equipment, which is why it needs a dedicated certification', mc: 'mc_lowpressure', why: 'Backwards — Type III appliances run at LOWER pressure (often sub-atmospheric at the evaporator), not higher.' },
+        { t: 'It is defined by using an A2L refrigerant instead of an HFC', mc: 'mc_lowpressure', why: 'Refrigerant flammability class (A2L vs A1) is unrelated to the Type I/II/III distinction, which is about pressure/appliance category.' },
+      ],
+      answer: 0,
+      why: 'Type III covers low-pressure appliances (typically large chillers) that use low-pressure refrigerants and run below atmospheric pressure for significant parts of the cycle — a fundamentally different service mindset from high-pressure Type II equipment.',
+      ref: 'EPA 608 Type III definitions',
+    },
+    {
+      id: 'q18', domain: 'type3',
+      text: 'What is the actual function of a purge unit on a low-pressure chiller?',
+      options: [
+        { t: 'It removes non-condensable air and moisture that leak into the sub-atmospheric system, venting that air while recovering any refrigerant vapor carried with it', mc: null },
+        { t: 'It recovers the chiller\'s entire refrigerant charge for service work', mc: 'mc_purge', why: 'That is the job of dedicated recovery equipment, not the purge unit — the purge unit runs continuously to manage air/moisture ingress, not to empty the system.' },
+        { t: 'It filters oil out of the refrigerant to protect the compressor', mc: 'mc_purge', why: 'Oil separation is handled elsewhere in the system (oil separators/filters) — the purge unit\'s job is air/moisture removal caused by the sub-atmospheric leak-in condition.' },
+        { t: 'It adds nitrogen holding charge when the chiller is shut down for the season', mc: 'mc_purge', why: 'Nitrogen holding charges are a separate maintenance practice; the purge unit\'s function is removing air/moisture that entered during operation.' },
+      ],
+      answer: 0,
+      why: 'Because low-pressure chillers run sub-atmospheric, outside air and moisture get pulled IN through any small leak. The purge unit vents that non-condensable air (recovering entrained refrigerant vapor) — the opposite direction of a typical high-pressure-system leak.',
+      ref: 'Low-pressure chiller OEM/service literature; EPA 608 Type III material',
+    },
+    {
+      id: 'q19', domain: 'type3',
+      text: 'On a low-pressure chiller, which symptom is the classic early sign of a refrigerant-side leak?',
+      options: [
+        { t: 'The purge unit runs noticeably more often, pulling in more air/moisture than usual', mc: null },
+        { t: 'A hissing sound and a visible drop in system pressure, just like a high-pressure system leak', mc: 'mc_lowpressure', why: 'Sub-atmospheric operation means a leak pulls air IN rather than pushing refrigerant OUT — you will not get the classic "hissing/pressure drop" signature of a high-pressure leak.' },
+        { t: 'A sudden spike in suction pressure above design conditions', mc: 'mc_lowpressure', why: 'A leak into a sub-atmospheric system tends to show up as increased purge activity from air ingress, not a suction-pressure spike.' },
+        { t: 'Refrigerant odor at the mechanical room floor, since low-pressure refrigerants are heavier than air', mc: 'mc_lowpressure', why: 'That describes an A2L refrigerant-detection cue in a different context, not the standard low-pressure-chiller leak indicator, which is increased purge-unit runtime.' },
+      ],
+      answer: 0,
+      why: 'Because the system runs sub-atmospheric, a leak draws outside air and moisture IN rather than letting refrigerant escape — the telltale sign is the purge unit working harder/longer than normal.',
+      ref: 'EPA 608 Type III troubleshooting concepts; chiller OEM manuals',
+    },
+    {
+      id: 'q20', domain: 'type3',
+      text: 'Why does EPA maintain a separate required-evacuation table entry for low-pressure appliances rather than reusing the high-pressure table?',
+      options: [
+        { t: 'Because low-pressure appliances already operate under vacuum, the same numeric evacuation target used for high-pressure systems would not make physical sense for them', mc: null },
+        { t: 'Because low-pressure appliances are exempt from evacuation requirements entirely', mc: 'mc_lowpressure', why: 'They are not exempt — they simply have their own appropriate target rather than sharing the high-pressure table\'s numbers.' },
+        { t: 'Because low-pressure appliances always contain A2L refrigerants, which need special handling', mc: 'mc_lowpressure', why: 'Refrigerant flammability class is unrelated to why Type III has its own evacuation entry — the reason is the fundamentally different (sub-atmospheric) operating pressure regime.' },
+        { t: 'Because Type III technicians are not required to evacuate the system before opening it', mc: 'mc_evac', why: 'Evacuation/recovery obligations still apply to low-pressure appliances — the table entry is different, not absent.' },
+      ],
+      answer: 0,
+      why: 'Low-pressure appliances already run at sub-atmospheric conditions, so the recovery/evacuation targets that make sense for a high-pressure system do not directly transfer — EPA\'s table gives low-pressure equipment its own appropriate entry.',
+      ref: '40 CFR 82.156 required-evacuation tables (Type III entry); EPA 608 Type III material',
+    },
+
+    /* ---------- A2L machinery-room / mechanical-code safety (ties to IMC Ch.11) ---------- */
+    {
+      id: 'q21', domain: 'a2l',
+      text: 'In a commercial A2L equipment/machinery room fitted with a mechanical detection and ventilation system, what is that system actually protecting against?',
+      options: [
+        { t: 'It detects rising refrigerant concentration and triggers ventilation/alarm before the space approaches a flammable concentration', mc: null },
+        { t: 'It exists purely for occupant comfort — clearing refrigerant odor from the space', mc: 'mc_machineryroom_scope', why: 'The system is a life-safety control tied to flammability risk, not an odor-control amenity.' },
+        { t: 'It only matters for A3 (propane-class) refrigerants — A2L rooms do not need it', mc: 'mc_a3', why: 'A2L\'s lower flammability class is exactly why codes size ventilation/detection thresholds differently than for A3 — it does not mean A2L rooms are automatically exempt.' },
+        { t: 'It is a redundant system, since any leak would already be obvious from a pressure drop on the gauges', mc: 'mc_props', why: 'A slow leak in a large machinery-room charge is not something technicians are watching gauges for in real time — dedicated detection exists precisely because you cannot rely on noticing a pressure change.' },
+      ],
+      answer: 0,
+      why: 'A dedicated refrigerant detection/ventilation system continuously monitors concentration in the equipment room and activates ventilation and/or alarms before levels approach the refrigerant\'s flammable limit — a life-safety control layered on top of good design, not a comfort feature.',
+      ref: 'Mechanical code machinery-room provisions (Ch. 11 concept area); ASHRAE 15.2',
+    },
+    {
+      id: 'q22', domain: 'a2l',
+      text: 'A residential R-454B split system is installed with a charge that stays within its ASHRAE 15.2 listed limit. Does it need a separate mechanical-room ventilation and detection system like a commercial chiller plant?',
+      options: [
+        { t: 'Generally no — the indoor unit\'s own integral leak-detection/mitigation, built in per its UL 60335-2-40 listing, handles this at that charge size', mc: null },
+        { t: 'Yes — every A2L installation of any size legally requires a separate mechanical-room detection system', mc: 'mc_machineryroom_scope', why: 'That requirement scales with charge size and installation type. Small residential systems within listed charge limits rely on the equipment\'s own integral safety design, not a bolt-on room system.' },
+        { t: 'No — residential A2L systems need no leak mitigation of any kind because the charge is too small to matter', mc: 'mc_gwp', why: 'The system still has integral mitigation (built into the listed indoor unit) — "small charge" does not mean "no safety design," it means the design lives inside the equipment rather than the room.' },
+        { t: 'Only if the installer chooses to use R-32 instead of R-454B', mc: 'mc_props', why: 'The charge-size/listing question — not which specific A2L refrigerant is used — is what determines whether room-level systems are triggered.' },
+      ],
+      answer: 0,
+      why: 'Residential-scale A2L split systems staying within ASHRAE 15.2 charge limits rely on integral safety features built into the listed indoor unit (UL 60335-2-40). Dedicated machinery-room ventilation/detection becomes relevant mainly for larger charges, commercial equipment rooms, or installations exceeding listed limits.',
+      ref: 'ASHRAE 15.2; UL 60335-2-40; mechanical code machinery-room provisions',
+    },
+    {
+      id: 'q23', domain: 'a2l',
+      text: 'A commercial A2L equipment room has a refrigerant detection system that has been running since installation two years ago with no attention. What is wrong with this picture?',
+      options: [
+        { t: 'Refrigerant detectors are sensors with a service life and calibration/function-test requirements — they need periodic testing, not "install and forget"', mc: null },
+        { t: 'Nothing — once installed and wired, a refrigerant detector requires no further attention for its service life', mc: 'mc_sensor_place', why: 'Like smoke detectors, these are safety sensors that degrade and need periodic function testing/calibration per the manufacturer\'s and code\'s maintenance schedule.' },
+        { t: 'The detector should have been replaced after one year regardless of test results', mc: 'mc_sensor_place', why: 'Replacement is condition/manufacturer-schedule based, not an arbitrary one-year rule — the real gap here is the missing periodic function test.' },
+        { t: 'Detection systems are only inspected when the local fire marshal happens to visit', mc: 'mc_sensor_place', why: 'Periodic testing is a maintenance obligation on the owner/operator, not something that only happens incidentally during an unrelated inspection.' },
+      ],
+      answer: 0,
+      why: 'Refrigerant detection sensors require periodic function testing and calibration (per manufacturer instructions and code/listing requirements) — treating them as permanent, maintenance-free hardware is the actual violation here.',
+      ref: 'UL 60335-2-40 detection-system maintenance requirements; mechanical code machinery-room provisions',
+    },
+    {
+      id: 'q24', domain: 'a2l',
+      text: 'Where should a refrigerant sensor be mounted in a room handling R-32 or R-454B, and why?',
+      options: [
+        { t: 'Low, near floor level — both refrigerants are heavier than air and will accumulate low in the space', mc: null },
+        { t: 'High, near the ceiling, the same placement used for natural-gas detectors', mc: 'mc_sensor_place', why: 'That placement logic is backwards for these refrigerants. Natural gas is lighter than air (mount high); R-32/R-454B are heavier than air (mount low).' },
+        { t: 'It does not matter, since both refrigerants disperse evenly regardless of density', mc: 'mc_sensor_place', why: 'Vapor density is exactly why placement matters — a heavier-than-air gas pools near the floor, so that is where concentration rises first.' },
+        { t: 'At breathing height, matching general indoor-air-quality sensor placement conventions', mc: 'mc_sensor_place', why: 'General IAQ sensor placement conventions are not built around refrigerant vapor density — for a heavier-than-air gas, low placement catches the leading edge of a leak sooner.' },
+      ],
+      answer: 0,
+      why: 'R-32 and R-454B are both heavier than air, so leaked refrigerant tends to pool near the floor — the opposite placement logic from a natural-gas detector, which goes high because methane is lighter than air.',
+      ref: 'A2L refrigerant vapor-density data; equipment installation/listing instructions',
+    },
+
+    /* ---------- Mechanical code: Ventilation (IMC Ch.4 concept area) ---------- */
+    {
+      id: 'q25', domain: 'mech_vent',
+      text: 'What is the core intent of the minimum outdoor-air ventilation rates set by mechanical codes for occupied spaces?',
+      options: [
+        { t: 'To dilute indoor contaminants and maintain acceptable indoor air quality — not simply to provide comfort cooling/heating', mc: null },
+        { t: 'To provide enough airflow for comfort conditioning; air-quality dilution is a side effect, not the intent', mc: 'mc_ventilation_rate', why: 'The rates are written around indoor-air-quality dilution as the primary purpose; comfort conditioning is handled separately by the space\'s heating/cooling design.' },
+        { t: 'To replace the need for any mechanical filtration in the space', mc: 'mc_ventilation_rate', why: 'Ventilation rate and filtration are separate code concerns that work together — one does not substitute for the other.' },
+        { t: 'To size the return-air duct rather than anything related to fresh air', mc: 'mc_ventilation_rate', why: 'Ventilation-rate requirements are about outdoor-air quantity, distinct from return-duct sizing, which is an airflow-capacity/velocity question.' },
+      ],
+      answer: 0,
+      why: 'Minimum ventilation-rate tables exist to keep indoor contaminant and CO2 levels acceptable by diluting them with outdoor air — a distinct code purpose from comfort heating/cooling capacity.',
+      ref: 'Mechanical code ventilation provisions (IMC-style Ch. 4 concept area; ASHRAE 62.1 referenced logic)',
+    },
+    {
+      id: 'q26', domain: 'mech_vent',
+      text: 'Which statement about natural versus mechanical ventilation under typical mechanical code provisions is correct?',
+      options: [
+        { t: 'Natural ventilation (sized operable openings as a fraction of floor area) is allowed as an alternative in some occupancies, but many spaces still require mechanical ventilation given code/occupant-density requirements', mc: null },
+        { t: 'Mechanical ventilation is always mandatory; natural ventilation via operable windows is never an accepted path', mc: 'mc_ventilation_rate', why: 'Codes commonly permit natural ventilation as an alternative compliance path in eligible occupancies, sized against floor area — it is not automatically disallowed.' },
+        { t: 'Natural ventilation is always sufficient, so mechanical systems are never actually required by code', mc: 'mc_ventilation_rate', why: 'Many occupancy types and densities exceed what natural ventilation alone can satisfy, which is exactly why mechanical ventilation requirements exist.' },
+        { t: 'The choice between natural and mechanical ventilation is left entirely to the owner with no code involvement', mc: 'mc_ventilation_rate', why: 'The choice is code-governed — natural ventilation has to meet specific sizing/opening criteria to qualify as an accepted alternative.' },
+      ],
+      answer: 0,
+      why: 'Mechanical codes typically allow natural ventilation (properly sized operable openings) as an alternative path in eligible occupancies, while requiring mechanical ventilation where occupant density, space type, or opening area cannot meet the natural-ventilation criteria.',
+      ref: 'Mechanical code ventilation provisions (IMC-style Ch. 4 concept area)',
+    },
+    {
+      id: 'q27', domain: 'mech_vent',
+      text: 'A commercial kitchen exhaust hood removes a large volume of conditioned air from the building. What ventilation-related concern does this raise?',
+      options: [
+        { t: 'The building needs adequate makeup/replacement air, or the space can go excessively negative — a backdrafting risk for any fuel-burning appliances nearby', mc: null },
+        { t: 'None — exhaust systems are self-contained and never affect the rest of the building\'s air balance', mc: 'mc_ventilation_rate', why: 'Removing air without replacing it changes the building pressure balance, which is exactly why makeup-air provisions exist alongside exhaust requirements.' },
+        { t: 'The only concern is energy cost from conditioning extra outdoor air, not air balance or combustion safety', mc: 'mc_ventilation_rate', why: 'Energy cost is real, but the code-driven safety concern is the pressure imbalance and potential backdrafting of combustion appliances — that is why makeup air is a requirement, not just an efficiency suggestion.' },
+        { t: 'Makeup air is only a concern in residential kitchens, not commercial ones', mc: 'mc_ventilation_rate', why: 'It is the reverse — commercial kitchen hoods move far more air and are a classic case where makeup-air requirements apply.' },
+      ],
+      answer: 0,
+      why: 'Any significant exhaust system raises a building-pressure-balance question: without adequate makeup air, the space depressurizes, which can pull combustion gases back down flues (backdrafting) — a safety issue codes address through makeup-air provisions.',
+      ref: 'Mechanical code exhaust/makeup-air provisions (IMC-style Ch. 4/5 concept area)',
+    },
+    {
+      id: 'q28', domain: 'mech_vent',
+      text: 'Typical mechanical-code ventilation-rate tables (for outdoor air) are usually structured around:',
+      options: [
+        { t: 'A combination of a per-person component (based on expected occupancy) and a per-area component (based on floor area)', mc: null },
+        { t: 'A single flat cfm-per-person number with no area-based component at all', mc: 'mc_ventilation_rate', why: 'Most modern ventilation-rate tables combine occupant load with a floor-area component, reflecting both people-generated and building/material-generated contaminant sources.' },
+        { t: 'A single flat cfm-per-square-foot number with no occupancy-based component at all', mc: 'mc_ventilation_rate', why: 'The reverse omission — occupant load matters too, which is why the per-person term exists alongside the area term.' },
+        { t: 'The building\'s total conditioned floor area only, regardless of space type or use', mc: 'mc_ventilation_rate', why: 'Ventilation rates vary by space TYPE/use (office, classroom, gym, etc.), not just total floor area — that is why rate tables are broken out by occupancy category.' },
+      ],
+      answer: 0,
+      why: 'Ventilation-rate logic in modern codes typically blends a per-person term (occupant-generated contaminants) with a per-area term (building/material off-gassing), varying by space-use category.',
+      ref: 'Mechanical code ventilation-rate tables (IMC-style Ch. 4 concept area; ASHRAE 62.1 referenced logic)',
+    },
+
+    /* ---------- Mechanical code: Duct Systems (IMC Ch.6 concept area) ---------- */
+    {
+      id: 'q29', domain: 'mech_duct',
+      text: 'A return-air duct must pass through a fire-rated corridor wall assembly. What does this generally require?',
+      options: [
+        { t: 'Listed/labeled duct materials or construction meeting the flame-spread/smoke-developed limits for that application, or a fire/smoke damper at the penetration', mc: null },
+        { t: 'Nothing special — any galvanized or flexible duct is acceptable through any rated assembly', mc: 'mc_duct_material', why: 'Rated assemblies impose specific material/construction and penetration-protection requirements — "any duct will do" is exactly the assumption that gets flagged on inspection.' },
+        { t: 'Only the penetration needs fireproofing; the duct material itself is irrelevant once past the wall', mc: 'mc_duct_material', why: 'Both the penetration detail AND the duct material/construction matter for rated-assembly and plenum applications, not just the hole in the wall.' },
+        { t: 'The requirement only applies to supply ducts, not return ducts', mc: 'mc_duct_material', why: 'Fire/smoke-rated assembly requirements apply based on what the duct passes through, not whether it is supply or return.' },
+      ],
+      answer: 0,
+      why: 'Ducts through rated assemblies or serving as plenums must use listed/labeled materials meeting applicable flame-spread/smoke-developed limits, or be protected with fire/smoke dampers at the penetration — a common area where inspectors catch shortcuts.',
+      ref: 'Mechanical code duct-construction/fire-safety provisions (IMC-style Ch. 6 concept area)',
+    },
+    {
+      id: 'q30', domain: 'mech_duct',
+      text: 'A supply duct runs directly adjacent to a gas-fired furnace heat exchanger before transitioning to insulated duct further downstream. What is the code-relevant concern at that first section?',
+      options: [
+        { t: 'The duct needs the same kind of clearance-to-combustibles (or approved thermal protection) that applies near the heat source', mc: null },
+        { t: 'None — sheet-metal duct is inherently fireproof, so proximity to the heat exchanger is not a concern', mc: 'mc_duct_clearance', why: '"Fireproof duct material" does not eliminate the clearance requirement — the concern is heat transfer to nearby combustibles through/around the duct assembly, not the duct catching fire itself.' },
+        { t: 'Clearance requirements only apply to the furnace cabinet, not to ductwork connected to it', mc: 'mc_duct_clearance', why: 'Clearance logic follows the heat source through the connected ductwork in that first section, not just the appliance cabinet boundary.' },
+        { t: 'Insulating the duct at that point would fix any clearance concern', mc: 'mc_duct_clearance', why: 'Adding insulation to a duct in a clearance-reduction situation is not a substitute for meeting the actual required clearance or using an approved/listed clearance-reduction method.' },
+      ],
+      answer: 0,
+      why: 'Ductwork near heat-producing equipment can carry the same clearance-to-combustibles logic that applies to the appliance itself — a frequent retrofit-inspection citation when ducts get rerouted close to heat sources.',
+      ref: 'Mechanical code appliance/duct clearance provisions',
+    },
+    {
+      id: 'q31', domain: 'mech_duct',
+      text: 'Why do mechanical codes require ducts to be sealed at joints and adequately supported, beyond just "good practice"?',
+      options: [
+        { t: 'Unsealed/poorly supported ducts leak conditioned air and can sag or separate over time — both a code-compliance and an energy-code issue', mc: null },
+        { t: 'Sealing and support are purely cosmetic concerns with no code basis', mc: 'mc_duct_material', why: 'Duct sealing and support intersect both mechanical code airflow/safety intent and energy-code efficiency requirements — it is a real compliance item, not cosmetics.' },
+        { t: 'They are required only for ducts visible to the occupant, not concealed ducts in attics/crawlspaces', mc: 'mc_duct_material', why: 'Concealed ducts are actually where poor sealing/support causes the most energy loss and sag-related failures — the requirement is not limited to visible runs.' },
+        { t: 'Support requirements exist only to prevent noise, unrelated to airflow or energy performance', mc: 'mc_duct_material', why: 'Support prevents sagging/joint separation that causes air leakage and reduced system performance — noise control is a secondary benefit, not the driving requirement.' },
+      ],
+      answer: 0,
+      why: 'Proper duct sealing and support limit air leakage (a major, well-documented source of HVAC energy waste) and prevent sagging/joint separation over time — both are enforced through mechanical and energy code provisions, not just best-practice advice.',
+      ref: 'Mechanical code duct construction/sealing provisions; energy code duct-sealing requirements',
+    },
+    {
+      id: 'q32', domain: 'mech_duct',
+      text: 'What is a common code-relevant limitation on flexible duct installation that a rushed attic install often violates?',
+      options: [
+        { t: 'Maximum allowable length and avoiding excessive compression, kinks, or sagging that restrict airflow', mc: null },
+        { t: 'There is no limitation at all — flexible duct can be run at any length or routing', mc: 'mc_duct_material', why: 'Flex duct has real limitations: excess length, compression and sagging are common (and code-relevant) failure modes that choke airflow.' },
+        { t: 'The only limitation is color/labeling of the outer jacket', mc: 'mc_duct_material', why: 'Labeling matters for identification, but the functional/code concern is length, support spacing, and avoiding kinks/compression that restrict airflow.' },
+        { t: 'Flexible duct may never be used to connect to a supply register under any circumstance', mc: 'mc_duct_material', why: 'Flex duct is commonly used for register connections when installed within its length/support limitations — it is not categorically prohibited there.' },
+      ],
+      answer: 0,
+      why: 'Flexible duct installation is limited by allowable length and proper support spacing, and it must avoid compression, kinks, or excessive sag — all of which choke airflow and represent common, code-relevant field failures.',
+      ref: 'Mechanical code flexible-duct installation provisions (IMC-style Ch. 6 concept area)',
+    },
+
+    /* ---------- Mechanical code: Combustion Air (IMC Ch.7 concept area) ---------- */
+    {
+      id: 'q33', domain: 'mech_combustion',
+      text: 'A mechanical room holds fuel-burning appliances with a combined input of 200,000 Btu/h. Using the widely adopted confined-space rule of thumb (roughly 50 cubic feet of room volume per 1,000 Btu/h of combined input), how much room volume is needed to call this space "unconfined"?',
+      options: [
+        { t: 'At least 10,000 cubic feet (200 × 50)', mc: null },
+        { t: 'At least 1,000 cubic feet, since the rule is 5 cubic feet per 1,000 Btu/h', mc: 'mc_confined_space', why: 'The commonly used ratio is roughly 50 cubic feet per 1,000 Btu/h, not 5 — an order-of-magnitude slip that would misclassify a genuinely confined space as unconfined.' },
+        { t: 'Volume is irrelevant; only the number of appliances in the room determines confined vs unconfined status', mc: 'mc_confined_space', why: 'The confined/unconfined test is a volume-per-Btu/h calculation, not an appliance headcount.' },
+        { t: 'At least 20,000 cubic feet, since the rule is 100 cubic feet per 1,000 Btu/h', mc: 'mc_confined_space', why: 'That doubles the commonly used ratio. The widely applied rule of thumb is roughly 50 cubic feet per 1,000 Btu/h of combined input.' },
+      ],
+      answer: 0,
+      why: '200,000 Btu/h ÷ 1,000 = 200 units; 200 × 50 cubic feet = 10,000 cubic feet needed for the space to be treated as unconfined by the widely used rule of thumb. Below that volume, the space is confined and needs a dedicated combustion-air path.',
+      ref: 'Widely adopted mechanical/fuel-gas code confined-space combustion-air rule of thumb (IMC-style Ch. 7 concept area; also NFPA 54)',
+    },
+    {
+      id: 'q34', domain: 'mech_combustion',
+      text: 'Which statement correctly distinguishes the two conceptual methods codes offer for supplying combustion air to fuel-burning appliances?',
+      options: [
+        { t: 'An indoor-air method (relying on the space\'s own volume/openings, workable mainly in unconfined spaces) and an outdoor-air method (dedicated openings or ducts to outside, generally required once a space is confined)', mc: null },
+        { t: 'There is only one method recognized by code — combustion air must always come from outdoors regardless of room size', mc: 'mc_combustion_source', why: 'Codes recognize an indoor-air path as viable for adequately sized (unconfined) spaces — outdoor air is not the only route.' },
+        { t: 'There is only one method recognized by code — combustion air must always come from indoors to avoid outside-weather effects on combustion', mc: 'mc_combustion_source', why: 'The outdoor-air method exists precisely because confined spaces cannot reliably supply enough air from indoors alone.' },
+        { t: 'The two methods are distinguished by appliance fuel type (gas vs oil), not by space volume/confinement', mc: 'mc_combustion_source', why: 'The indoor/outdoor-air method choice turns on the space\'s confined/unconfined status and appliance draft type, not primarily on fuel type.' },
+      ],
+      answer: 0,
+      why: 'Codes offer two conceptual combustion-air paths: indoor air (feasible when the space is large/unconfined enough, or opens adequately to a larger space) and outdoor air (dedicated openings/ducts to outside), which becomes necessary once a space is confined.',
+      ref: 'Mechanical/fuel-gas code combustion-air methods (IMC-style Ch. 7 concept area)',
+    },
+    {
+      id: 'q35', domain: 'mech_combustion',
+      text: 'Using the widely documented outdoor-air, two-permanent-openings sizing rule (roughly 1 square inch of free area per 4,000 Btu/h of total input, one opening near the ceiling and one near the floor), how large should each opening be for 80,000 Btu/h of combined appliance input?',
+      options: [
+        { t: 'Roughly 20 square inches of free area, each opening (80,000 ÷ 4,000)', mc: null },
+        { t: 'Roughly 320 square inches of free area, each opening, since the rule is 1 sq in per 250 Btu/h', mc: 'mc_combustion_source', why: 'That inverts the commonly used ratio by more than an order of magnitude — the widely documented rule is roughly 1 square inch per 4,000 Btu/h, not per 250 Btu/h.' },
+        { t: 'Only one opening is required regardless of size, since "two openings" is just a suggestion', mc: 'mc_combustion_source', why: 'The two-opening method specifically calls for a high and a low opening working together — using only one changes the airflow path the method relies on.' },
+        { t: 'Roughly 20 square inches total, split between the two openings (10 each)', mc: 'mc_combustion_source', why: 'Under the two-permanent-openings method, EACH opening is sized at the full ratio (roughly 1 sq in per 4,000 Btu/h) — the sizing is not split/halved between the two openings.' },
+      ],
+      answer: 0,
+      why: '80,000 Btu/h ÷ 4,000 = 20 square inches of free area required for EACH of the two openings (one high, one low) under the widely used outdoor-air, two-permanent-openings sizing rule.',
+      ref: 'Widely documented mechanical/fuel-gas code combustion-air opening-sizing rule (IMC-style Ch. 7 concept area; also NFPA 54)',
+    },
+    {
+      id: 'q36', domain: 'mech_combustion',
+      text: 'Why do mechanical codes treat adequate combustion air as a safety requirement rather than just an efficiency concern?',
+      options: [
+        { t: 'Insufficient combustion air causes incomplete combustion (elevated CO production) and can contribute to appliance backdrafting — both carbon-monoxide hazards', mc: null },
+        { t: 'It is purely an efficiency issue — inadequate combustion air only lowers appliance AFUE ratings, with no safety impact', mc: 'mc_combustion_source', why: 'Efficiency loss is a real side effect, but the code-driving concern is combustion safety: incomplete combustion and backdrafting both raise carbon-monoxide risk.' },
+        { t: 'It is only a concern for oil-fired appliances, not gas-fired equipment', mc: 'mc_combustion_source', why: 'Combustion-air adequacy is a safety concern across fuel-burning appliance types generally, not exclusive to oil-fired equipment.' },
+        { t: 'It matters only for appliance longevity, not for occupant safety', mc: 'mc_combustion_source', why: 'Equipment longevity can be affected too, but the primary code rationale is occupant carbon-monoxide safety, which is why combustion air is mandated rather than left as a recommendation.' },
+      ],
+      answer: 0,
+      why: 'Without adequate combustion air, fuel-burning appliances can produce excess carbon monoxide from incomplete combustion and are more prone to backdrafting flue gases into the space — genuine life-safety hazards, which is why codes mandate a verified air source rather than leaving it to chance.',
+      ref: 'Mechanical/fuel-gas code combustion-air safety rationale (IMC-style Ch. 7 concept area)',
+    },
+
+    /* ---------- Mechanical code: Chimneys and Vents (IMC Ch.8 concept area) ---------- */
+    {
+      id: 'q37', domain: 'mech_chimney',
+      text: 'Modern gas-appliance venting "categories" (I through IV) are actually defined by which two factors?',
+      options: [
+        { t: 'Vent static pressure (negative/natural-draft vs. positive/fan-assisted) and flue-gas temperature (non-condensing vs. condensing)', mc: null },
+        { t: 'Simply how old the appliance design is — newer equipment is automatically a higher category', mc: 'mc_vent_category', why: 'Category is defined by the pressure/condensing behavior of the appliance\'s venting, not by production year — an older appliance could theoretically be redesigned into any category based on those two factors.' },
+        { t: 'Fuel type alone — gas appliances are Category I and oil appliances are Category IV', mc: 'mc_vent_category', why: 'Category is not a fuel-type label; it is defined by vent pressure and flue-gas condensing behavior, independent of whether the appliance is gas or oil.' },
+        { t: 'Appliance physical size — larger appliances are automatically higher category', mc: 'mc_vent_category', why: 'Physical size does not define venting category — a small fan-assisted condensing furnace is Category IV regardless of being physically compact.' },
+      ],
+      answer: 0,
+      why: 'Category I-IV is a two-factor grid: vent pressure (negative/natural-draft vs. positive/fan-assisted) crossed with flue-gas temperature (non-condensing vs. condensing) — not appliance age, fuel type, or physical size.',
+      ref: 'Mechanical/fuel-gas code venting-category definitions (IMC-style Ch. 8 concept area; also NFPA 54)',
+    },
+    {
+      id: 'q38', domain: 'mech_chimney',
+      text: 'Which appliance is Type B (double-wall metal) vent correctly listed to serve?',
+      options: [
+        { t: 'A natural-draft, Category I gas-fired appliance', mc: null },
+        { t: 'An oil-fired furnace, since Type B vent is a general-purpose metal vent for any fuel', mc: 'mc_b_vent', why: 'Type B vent is not rated for oil-fired or solid-fuel appliances — its listing is specific to certain natural-draft gas appliances.' },
+        { t: 'A high-efficiency condensing (Category IV) furnace, since Type B vent can handle positive pressure and condensate', mc: 'mc_b_vent', why: 'Category IV appliances are typically vented through special listed plastic or purpose-built vent piping per the manufacturer\'s instructions — not standard Type B vent, which is not designed for positive-pressure condensing flue gas.' },
+        { t: 'Any appliance, gas or otherwise, as long as the vent is sized correctly for the Btu/h input', mc: 'mc_b_vent', why: 'Correct sizing does not override the listing restriction — Type B vent is limited to certain natural-draft, Category I gas appliances regardless of size calculations.' },
+      ],
+      answer: 0,
+      why: 'Type B (double-wall metal) vent is listed for certain natural-draft, Category I gas appliances. It is not rated for oil/solid-fuel appliances or for the positive-pressure, condensing venting that Category IV high-efficiency furnaces need.',
+      ref: 'Vent/chimney listing standards; appliance manufacturer venting instructions',
+    },
+    {
+      id: 'q39', domain: 'mech_chimney',
+      text: 'A contractor wants to connect a new high-efficiency condensing furnace to the same flue already serving an older natural-draft water heater, "since the sizing math works out." What is wrong with this plan?',
+      options: [
+        { t: 'Mixing a positive-pressure, condensing (Category IV) appliance with a natural-draft (Category I) appliance on a shared flue is a classic, dangerous violation — pressure and condensate behavior differ fundamentally', mc: null },
+        { t: 'Nothing is wrong — if the combined vent capacity calculation checks out, category compatibility does not matter', mc: 'mc_shared_vent', why: 'Sizing math alone does not clear this: category compatibility is a separate, mandatory check, and this specific mismatch (Category IV + Category I on one flue) is a well-known hazard.' },
+        { t: 'The only issue is that the flue would need to be resized larger — otherwise sharing is fine', mc: 'mc_shared_vent', why: 'Resizing does not fix the underlying problem: the pressurized/condensing appliance can force combustion gases backward into the natural-draft appliance\'s draft path.' },
+        { t: 'This is a code violation only if the two appliances use different fuels, not if both are gas-fired', mc: 'mc_shared_vent', why: 'The venting-category mismatch (pressure/condensing behavior) is the hazard, independent of whether both appliances happen to share the same fuel type.' },
+      ],
+      answer: 0,
+      why: 'A fan-assisted, condensing (Category IV) appliance sharing a common flue with a natural-draft (Category I) appliance is a well-documented, dangerous configuration — the pressurized/condensing appliance can force flue gases backward into the natural-draft appliance, and condensate can damage a flue never designed for it. Category compatibility must be checked before any sizing math.',
+      ref: 'Mechanical/fuel-gas code common-venting restrictions (IMC-style Ch. 8 concept area)',
+    },
+    {
+      id: 'q40', domain: 'mech_chimney',
+      text: 'Why do mechanical codes carefully regulate vent/chimney termination location (height above roof, clearance from doors/windows/openings, distance from property lines)?',
+      options: [
+        { t: 'To ensure adequate draft and keep flue gases from re-entering the building or affecting occupants of the same or neighboring structures', mc: null },
+        { t: 'Purely for aesthetic/roofline appearance reasons, with no safety basis', mc: 'mc_vent_category', why: 'Termination clearances are a life-safety provision (keeping combustion byproducts away from openings/occupants), not an aesthetic guideline.' },
+        { t: 'Only to prevent rain intrusion into the vent, unrelated to combustion-gas safety', mc: 'mc_vent_category', why: 'Weather protection is a separate design detail; the termination-location rules are primarily about draft performance and keeping flue gases away from building openings and neighboring structures.' },
+        { t: 'The location is left entirely to installer preference since termination clearances are not code-regulated', mc: 'mc_vent_category', why: 'Termination clearances (height, distance from openings, property-line setbacks) are specifically code-regulated, not discretionary.' },
+      ],
+      answer: 0,
+      why: 'Vent/chimney termination rules (height above roof, clearance from doors/windows/air intakes, setback from property lines) exist to maintain adequate draft and prevent flue gases from re-entering the building through openings or affecting neighboring structures.',
+      ref: 'Mechanical/fuel-gas code vent termination provisions (IMC-style Ch. 8 concept area)',
     },
   ],
 };

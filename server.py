@@ -448,7 +448,7 @@ def api_liquid(qs):
 # ---------------------------------------------------------------
 SB_FUNC_BASE = 'https://lnzepjubgtdclvmridxw.supabase.co/functions/v1/'
 SB_PUB_KEY = 'sb_publishable_m4cNAyw4SzOdv-eogmOsDg_kHicDMEf'
-SB_FN_ALLOW = {'register-with-invite', 'admin-api'}
+SB_FN_ALLOW = {'register-with-invite', 'admin-api', 'quiz-ai'}
 
 
 def proxy_function(name, payload, auth_header=None):

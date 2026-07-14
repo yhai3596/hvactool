@@ -1,18 +1,24 @@
 /* quiz.js —— 考证小测引擎：出题 → 即时反馈 → 错因诊断报告 → 留资 CTA
  * 诊断原理：题库中每个干扰项都映射一个误区(misconception)；交卷后按误区聚类，
  * 同一误区命中 ≥2 题标记「反复出现」，全部在浏览器本地推断，无外部调用。
+ * 出题策略：题库 40 题分 9 个板块；每次作答按板块分层抽样（每板块最多 QUOTA 题，
+ * 不足则取全部），抽样结果再整体打乱顺序 —— 每次/每次重测题目组合都不同，控制单次时长。
  * 漏斗埋点（events 表）：view(自动) → quiz_start → quiz_answer → quiz_done → quiz_lead / quiz_fb。 */
 (function () {
   const $ = id => document.getElementById(id);
   const track = (t, g, v) => { try { window.hvacTrack && window.hvacTrack(t, g, v ?? null); } catch (_) { } };
   const B = window.QUIZ_BANK;
   if (!B || !B.questions || !B.questions.length) return;
-  const N = B.questions.length;
+  const QUOTA_PER_DOMAIN = 2;
   const LETTERS = 'ABCDEF';
 
+  let Q = [];   // 本次作答抽样出的题目子集（长度 = N）
+  let N = 0;
   let idx = 0, score = 0, answered = false, done = false;
   let picks = [];   // { qid, qNo, opt(题库序), ok, mc }
   let order = [];   // 每题选项展示顺序（题库序号数组）
+  let authUser = null;   // 由 hvac-auth-ready 事件更新，供 AI 深挖判断登录态
+  window.addEventListener('hvac-auth-ready', e => { authUser = (e.detail && e.detail.user) || null; });
 
   function shuffle(a) {
     for (let i = a.length - 1; i > 0; i--) {
@@ -20,6 +26,18 @@
       [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+  }
+
+  /* 按板块分层抽样：每板块 shuffle 后取前 QUOTA_PER_DOMAIN 题（不足则全取），
+   * 各板块抽样结果拼接后整体再 shuffle 一次，避免题目按板块扎堆出现。 */
+  function sampleQuestions() {
+    const byDomain = {};
+    B.questions.forEach(q => (byDomain[q.domain] = byDomain[q.domain] || []).push(q));
+    const picked = [];
+    Object.values(byDomain).forEach(list => {
+      picked.push(...shuffle(list.slice()).slice(0, QUOTA_PER_DOMAIN));
+    });
+    return shuffle(picked);
   }
 
   function el(tag, cls, text) {
@@ -31,7 +49,7 @@
 
   /* ---------- 答题 ---------- */
   function renderQ() {
-    const q = B.questions[idx];
+    const q = Q[idx];
     answered = false;
     order[idx] = shuffle(q.options.map((_, i) => i));
     $('qzCount').textContent = (idx + 1) + ' / ' + N;
@@ -56,7 +74,7 @@
   function pick(bi, btn) {
     if (answered) return;
     answered = true;
-    const q = B.questions[idx];
+    const q = Q[idx];
     const opt = q.options[bi];
     const ok = bi === q.answer;
     if (ok) score++;
@@ -81,12 +99,104 @@
       f.appendChild(el('b', '', B.misconceptions[opt.mc].name));
       fb.appendChild(f);
     }
+    if (!ok) fb.appendChild(buildAiBox(q, opt));
     fb.hidden = false;
 
     const next = $('qzNext');
     next.textContent = idx === N - 1 ? T('qz_see_report') : T('qz_next');
     next.hidden = false;
     next.focus({ preventScroll: true });
+  }
+
+  /* ---------- AI 深挖（登录 + 积分门；同源代理优先，回退直连 Edge Function） ---------- */
+  async function callQuizAi(payload, accessToken) {
+    try {
+      const r = await fetch('api/fn/quiz-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + accessToken },
+        body: JSON.stringify(payload),
+      });
+      if (r.status === 404 || r.status === 501 || r.status === 502 || r.status === 504) throw new Error('proxy-unavailable');
+      return { status: r.status, data: await r.json() };
+    } catch (e) {
+      if (String(e && e.message) === 'proxy-unavailable' || e instanceof TypeError) {
+        const { data, error } = await window.sbClient.functions.invoke('quiz-ai', { body: payload });
+        if (!error) return { status: 200, data };
+        let biz = null, status = 500;
+        try { biz = await error.context.json(); status = error.context.status || 500; } catch (_) { }
+        return { status, data: biz || { error: 'network' } };
+      }
+      throw e;
+    }
+  }
+
+  function buildAiBox(q, opt) {
+    const wrap = el('div', 'qz-ai');
+    const btn = el('button', 'btn ghost small qz-ai-btn', '🤖 ' + T('qz_ai_btn'));
+    btn.type = 'button';
+    btn.dataset.track = 'quiz_ai_deepdive';
+    const resultBox = el('div', 'qz-ai-result');
+    resultBox.hidden = true;
+    wrap.appendChild(btn);
+    wrap.appendChild(resultBox);
+
+    btn.addEventListener('click', async () => {
+      track('quiz_ai_click', q.id);
+      if (!authUser || !window.sbClient) {
+        resultBox.hidden = false;
+        resultBox.className = 'qz-ai-result note';
+        resultBox.innerHTML = T('qz_ai_login_html', { next: encodeURIComponent(location.pathname.split('/').pop()) });
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '🤖 ' + T('qz_ai_loading');
+      resultBox.hidden = false;
+      resultBox.className = 'qz-ai-result';
+      resultBox.textContent = T('qz_ai_loading');
+      try {
+        const { data: { session } } = await window.sbClient.auth.getSession();
+        if (!session) throw { code: 'no_session' };
+        const payload = {
+          question: q.text, chosenText: opt.t,
+          correctText: q.options[q.answer].t,
+          shortWhy: opt.why || q.why,
+          mcName: opt.mc && B.misconceptions[opt.mc] ? B.misconceptions[opt.mc].name : '',
+          mcFix: opt.mc && B.misconceptions[opt.mc] ? B.misconceptions[opt.mc].fix : '',
+          lang: (window.I18N && I18N.lang && I18N.lang()) || 'en',
+        };
+        const { status, data } = await callQuizAi(payload, session.access_token);
+        if (status === 200 && data && data.ok) {
+          resultBox.className = 'qz-ai-result ok';
+          resultBox.innerHTML = '';
+          resultBox.appendChild(el('div', 'qz-ai-text', data.explanation));
+          resultBox.appendChild(el('div', 'qz-ai-credits', T('qz_ai_credits_left', { n: data.credits_left })));
+          btn.remove();
+          track('quiz_ai_ok', q.id, data.credits_left);
+        } else if (status === 402) {
+          resultBox.className = 'qz-ai-result err';
+          resultBox.textContent = T('qz_ai_insufficient', { need: (data && data.need) || 15, have: (data && data.have) || 0 });
+          btn.disabled = false; btn.textContent = '🤖 ' + T('qz_ai_btn');
+        } else if (status === 429) {
+          resultBox.className = 'qz-ai-result err';
+          resultBox.textContent = T('qz_ai_rate_limited');
+          btn.disabled = false; btn.textContent = '🤖 ' + T('qz_ai_btn');
+        } else if (status === 503 || (data && data.error === 'ai_not_configured')) {
+          resultBox.className = 'qz-ai-result err';
+          resultBox.textContent = T('qz_ai_not_configured');
+          btn.disabled = false; btn.textContent = '🤖 ' + T('qz_ai_btn');
+        } else {
+          resultBox.className = 'qz-ai-result err';
+          resultBox.textContent = T('qz_ai_error');
+          btn.disabled = false; btn.textContent = '🤖 ' + T('qz_ai_btn');
+        }
+      } catch (e) {
+        resultBox.hidden = false;
+        resultBox.className = 'qz-ai-result err';
+        resultBox.textContent = T('qz_ai_error');
+        btn.disabled = false; btn.textContent = '🤖 ' + T('qz_ai_btn');
+      }
+    });
+    return wrap;
   }
 
   /* ---------- 诊断报告 ---------- */
@@ -111,11 +221,11 @@
     const lv = score >= N - 1 ? 3 : score >= Math.ceil(N * .75) ? 2 : score >= Math.ceil(N * .5) ? 1 : 0;
     $('qzLevel').textContent = T('qz_lv' + lv);
 
-    // 按主题正确率
+    // 按主题正确率（仅统计本次抽样作答的题目，非整题库）
     const bars = $('qzBars');
     bars.innerHTML = '';
     const dom = {};
-    B.questions.forEach((q, i) => {
+    Q.forEach((q, i) => {
       (dom[q.domain] = dom[q.domain] || { n: 0, ok: 0 }).n++;
       if (picks[i] && picks[i].ok) dom[q.domain].ok++;
     });
@@ -226,7 +336,9 @@
 
   function bind() {
     $('qzStart').addEventListener('click', () => {
-      track('quiz_start', B.version);
+      Q = sampleQuestions();
+      N = Q.length;
+      track('quiz_start', B.version, N);
       $('qzIntro').hidden = true;
       $('qzPlay').hidden = false;
       renderQ();
@@ -253,6 +365,7 @@
       }).catch(() => { });
     });
     $('qzRetake').addEventListener('click', () => {
+      Q = sampleQuestions(); N = Q.length;
       idx = 0; score = 0; answered = false; done = false; picks = []; order = [];
       $('qzReport').hidden = true;
       $('qzLeadMsg').textContent = '';

@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 考证小测扩容(40 题分层抽样)+ AI 深挖(DeepSeek,积分计费) — 2026-07-14
+
+资源版本 `v=226 → v=227`。题库从 12 题扩容到 40 题、每次作答改为分层随机抽样，并上线登录用户可用的 LLM 深度解析。
+
+- **题库扩容** [js/quiz-bank.js](js/quiz-bank.js)：12 → 40 题，新增 EPA 608 Type I（4 题）/ Type III（4 题）/ A2L 机房安全与检漏（4 题，接 IMC Ch.11 概念）/ 州执照机械规范方向 16 题（IMC Ch.4 通风、Ch.6 风管、Ch.7 燃烧空气、Ch.8 烟道排气各 4 题）；新增 14 个误区节点。机械规范题目仅原创复述行业通识概念与广泛采用的经验数值（燃烧空气开口 1in²/4000Btu、密闭空间 50ft³/1000Btu 判定等），**不摘录 IMC 条文原文**（版权规范，仅供事实核对用途）；各州实际采用版本/地方修订不同，页面已加免责说明
+- **分层抽样出题** [js/quiz.js](js/quiz.js)：题库增长后不再每次全量出 40 题，改为按 9 个板块每板块抽 2 题（不足则全取）、共 18 题，整体再打乱顺序；每次开始/重测题目组合不同，控制单次时长在 ~7 分钟；报告页按主题正确率统计改为只统计本次抽样子集
+- **AI 深度解析**（登录 + 积分门，非公开免登录功能）：
+  - 新 Supabase Edge Function [quiz-ai](https://lnzepjubgtdclvmridxw.supabase.co/functions/v1/quiz-ai)：verify_jwt 手动校验（复用 admin-api 模式）→ 限流（10 分钟内 ≤8 次）→ 余额检查（<15 分拒绝）→ 调用 DeepSeek（`deepseek-chat`，需在 Supabase 项目 Secrets 配置 `DEEPSEEK_API_KEY`，未配置时优雅降级返回 `ai_not_configured` 而非报错）→ 成功后经 `apply_credit` RPC 扣 15 分并返回剩余积分；LLM 调用失败不扣费
+  - 前端 [js/quiz.js](js/quiz.js) 每道错题反馈区新增「🤖 AI 深度解析」按钮：未登录态显示登录引导（不阻断答题流程）；同源代理优先（`/api/fn/quiz-ai`，[server.py](server.py) 白名单新增 `quiz-ai`）失败回退直连 Edge Function，与注册流程同一套双路径约定
+  - 中英文案、积分不足/限流/服务未配置/网络错误四种失败态均有独立提示
+- **待办**：需用户自行在 Supabase 后台 Project Settings → Edge Functions → Secrets 添加 `DEEPSEEK_API_KEY` 才能实际调用成功（未设置时功能优雅降级，不影响其余功能）
+- **顺带发现（已转独立任务，未在本次改动中处理）**：`apply_credit` 函数 EXECUTE 权限当前授予 PUBLIC，任何持有站点公开 key 的人可越权调用刷改任意用户积分——数据库权限修复需用户另行确认执行
+
 ## PWA(可安装+离线壳)+ 小程序 CoolProp 云函数包 — 2026-07-13
 
 小程序规划(面向国内暖通工程师)Phase 0 落地:现站 PWA 化 + 已验证的云函数计算引擎。资源版本 `v=225 → v=226`。

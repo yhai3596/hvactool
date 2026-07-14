@@ -6,7 +6,7 @@
  *   - 跨域请求      不拦截(supabase CDN 等走浏览器默认)
  * ⚠ 维护约定:全站 bump ?v=N 时,同步把下面 SW_VERSION 改成同号(旧缓存在 activate 时清除)。
  */
-const SW_VERSION = 'v226';
+const SW_VERSION = 'v227';
 const CACHE = 'hvac-' + SW_VERSION;
 
 const PRECACHE = [
@@ -14,14 +14,14 @@ const PRECACHE = [
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  'css/style.css?v=226',
-  'css/site.css?v=226',
-  'js/lib/config.js?v=226',
-  'js/lib/i18n.js?v=226',
-  'js/lib/shell.js?v=226',
-  'js/lib/units.js?v=226',
-  'js/lib/analytics.js?v=226',
-  'js/lib/api.js?v=226',
+  'css/style.css?v=227',
+  'css/site.css?v=227',
+  'js/lib/config.js?v=227',
+  'js/lib/i18n.js?v=227',
+  'js/lib/shell.js?v=227',
+  'js/lib/units.js?v=227',
+  'js/lib/analytics.js?v=227',
+  'js/lib/api.js?v=227',
 ];
 
 self.addEventListener('install', e => {
