@@ -1,4 +1,6 @@
-/* quiz-bank.js —— 2026 A2L / EPA 608 / 州执照(机械规范)诊断题库
+/* quiz-bank.js —— 2026 A2L / EPA 608 / 州执照(机械规范)诊断题库【编写源】
+ * ⚠ 本文件不再被页面直接加载：页面按需拉取 bank/*.json 分片。
+ *   改完本文件必须重跑 `node tools/build-bank.mjs`（校验 + 重新生成分片，产物需一并提交）。
  * 结构：questions[].options[].mc → misconceptions 表（错因诊断的知识底座）
  * 题目/诊断内容为英文（与真实考试一致）；正确项 mc 为 null。
  * 每次作答从题库按板块配额随机抽样（见 quiz.js SAMPLE_PLAN），非每次全量出题。

@@ -12,8 +12,8 @@
 <meta property="og:title" content="2026 A2L & EPA 608 Diagnostic Quiz — free, with wrong-answer diagnosis">
 <meta property="og:description" content="18 exam-style questions (sampled from 40) on the A2L transition, EPA 608 and state mechanical-code basics. Most techs miss at least 3. See which misconceptions are hiding in your head — free, ~7 min, no sign-up.">
 <meta name="twitter:card" content="summary">
-<link rel="stylesheet" href="css/style.css?v=227">
-<link rel="stylesheet" href="css/site.css?v=227">
+<link rel="stylesheet" href="css/style.css?v=228">
+<link rel="stylesheet" href="css/site.css?v=228">
 <style>
 /* ===== quiz 页专属样式（全部走主题变量，三主题自适配） ===== */
 .qz-hero { text-align: center; padding: 34px 18px 30px; }
@@ -27,6 +27,11 @@
 .qz-pill { font-size: 11px; font-family: var(--mono); letter-spacing: 1px; padding: 4px 12px; border-radius: 999px;
   border: 1px solid var(--panel-border); color: var(--text-dim); background: var(--card-bg); }
 .qz-meta { margin-top: 10px; font-size: 11px; color: var(--text-faint); }
+.qz-progress { margin-top: 8px; font-size: 11.5px; font-family: var(--mono); color: var(--accent); }
+.qz-review { color: var(--warn); border-color: var(--warn); }
+.qz-delta { margin-top: 4px; font-size: 11.5px; font-family: var(--mono); color: var(--text-dim); }
+.qz-delta.up { color: var(--ok); }
+.qz-delta.down { color: var(--hot); }
 
 .qz-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .qz-count { font-family: var(--mono); font-size: 12px; color: var(--text-dim); white-space: nowrap; }
@@ -127,6 +132,7 @@
     </div>
     <button class="btn" id="qzStart" data-track="quiz_start_btn" data-i18n="qz_start">Start the quiz</button>
     <div class="qz-meta" data-i18n="qz_meta">18 questions (sampled from 40) · ~7 min · free · no sign-up</div>
+    <div class="qz-progress" id="qzProgress" hidden></div>
   </section>
 
   <!-- 答题区 -->
@@ -136,6 +142,7 @@
         <span class="qz-count" id="qzCount">1 / 12</span>
         <div class="qz-track"><div class="qz-fill" id="qzFill"></div></div>
         <span class="qz-chip" id="qzDomain"></span>
+        <span class="qz-chip qz-review" id="qzReview" data-i18n="qz_review_tag" hidden>REVIEW</span>
       </div>
       <div class="qz-qtext" id="qzQText"></div>
       <div class="qz-opts" id="qzOpts"></div>
@@ -151,7 +158,9 @@
       <div class="panel-body">
         <div class="qz-scorebox">
           <div class="qz-scorenum" id="qzScore">0<small>/12</small></div>
-          <div class="qz-level"><span class="tag" data-i18n="qz_readiness">Readiness</span><span id="qzLevel"></span></div>
+          <div class="qz-level"><span class="tag" data-i18n="qz_readiness">Readiness</span><span id="qzLevel"></span>
+            <div class="qz-delta" id="qzDelta" hidden></div>
+          </div>
         </div>
         <div class="qz-bars" id="qzBars"></div>
       </div>
@@ -193,12 +202,11 @@
   <div class="note" data-i18n="qz_note" id="qzDisclaimer"></div>
 </div>
 
-<script src="js/lib/config.js?v=227"></script>
-<script src="js/lib/i18n.js?v=227"></script>
+<script src="js/lib/config.js?v=228"></script>
+<script src="js/lib/i18n.js?v=228"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="js/lib/shell.js?v=227"></script>
-<script src="js/lib/analytics.js?v=227"></script>
-<script src="js/quiz-bank.js?v=227"></script>
-<script src="js/quiz.js?v=227"></script>
+<script src="js/lib/shell.js?v=228"></script>
+<script src="js/lib/analytics.js?v=228"></script>
+<script src="js/quiz.js?v=228"></script>
 </body>
 </html>

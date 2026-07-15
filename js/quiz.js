@@ -7,10 +7,32 @@
 (function () {
   const $ = id => document.getElementById(id);
   const track = (t, g, v) => { try { window.hvacTrack && window.hvacTrack(t, g, v ?? null); } catch (_) { } };
-  const B = window.QUIZ_BANK;
-  if (!B || !B.questions || !B.questions.length) return;
   const QUOTA_PER_DOMAIN = 2;
   const LETTERS = 'ABCDEF';
+
+  /* ---------- 题库装载：manifest + 板块分片按需并行拉取（编写源 js/quiz-bank.js 不再入页） ---------- */
+  let B = null;       // { version, total, misconceptions }
+  let POOLS = null;   // domain -> questions[]
+  let bankPromise = null;
+  function fetchJson(url) {
+    return fetch(url).then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + url);
+      return r.json();
+    });
+  }
+  function loadBank() {
+    if (!bankPromise) {
+      bankPromise = (async () => {
+        const mf = await fetchJson('bank/manifest.json?v=228');
+        const shards = await Promise.all(mf.domains.map(d => fetchJson('bank/' + d.file + '?v=228')));
+        const pools = {};
+        shards.forEach(s => { pools[s.domain] = s.questions; });
+        B = { version: mf.version, total: mf.total, misconceptions: mf.misconceptions };
+        POOLS = pools;
+      })().catch(e => { bankPromise = null; throw e; });
+    }
+    return bankPromise;
+  }
 
   let Q = [];   // 本次作答抽样出的题目子集（长度 = N）
   let N = 0;
@@ -20,6 +42,39 @@
   let authUser = null;   // 由 hvac-auth-ready 事件更新，供 AI 深挖判断登录态
   window.addEventListener('hvac-auth-ready', e => { authUser = (e.detail && e.detail.user) || null; });
 
+  /* ---------- 本地错题本（Leitner-lite，localStorage，匿名可用） ----------
+   * 每题记 { w:答错次数, r:答对次数, streak:连对次数, ts }；
+   * 「曾答错且未连对 2 次」= 待复习（due）→ 抽样时同板块内优先出现；连对 2 次视为已掌握。
+   * attempts 记最近 20 次成绩，供首屏进度与报告页「较上次」。 */
+  const HIST_KEY = 'hvac-quiz-hist';
+  function loadHist() {
+    try {
+      const j = JSON.parse(localStorage.getItem(HIST_KEY));
+      if (j && j.q && Array.isArray(j.attempts)) return j;
+    } catch (_) { }
+    return { q: {}, attempts: [] };
+  }
+  function saveHist() { try { localStorage.setItem(HIST_KEY, JSON.stringify(HIST)); } catch (_) { } }
+  const HIST = loadHist();
+  const isDue = qid => { const h = HIST.q[qid]; return !!(h && h.w > 0 && h.streak < 2); };
+  function recordAnswer(qid, ok) {
+    const h = HIST.q[qid] || (HIST.q[qid] = { w: 0, r: 0, streak: 0 });
+    if (ok) { h.r++; h.streak++; } else { h.w++; h.streak = 0; }
+    h.ts = Date.now();
+    saveHist();
+  }
+  function renderIntroProgress() {
+    const el = $('qzProgress');
+    if (!el) return;
+    const last = HIST.attempts[HIST.attempts.length - 1];
+    if (!last) { el.hidden = true; return; }
+    let due = 0;
+    if (POOLS) Object.values(POOLS).forEach(list => list.forEach(q => { if (isDue(q.id)) due++; }));
+    else due = Object.keys(HIST.q).filter(isDue).length;
+    el.hidden = false;
+    el.textContent = due > 0 ? T('qz_prev_line', { s: last.s, n: last.n, due }) : T('qz_prev_line0', { s: last.s, n: last.n });
+  }
+
   function shuffle(a) {
     for (let i = a.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -28,14 +83,18 @@
     return a;
   }
 
-  /* 按板块分层抽样：每板块 shuffle 后取前 QUOTA_PER_DOMAIN 题（不足则全取），
-   * 各板块抽样结果拼接后整体再 shuffle 一次，避免题目按板块扎堆出现。 */
+  /* 按板块分层抽样：同板块内「待复习错题」优先、新题随机补位，每板块取 QUOTA_PER_DOMAIN 题
+   * （不足则全取），各板块结果拼接后整体再 shuffle 一次，避免题目按板块扎堆出现。 */
   function sampleQuestions() {
-    const byDomain = {};
-    B.questions.forEach(q => (byDomain[q.domain] = byDomain[q.domain] || []).push(q));
     const picked = [];
-    Object.values(byDomain).forEach(list => {
-      picked.push(...shuffle(list.slice()).slice(0, QUOTA_PER_DOMAIN));
+    Object.values(POOLS).forEach(list => {
+      const due = [], fresh = [];
+      list.forEach(q => {
+        const d = isDue(q.id);
+        q._due = d;               // 抽样时点快照，供答题界面标「复习」徽标
+        (d ? due : fresh).push(q);
+      });
+      picked.push(...shuffle(due).concat(shuffle(fresh)).slice(0, QUOTA_PER_DOMAIN));
     });
     return shuffle(picked);
   }
@@ -55,6 +114,7 @@
     $('qzCount').textContent = (idx + 1) + ' / ' + N;
     $('qzFill').style.width = (idx / N * 100) + '%';
     $('qzDomain').textContent = T('qz_domain_' + q.domain);
+    $('qzReview').hidden = !q._due;
     $('qzQText').textContent = q.text;
     const box = $('qzOpts');
     box.innerHTML = '';
@@ -79,6 +139,7 @@
     const ok = bi === q.answer;
     if (ok) score++;
     picks.push({ qid: q.id, qNo: idx + 1, opt: bi, ok, mc: ok ? null : (opt.mc || null) });
+    recordAnswer(q.id, ok);
     track('quiz_answer', q.id + ':' + bi + ':' + (ok ? 'right' : 'wrong'));
 
     document.querySelectorAll('#qzOpts .qz-opt').forEach(b => {
@@ -221,6 +282,21 @@
     const lv = score >= N - 1 ? 3 : score >= Math.ceil(N * .75) ? 2 : score >= Math.ceil(N * .5) ? 1 : 0;
     $('qzLevel').textContent = T('qz_lv' + lv);
 
+    // 较上次（先取上一次记录再写入本次；样本不同仅作趋势参考）
+    const prev = HIST.attempts[HIST.attempts.length - 1];
+    HIST.attempts.push({ t: Date.now(), s: score, n: N });
+    if (HIST.attempts.length > 20) HIST.attempts = HIST.attempts.slice(-20);
+    saveHist();
+    const dEl = $('qzDelta');
+    if (dEl) {
+      if (prev) {
+        const d = score - prev.s;
+        dEl.hidden = false;
+        dEl.className = 'qz-delta ' + (d > 0 ? 'up' : d < 0 ? 'down' : '');
+        dEl.textContent = d > 0 ? T('qz_delta_up', { d }) : d < 0 ? T('qz_delta_down', { d: -d }) : T('qz_delta_flat');
+      } else dEl.hidden = true;
+    }
+
     // 按主题正确率（仅统计本次抽样作答的题目，非整题库）
     const bars = $('qzBars');
     bars.innerHTML = '';
@@ -335,7 +411,18 @@
   }
 
   function bind() {
-    $('qzStart').addEventListener('click', () => {
+    $('qzStart').addEventListener('click', async () => {
+      const btn = $('qzStart');
+      btn.disabled = true;
+      try {
+        await loadBank();
+      } catch (e) {
+        btn.disabled = false;
+        const meta = document.querySelector('.qz-meta');
+        if (meta) { meta.textContent = T('qz_bank_load_err'); meta.style.color = 'var(--hot)'; }
+        return;
+      }
+      btn.disabled = false;
       Q = sampleQuestions();
       N = Q.length;
       track('quiz_start', B.version, N);
@@ -377,6 +464,10 @@
       const saved = localStorage.getItem('hvac-quiz-lead');
       if (saved) $('qzEmail').value = saved;
     } catch (_) { }
+    // 首屏进度（有历史才显示）；题库预热完成后用在库题目重算待复习数
+    renderIntroProgress();
+    // 题库预热：进页即后台拉取，点击「开始」通常零等待；失败静默（点击时再报错）
+    loadBank().then(renderIntroProgress).catch(() => { });
   }
 
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', bind) : bind();

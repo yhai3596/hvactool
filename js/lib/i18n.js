@@ -172,6 +172,9 @@
       qz_ai_not_configured: 'AI deep-dive is temporarily unavailable — please use the built-in explanation above for now.',
       qz_ai_error: 'Could not reach the AI deep-dive right now — please try again shortly.',
       qz_ai_credits_left: 'Credits left: {n}',
+      qz_bank_load_err: 'Could not load the question bank — check your connection and try again.',
+      qz_prev_line: 'Last run: {s}/{n} · {due} missed questions queued for review', qz_prev_line0: 'Last run: {s}/{n} · no review backlog',
+      qz_review_tag: 'REVIEW', qz_delta_up: '▲ +{d} vs last run', qz_delta_down: '▼ -{d} vs last run', qz_delta_flat: 'Same score as last run',
       qz_src_note: 'The diagnosis runs entirely in your browser from an expert-built misconception map; only anonymous usage stats are collected. Not affiliated with or endorsed by the EPA.',
     },
     zh: {
@@ -336,6 +339,9 @@
       qz_ai_not_configured: 'AI 深度解析暂时不可用——请先参考上方内置解析。',
       qz_ai_error: '暂时无法连接 AI 深度解析——请稍后重试。',
       qz_ai_credits_left: '剩余积分：{n}',
+      qz_bank_load_err: '题库加载失败——请检查网络后重试。',
+      qz_prev_line: '上次成绩 {s}/{n} · 待复习错题 {due} 道', qz_prev_line0: '上次成绩 {s}/{n} · 暂无待复习错题',
+      qz_review_tag: '复习', qz_delta_up: '较上次 ▲ +{d}', qz_delta_down: '较上次 ▼ -{d}', qz_delta_flat: '与上次持平',
       qz_src_note: '诊断完全在你的浏览器本地运行（专家构建的误区映射模型），仅采集匿名使用统计。与 EPA 无隶属或背书关系。',
     },
   };
