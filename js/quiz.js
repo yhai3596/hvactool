@@ -8,6 +8,7 @@
   const $ = id => document.getElementById(id);
   const track = (t, g, v) => { try { window.hvacTrack && window.hvacTrack(t, g, v ?? null); } catch (_) { } };
   const QUOTA_PER_DOMAIN = 2;
+  const TARGET_N = 18;         // 单局题量上限：板块多于 9 个时随机裁剪到此数，稳定时长 ~7 分钟
   const LETTERS = 'ABCDEF';
 
   /* ---------- 题库装载：manifest + 板块分片按需并行拉取（编写源 js/quiz-bank.js 不再入页） ---------- */
@@ -23,8 +24,8 @@
   function loadBank() {
     if (!bankPromise) {
       bankPromise = (async () => {
-        const mf = await fetchJson('bank/manifest.json?v=228');
-        const shards = await Promise.all(mf.domains.map(d => fetchJson('bank/' + d.file + '?v=228')));
+        const mf = await fetchJson('bank/manifest.json?v=229');
+        const shards = await Promise.all(mf.domains.map(d => fetchJson('bank/' + d.file + '?v=229')));
         const pools = {};
         shards.forEach(s => { pools[s.domain] = s.questions; });
         B = { version: mf.version, total: mf.total, misconceptions: mf.misconceptions };
@@ -84,9 +85,10 @@
   }
 
   /* 按板块分层抽样：同板块内「待复习错题」优先、新题随机补位，每板块取 QUOTA_PER_DOMAIN 题
-   * （不足则全取），各板块结果拼接后整体再 shuffle 一次，避免题目按板块扎堆出现。 */
+   * （不足则全取）。板块数 × 配额可能超过 TARGET_N，则整体随机裁剪到 TARGET_N，
+   * 但待复习错题优先保留（排前面），保证复习题不被裁掉。最后整体打乱避免板块扎堆。 */
   function sampleQuestions() {
-    const picked = [];
+    let picked = [];
     Object.values(POOLS).forEach(list => {
       const due = [], fresh = [];
       list.forEach(q => {
@@ -96,6 +98,12 @@
       });
       picked.push(...shuffle(due).concat(shuffle(fresh)).slice(0, QUOTA_PER_DOMAIN));
     });
+    if (picked.length > TARGET_N) {
+      // 复习题优先保留：先按 _due 排序（due 在前），打乱各自组内顺序后取前 TARGET_N
+      const dueP = shuffle(picked.filter(q => q._due));
+      const freshP = shuffle(picked.filter(q => !q._due));
+      picked = dueP.concat(freshP).slice(0, TARGET_N);
+    }
     return shuffle(picked);
   }
 
