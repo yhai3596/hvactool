@@ -1,8 +1,8 @@
 /* quiz.js —— 考证小测引擎：出题 → 即时反馈 → 错因诊断报告 → 留资 CTA
  * 诊断原理：题库中每个干扰项都映射一个误区(misconception)；交卷后按误区聚类，
  * 同一误区命中 ≥2 题标记「反复出现」，全部在浏览器本地推断，无外部调用。
- * 出题策略：题库 40 题分 9 个板块；每次作答按板块分层抽样（每板块最多 QUOTA 题，
- * 不足则取全部），抽样结果再整体打乱顺序 —— 每次/每次重测题目组合都不同，控制单次时长。
+ * 出题策略：题库 85 题分 11 个板块；每次作答按板块分层抽样（每板块最多 QUOTA 题，
+ * 板块数×配额超过 TARGET_N 则随机裁剪到 TARGET_N），再整体打乱 —— 每次/重测组合不同，控制时长。
  * 漏斗埋点（events 表）：view(自动) → quiz_start → quiz_answer → quiz_done → quiz_lead / quiz_fb。 */
 (function () {
   const $ = id => document.getElementById(id);
@@ -24,8 +24,8 @@
   function loadBank() {
     if (!bankPromise) {
       bankPromise = (async () => {
-        const mf = await fetchJson('bank/manifest.json?v=229');
-        const shards = await Promise.all(mf.domains.map(d => fetchJson('bank/' + d.file + '?v=229')));
+        const mf = await fetchJson('bank/manifest.json?v=230');
+        const shards = await Promise.all(mf.domains.map(d => fetchJson('bank/' + d.file + '?v=230')));
         const pools = {};
         shards.forEach(s => { pools[s.domain] = s.questions; });
         B = { version: mf.version, total: mf.total, misconceptions: mf.misconceptions };

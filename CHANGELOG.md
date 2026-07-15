@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## fix(quiz): 首屏文案纠正 40→85 题(Stage 2 漏改的硬编码数字) — 2026-07-15
+
+资源版本 `v=229 → v=230`。Stage 2 扩容到 85 题时,漏改了首屏/卡片/meta 里硬编码的"40 题"字样(功能已是 85 题,仅文案 stale)。正式测试时用户发现首屏仍显示"40-question bank"。
+
+- 改 7 处 "40" → "85":[i18n.js](js/lib/i18n.js) 的 `qz_hero_p`/`qz_meta`/`card_quiz_p`(中英各一)、[quiz.html](quiz.html) 的 meta description/og:description/可见 qz_meta 默认值、[quiz.js](js/quiz.js) 顶部注释;文案同时补上 Type II、NATE Core 覆盖说明
+- 教训重申:共享 js(尤其 i18n)改文案必须 bump `?v=N`,否则 PWA 的 SW cache-first 会继续供旧文件——本次 v229→v230
+
 ## 考证小测 Stage 2:题库 40→85 题(EPA 608 全类型 + NATE Core)+ 抽样上限 — 2026-07-15
 
 题库规模化 Stage 2(内容扩容,不含数据库迁移/登录层——按共识数据触发)。资源版本 `v=228 → v=229`。
