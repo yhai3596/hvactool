@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## feat(miniapp): 微信云托管部署包(Docker 跑 server.py)+ callContainer 示例 — 2026-07-18
+
+小程序后端选型落地:云函数跑 CoolProp WASM 已证不可行(SCF runtime 不支持大 wasm 的 bulk-memory/SIMD 特性,256/512/1024MB 均复现 instantiate rejected),改用**微信云托管容器直接跑现成 server.py**。资源版本不变(不涉及任何站点页面/共享 js/css)。
+
+- 新增 [miniapp/container/](miniapp/container/):`app.py`(监听 `0.0.0.0:$PORT` 默认80,`from server import ROUTES` 复用已验证计算路由,含 `/health` 健康检查;**不含**静态托管与 Supabase 代理)+ `server.py` 副本(与主站逐字节一致,diff 验证)+ `requirements.txt`(CoolProp==8.0.0,与主站同版本)+ `Dockerfile`(python:3.11-slim + 腾讯 PyPI 镜像,EXPOSE 80)+ `container.config.json`(端口80/0.25核/0.5GB/常驻1台/最大3台)
+- 新增 [miniapp/miniapp-callcontainer-example.js](miniapp/miniapp-callcontainer-example.js)(`callApi()` GET 封装,带 `X-WX-SERVICE` 与免登录加速头 + 四页调用示例)与 [miniapp/README-deploy.md](miniapp/README-deploy.md)(GUI 五步部署手册 + zip 打包层级警告 + 报错速查 + 费用参考:3个月免费额度内,期后常驻约 ¥21/月)
+- 本地实测:`PORT=8139 python app.py` 起服,`/health` `/api/health` `/api/props` `/api/psychro` `/api/phcycle` 全通,404/400 行为正确,**与线上主站同参数返回逐位一致**;旧 `cloudfunctions/coolprop/` 保留作记录、已废弃不再部署
+
 ## fix(quiz): 首屏文案纠正 40→85 题(Stage 2 漏改的硬编码数字) — 2026-07-15
 
 资源版本 `v=229 → v=230`。Stage 2 扩容到 85 题时,漏改了首屏/卡片/meta 里硬编码的"40 题"字样(功能已是 85 题,仅文案 stale)。正式测试时用户发现首屏仍显示"40-question bank"。
